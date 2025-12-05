@@ -1,37 +1,90 @@
-from sqlalchemy import Column, Integer, String, DateTime, Decimal, Boolean, ForeignKey
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    DateTime,
+    Boolean,
+    ForeignKey,
+    DECIMAL,
+)
 from sqlalchemy.dialects.postgresql import SERIAL
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+
 from .database import Base
 
 
-class Role(Base):
+# -------------------------------------------------
+# Branches
+# -------------------------------------------------
+class Branches(Base):
+    __tablename__ = "branches"
+
+    branch_id = Column(SERIAL, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    address = Column(String, nullable=False)
+    phone = Column(String, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)  # Added
+
+    employees = relationship("Employees", back_populates="branch")
+    orders = relationship("Orders", back_populates="branch")
+    stock_items = relationship("Stock", back_populates="branch")
+    # StockMovements reachable indirectly via Stock → StockMovements
+
+
+# -------------------------------------------------
+# Roles (using `tier` instead of ranking)
+# -------------------------------------------------
+class Roles(Base):
     __tablename__ = "roles"
 
     role_id = Column(SERIAL, primary_key=True, index=True)
     role_name = Column(String, nullable=False)
-    ranking = Column(Integer, nullable=False)
+    tier = Column(Integer, nullable=False)     # Changed from ranking → tier
 
-    employees = relationship("Employee", back_populates="role")
+    employees = relationship("Employees", back_populates="role")
 
 
-class Employee(Base):
+# -------------------------------------------------
+# Employees
+# -------------------------------------------------
+class Employees(Base):
     __tablename__ = "employees"
 
     employee_id = Column(SERIAL, primary_key=True, index=True)
+    branch_id = Column(Integer, ForeignKey(
+        "branches.branch_id"), nullable=False)
     role_id = Column(Integer, ForeignKey("roles.role_id"), nullable=False)
+
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
     joined_date = Column(DateTime, server_default=func.now(), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
-    # Monthly salary in baht (integer)
     salary = Column(Integer, nullable=False)
 
-    role = relationship("Role", back_populates="employees")
-    orders = relationship("Order", back_populates="employee")
+    branch = relationship("Branches", back_populates="employees")
+    role = relationship("Roles", back_populates="employees")
+    orders = relationship("Orders", back_populates="employee")
+    stock_movements = relationship("StockMovements", back_populates="employee")
 
 
-class Membership(Base):
+# -------------------------------------------------
+# Membership Tiers (Loyalty Program)
+# -------------------------------------------------
+class Tiers(Base):
+    __tablename__ = "tiers"
+
+    tier_id = Column(SERIAL, primary_key=True, index=True)
+    tier_name = Column(String, nullable=False)
+    tier = Column(Integer, nullable=False)  # 0, 1, 2, 3...
+
+    memberships = relationship("Memberships", back_populates="tier")
+
+
+# -------------------------------------------------
+# Memberships
+# -------------------------------------------------
+class Memberships(Base):
     __tablename__ = "memberships"
 
     membership_id = Column(SERIAL, primary_key=True, index=True)
@@ -40,98 +93,146 @@ class Membership(Base):
     email = Column(String, unique=True, nullable=True, index=True)
     joined_at = Column(DateTime, server_default=func.now(), nullable=False)
     points_balance = Column(Integer, default=0, nullable=False)
-    # Bronze, Silver, Gold, Platinum
-    membership_tier = Column(String, default="Bronze", nullable=False)
 
-    orders = relationship("Order", back_populates="membership")
+    tier_id = Column(Integer, ForeignKey("tiers.tier_id"), nullable=False)
+
+    tier = relationship("Tiers", back_populates="memberships")
+    orders = relationship("Orders", back_populates="membership")
 
 
-class MenuItem(Base):
+# -------------------------------------------------
+# Menu Items
+# -------------------------------------------------
+class MenuItems(Base):
     __tablename__ = "menu_items"
 
     menu_item_id = Column(SERIAL, primary_key=True, index=True)
     name = Column(String, nullable=False)
-    type = Column(String, nullable=False)  # dish, addon, set
+    type = Column(String, nullable=False)
     description = Column(String, nullable=True)
-    price = Column(Decimal(10, 2), nullable=False)
-    # Main, Topping, Drink, Appetizer
+    price = Column(DECIMAL(10, 2), nullable=False)
     category = Column(String, nullable=False)
     is_available = Column(Boolean, default=True, nullable=False)
 
-    order_items = relationship("OrderItem", back_populates="menu_item")
+    order_items = relationship("OrderItems", back_populates="menu_item")
     menu_ingredients = relationship(
-        "MenuIngredient", back_populates="menu_item")
+        "MenuIngredients", back_populates="menu_item")
 
 
+# -------------------------------------------------
+# Stock (per-branch inventory)
+# -------------------------------------------------
 class Stock(Base):
     __tablename__ = "stock"
 
     stock_id = Column(SERIAL, primary_key=True, index=True)
+    branch_id = Column(Integer, ForeignKey(
+        "branches.branch_id"), nullable=False)
     stk_name = Column(String, nullable=False)
-    amount_remaining = Column(Decimal(10, 2), nullable=False)
-    unit = Column(String, nullable=False)  # g, ml, piece, etc.
+    amount_remaining = Column(DECIMAL(10, 2), nullable=False)
+    unit = Column(String, nullable=False)
 
-    menu_ingredients = relationship("MenuIngredient", back_populates="stock")
+    branch = relationship("Branches", back_populates="stock_items")
+    menu_ingredients = relationship("MenuIngredients", back_populates="stock")
+    stock_movements = relationship("StockMovements", back_populates="stock")
 
 
-class MenuIngredient(Base):
+# -------------------------------------------------
+# Menu Ingredients (recipe mapping)
+# -------------------------------------------------
+class MenuIngredients(Base):
     __tablename__ = "menu_ingredients"
 
     id = Column(SERIAL, primary_key=True, index=True)
     menu_item_id = Column(Integer, ForeignKey(
         "menu_items.menu_item_id"), nullable=False)
     stock_id = Column(Integer, ForeignKey("stock.stock_id"), nullable=False)
-    qty_per_unit = Column(Decimal(10, 2), nullable=False)
+    qty_per_unit = Column(DECIMAL(10, 2), nullable=False)
     unit = Column(String, nullable=False)
 
-    menu_item = relationship("MenuItem", back_populates="menu_ingredients")
+    menu_item = relationship("MenuItems", back_populates="menu_ingredients")
     stock = relationship("Stock", back_populates="menu_ingredients")
 
 
-class Order(Base):
+# -------------------------------------------------
+# Orders
+# -------------------------------------------------
+class Orders(Base):
     __tablename__ = "orders"
 
     order_id = Column(SERIAL, primary_key=True, index=True)
+    branch_id = Column(Integer, ForeignKey(
+        "branches.branch_id"), nullable=False)
     membership_id = Column(Integer, ForeignKey(
         "memberships.membership_id"), nullable=True)
     employee_id = Column(Integer, ForeignKey(
         "employees.employee_id"), nullable=False)
+
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
-    total_price = Column(Decimal(10, 2), nullable=False)
-    status = Column(String, nullable=False)  # UNPAID, PAID, CANCELLED
-    order_type = Column(String, nullable=False)  # DINE_IN, TAKEAWAY, DELIVERY
+    total_price = Column(DECIMAL(10, 2), nullable=False)
+    status = Column(String, nullable=False)
+    order_type = Column(String, nullable=False)
 
-    membership = relationship("Membership", back_populates="orders")
-    employee = relationship("Employee", back_populates="orders")
-    order_items = relationship("OrderItem", back_populates="order")
-    payment = relationship("Payment", back_populates="order", uselist=False)
+    branch = relationship("Branches", back_populates="orders")
+    membership = relationship("Memberships", back_populates="orders")
+    employee = relationship("Employees", back_populates="orders")
+    order_items = relationship("OrderItems", back_populates="order")
+    payment = relationship("Payments", back_populates="order", uselist=False)
+    stock_movements = relationship("StockMovements", back_populates="order")
 
 
-class OrderItem(Base):
+# -------------------------------------------------
+# Order Items
+# -------------------------------------------------
+class OrderItems(Base):
     __tablename__ = "order_items"
 
     order_item_id = Column(SERIAL, primary_key=True, index=True)
     order_id = Column(Integer, ForeignKey("orders.order_id"), nullable=False)
     menu_item_id = Column(Integer, ForeignKey(
         "menu_items.menu_item_id"), nullable=False)
-    status = Column(String, nullable=False)  # PREPARING, DONE, CANCELLED
+    status = Column(String, nullable=False)
     quantity = Column(Integer, nullable=False)
-    unit_price = Column(Decimal(10, 2), nullable=False)
-    line_total = Column(Decimal(10, 2), nullable=False)
+    unit_price = Column(DECIMAL(10, 2), nullable=False)
+    line_total = Column(DECIMAL(10, 2), nullable=False)
 
-    order = relationship("Order", back_populates="order_items")
-    menu_item = relationship("MenuItem", back_populates="order_items")
+    order = relationship("Orders", back_populates="order_items")
+    menu_item = relationship("MenuItems", back_populates="order_items")
 
 
-class Payment(Base):
+# -------------------------------------------------
+# Payments (1:1 with Orders)
+# -------------------------------------------------
+class Payments(Base):
     __tablename__ = "payments"
 
     order_id = Column(Integer, ForeignKey("orders.order_id"), primary_key=True)
-    paid_price = Column(Decimal(10, 2), nullable=False)
+    paid_price = Column(DECIMAL(10, 2), nullable=False)
     points_used = Column(Integer, default=0, nullable=False)
-    # CASH, QR, CARD, POINTS, etc.
     payment_method = Column(String, nullable=False)
     payment_ref = Column(String, nullable=True)
     paid_timestamp = Column(DateTime, nullable=True)
 
-    order = relationship("Order", back_populates="payment")
+    order = relationship("Orders", back_populates="payment")
+
+
+# -------------------------------------------------
+# Stock Movements (inventory ledger)
+# -------------------------------------------------
+class StockMovements(Base):
+    __tablename__ = "stock_movements"
+
+    movement_id = Column(SERIAL, primary_key=True, index=True)
+    stock_id = Column(Integer, ForeignKey("stock.stock_id"), nullable=False)
+    employee_id = Column(Integer, ForeignKey(
+        "employees.employee_id"), nullable=True)
+    order_id = Column(Integer, ForeignKey("orders.order_id"), nullable=True)
+
+    qty_change = Column(DECIMAL(10, 2), nullable=False)
+    reason = Column(String, nullable=False)  # RESTOCK, SALE, WASTE, ADJUST
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    note = Column(String, nullable=True)
+
+    stock = relationship("Stock", back_populates="stock_movements")
+    employee = relationship("Employees", back_populates="stock_movements")
+    order = relationship("Orders", back_populates="stock_movements")
