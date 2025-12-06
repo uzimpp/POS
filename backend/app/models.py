@@ -7,7 +7,7 @@ from sqlalchemy import (
     ForeignKey,
     DECIMAL,
 )
-from sqlalchemy.dialects.postgresql import SERIAL
+
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -20,11 +20,11 @@ from .database import Base
 class Branches(Base):
     __tablename__ = "branches"
 
-    branch_id = Column(SERIAL, primary_key=True, index=True)
+    branch_id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     address = Column(String, nullable=False)
     phone = Column(String, nullable=False)
-    is_active = Column(Boolean, default=True, nullable=False)  # Added
+    # is_active = Column(Boolean, default=True, nullable=False)  # Temporarily disabled due to DB schema mismatch
 
     employees = relationship("Employees", back_populates="branch")
     orders = relationship("Orders", back_populates="branch")
@@ -38,7 +38,7 @@ class Branches(Base):
 class Roles(Base):
     __tablename__ = "roles"
 
-    role_id = Column(SERIAL, primary_key=True, index=True)
+    role_id = Column(Integer, primary_key=True, index=True)
     role_name = Column(String, nullable=False)
     tier = Column(Integer, nullable=False)     # Changed from ranking → tier
 
@@ -51,7 +51,7 @@ class Roles(Base):
 class Employees(Base):
     __tablename__ = "employees"
 
-    employee_id = Column(SERIAL, primary_key=True, index=True)
+    employee_id = Column(Integer, primary_key=True, index=True)
     branch_id = Column(Integer, ForeignKey(
         "branches.branch_id"), nullable=False)
     role_id = Column(Integer, ForeignKey("roles.role_id"), nullable=False)
@@ -74,7 +74,7 @@ class Employees(Base):
 class Tiers(Base):
     __tablename__ = "tiers"
 
-    tier_id = Column(SERIAL, primary_key=True, index=True)
+    tier_id = Column(Integer, primary_key=True, index=True)
     tier_name = Column(String, nullable=False)
     tier = Column(Integer, nullable=False)  # 0, 1, 2, 3...
 
@@ -87,7 +87,7 @@ class Tiers(Base):
 class Memberships(Base):
     __tablename__ = "memberships"
 
-    membership_id = Column(SERIAL, primary_key=True, index=True)
+    membership_id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     phone = Column(String, unique=True, nullable=False, index=True)
     email = Column(String, unique=True, nullable=True, index=True)
@@ -106,7 +106,7 @@ class Memberships(Base):
 class MenuItems(Base):
     __tablename__ = "menu_items"
 
-    menu_item_id = Column(SERIAL, primary_key=True, index=True)
+    menu_item_id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     type = Column(String, nullable=False)
     description = Column(String, nullable=True)
@@ -125,7 +125,7 @@ class MenuItems(Base):
 class Stock(Base):
     __tablename__ = "stock"
 
-    stock_id = Column(SERIAL, primary_key=True, index=True)
+    stock_id = Column(Integer, primary_key=True, index=True)
     branch_id = Column(Integer, ForeignKey(
         "branches.branch_id"), nullable=False)
     stk_name = Column(String, nullable=False)
@@ -143,7 +143,7 @@ class Stock(Base):
 class MenuIngredients(Base):
     __tablename__ = "menu_ingredients"
 
-    id = Column(SERIAL, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True)
     menu_item_id = Column(Integer, ForeignKey(
         "menu_items.menu_item_id"), nullable=False)
     stock_id = Column(Integer, ForeignKey("stock.stock_id"), nullable=False)
@@ -160,7 +160,7 @@ class MenuIngredients(Base):
 class Orders(Base):
     __tablename__ = "orders"
 
-    order_id = Column(SERIAL, primary_key=True, index=True)
+    order_id = Column(Integer, primary_key=True, index=True)
     branch_id = Column(Integer, ForeignKey(
         "branches.branch_id"), nullable=False)
     membership_id = Column(Integer, ForeignKey(
@@ -187,7 +187,7 @@ class Orders(Base):
 class OrderItems(Base):
     __tablename__ = "order_items"
 
-    order_item_id = Column(SERIAL, primary_key=True, index=True)
+    order_item_id = Column(Integer, primary_key=True, index=True)
     order_id = Column(Integer, ForeignKey("orders.order_id"), nullable=False)
     menu_item_id = Column(Integer, ForeignKey(
         "menu_items.menu_item_id"), nullable=False)
@@ -222,7 +222,7 @@ class Payments(Base):
 class StockMovements(Base):
     __tablename__ = "stock_movements"
 
-    movement_id = Column(SERIAL, primary_key=True, index=True)
+    movement_id = Column(Integer, primary_key=True, index=True)
     stock_id = Column(Integer, ForeignKey("stock.stock_id"), nullable=False)
     employee_id = Column(Integer, ForeignKey(
         "employees.employee_id"), nullable=True)
