@@ -228,7 +228,7 @@ export default function BranchesPage() {
 
                         <button
                           onClick={() => router.push(`/branches/${branch.branch_id}`)}
-                          className="text-gray-600 hover:text-gray-900 ml-2"
+                          className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded text-sm font-medium transition-colors ml-2"
                         >
                           Details
                         </button>

@@ -25,6 +25,7 @@ export default function RolesPage() {
     // Delete Confirmation State
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [roleToDelete, setRoleToDelete] = useState<number | null>(null);
+    const [deleteError, setDeleteError] = useState<string | null>(null);
 
     // Form State
     const [formData, setFormData] = useState<RoleCreate>({
@@ -52,6 +53,7 @@ export default function RolesPage() {
 
     const handleDeleteClick = (id: number) => {
         setRoleToDelete(id);
+        setDeleteError(null);
         setIsDeleteModalOpen(true);
     };
 
@@ -61,10 +63,11 @@ export default function RolesPage() {
                 await deleteRole(roleToDelete).unwrap();
                 setIsDeleteModalOpen(false);
                 setRoleToDelete(null);
+                setDeleteError(null);
             } catch (err: any) {
                 console.error("Failed to delete role:", err);
                 const errorMessage = err?.data?.detail || "Failed to delete role. It might be in use.";
-                alert(errorMessage);
+                setDeleteError(errorMessage);
             }
         }
     };
@@ -248,6 +251,7 @@ export default function RolesPage() {
                 onConfirm={handleConfirmDelete}
                 onCancel={() => setIsDeleteModalOpen(false)}
                 isDestructive={true}
+                error={deleteError}
             />
         </Layout>
     );
