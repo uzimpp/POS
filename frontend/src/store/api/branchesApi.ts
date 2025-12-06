@@ -44,7 +44,7 @@ export const branchesApi = baseApi.injectEndpoints({
                 "Branches",
             ],
         }),
-        deleteBranch: builder.mutation<void, number>({
+        deleteBranch: builder.mutation<Branch, number>({
             query: (id) => ({
                 url: `/branches/${id}`,
                 method: "DELETE",

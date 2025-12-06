@@ -52,7 +52,7 @@ def update_branch(branch_id: int, branch_update: schemas.BranchCreate, db: Sessi
     return db_branch
 
 
-@router.delete("/{branch_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{branch_id}", response_model=schemas.Branch)
 def delete_branch(branch_id: int, db: Session = Depends(get_db)):
     db_branch = db.query(models.Branches).filter(
         models.Branches.branch_id == branch_id).first()
@@ -61,6 +61,6 @@ def delete_branch(branch_id: int, db: Session = Depends(get_db)):
 
     # Soft delete implementation
     db_branch.is_active = False
-    # db.delete(db_branch)
     db.commit()
-    return None
+    db.refresh(db_branch)
+    return db_branch
