@@ -3,12 +3,12 @@ import { baseApi } from "./baseApi";
 export interface Role {
   role_id: number;
   role_name: string;
-  ranking: number;
+  tier: number;
 }
 
 export interface RoleCreate {
   role_name: string;
-  ranking: number;
+  tier: number;
 }
 
 export const rolesApi = baseApi.injectEndpoints({
@@ -40,7 +40,7 @@ export const rolesApi = baseApi.injectEndpoints({
         "Roles",
       ],
     }),
-    deleteRole: builder.mutation<void, number>({
+    deleteRole: builder.mutation<{ message: string }, number>({
       query: (id) => ({
         url: `/roles/${id}`,
         method: "DELETE",

@@ -45,7 +45,7 @@ function DashboardStats() {
   const totalEmployees = employees?.filter((e) => e.is_active).length || 0;
   const totalMemberships = memberships?.length || 0;
   const lowStockItems =
-    stock?.filter((s) => parseFloat(s.amount_remaining) < 10).length || 0;
+    stock?.filter((s) => s.amount_remaining < 10).length || 0;
 
   return (
     <>

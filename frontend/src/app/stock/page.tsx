@@ -4,12 +4,12 @@ import { useState } from "react";
 import { Layout } from "../../components/Layout";
 import {
   useGetStockQuery,
-  useDeleteStockItemMutation,
+  useDeleteStockMutation,
 } from "../../store/api/stockApi";
 
 export default function StockPage() {
   const { data: stock, isLoading, error } = useGetStockQuery();
-  const [deleteStockItem] = useDeleteStockItemMutation();
+  const [deleteStockItem] = useDeleteStockMutation();
   const [filterLowStock, setFilterLowStock] = useState<boolean>(false);
 
   const handleDelete = async (id: number) => {
@@ -23,11 +23,11 @@ export default function StockPage() {
   };
 
   const filteredStock = filterLowStock
-    ? stock?.filter((item) => parseFloat(item.amount_remaining) < 10)
+    ? stock?.filter((item) => item.amount_remaining < 10)
     : stock;
 
   const lowStockCount =
-    stock?.filter((item) => parseFloat(item.amount_remaining) < 10).length || 0;
+    stock?.filter((item) => item.amount_remaining < 10).length || 0;
 
   if (isLoading) {
     return (
@@ -127,7 +127,7 @@ export default function StockPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredStock && filteredStock.length > 0 ? (
                   filteredStock.map((item) => {
-                    const amount = parseFloat(item.amount_remaining);
+                    const amount = item.amount_remaining;
                     const isLowStock = amount < 10;
                     return (
                       <tr key={item.stock_id} className="hover:bg-gray-50">
@@ -145,11 +145,10 @@ export default function StockPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              isLowStock
-                                ? "bg-red-100 text-red-800"
-                                : "bg-green-100 text-green-800"
-                            }`}
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${isLowStock
+                              ? "bg-red-100 text-red-800"
+                              : "bg-green-100 text-green-800"
+                              }`}
                           >
                             {isLowStock ? "Low Stock" : "In Stock"}
                           </span>
