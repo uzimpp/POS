@@ -5,12 +5,14 @@ export interface Branch {
     name: string;
     address: string;
     phone: string;
+    is_active: boolean;
 }
 
 export interface BranchCreate {
     name: string;
     address: string;
     phone: string;
+    is_active?: boolean;
 }
 
 export const branchesApi = baseApi.injectEndpoints({

@@ -24,7 +24,7 @@ class Branches(Base):
     name = Column(String, nullable=False)
     address = Column(String, nullable=False)
     phone = Column(String, nullable=False)
-    # is_active = Column(Boolean, default=True, nullable=False)  # Temporarily disabled due to DB schema mismatch
+    is_active = Column(Boolean, default=True, nullable=False)
 
     employees = relationship("Employees", back_populates="branch")
     orders = relationship("Orders", back_populates="branch")

@@ -14,7 +14,7 @@ class BranchBase(BaseModel):
     name: str
     address: str
     phone: str
-    # is_active: bool = True
+    is_active: bool = True
 
 
 class BranchCreate(BranchBase):

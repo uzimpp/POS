@@ -59,8 +59,8 @@ def delete_branch(branch_id: int, db: Session = Depends(get_db)):
     if db_branch is None:
         raise HTTPException(status_code=404, detail="Branch not found")
 
-    # Soft delete unavailable due to DB schema mismatch
-    # db_branch.is_active = False 
-    db.delete(db_branch)
+    # Soft delete implementation
+    db_branch.is_active = False
+    # db.delete(db_branch)
     db.commit()
     return None
