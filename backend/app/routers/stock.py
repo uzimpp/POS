@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from typing import List
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy.orm import Session, joinedload
+from typing import List, Optional
 
 from .. import models, schemas
 from ..database import get_db
@@ -13,10 +13,17 @@ router = APIRouter(
 
 
 @router.get("/", response_model=List[schemas.Stock])
-def read_stock_items(branch_id: int = None, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    query = db.query(models.Stock)
-    if branch_id:
-        query = query.filter(models.Stock.branch_id == branch_id)
+def read_stock_items(
+    branch_ids: Optional[List[int]] = Query(None), 
+    skip: int = 0, 
+    limit: int = 100, 
+    db: Session = Depends(get_db)
+):
+    query = db.query(models.Stock).options(joinedload(models.Stock.branch))
+    
+    if branch_ids:
+        query = query.filter(models.Stock.branch_id.in_(branch_ids))
+        
     return query.offset(skip).limit(limit).all()
 
 

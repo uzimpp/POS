@@ -3,12 +3,12 @@ import { baseApi } from "./baseApi";
 export interface Role {
   role_id: number;
   role_name: string;
-  tier: number;
+  seniority: number;
 }
 
 export interface RoleCreate {
   role_name: string;
-  tier: number;
+  seniority: number;
 }
 
 export const rolesApi = baseApi.injectEndpoints({

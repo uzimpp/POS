@@ -61,6 +61,15 @@ def delete_branch(branch_id: int, db: Session = Depends(get_db)):
 
     # Soft delete implementation
     db_branch.is_active = False
+
+    # Deactivate all employees in this branch
+    for employee in db_branch.employees:
+        employee.is_active = False
+
+    # Hard delete all stock items in this branch
+    for stock in db_branch.stock_items:
+        db.delete(stock)
+
     db.commit()
     db.refresh(db_branch)
     return db_branch

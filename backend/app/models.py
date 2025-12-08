@@ -21,9 +21,9 @@ class Branches(Base):
     __tablename__ = "branches"
 
     branch_id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
-    address = Column(String, nullable=False)
-    phone = Column(String, nullable=False)
+    name = Column(String(50), nullable=False)
+    address = Column(String(200), nullable=False)
+    phone = Column(String(20), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
 
     employees = relationship("Employees", back_populates="branch")
@@ -39,8 +39,8 @@ class Roles(Base):
     __tablename__ = "roles"
 
     role_id = Column(Integer, primary_key=True, index=True)
-    role_name = Column(String, nullable=False)
-    tier = Column(Integer, nullable=False)     # Changed from ranking → tier
+    role_name = Column(String(50), nullable=False)
+    seniority = Column(Integer, nullable=False)     # Changed from ranking → tier -> seniority
 
     employees = relationship("Employees", back_populates="role")
 
@@ -56,8 +56,8 @@ class Employees(Base):
         "branches.branch_id"), nullable=False)
     role_id = Column(Integer, ForeignKey("roles.role_id"), nullable=False)
 
-    first_name = Column(String, nullable=False)
-    last_name = Column(String, nullable=False)
+    first_name = Column(String(50), nullable=False)
+    last_name = Column(String(50), nullable=False)
     joined_date = Column(DateTime, server_default=func.now(), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     salary = Column(Integer, nullable=False)
@@ -75,7 +75,7 @@ class Tiers(Base):
     __tablename__ = "tiers"
 
     tier_id = Column(Integer, primary_key=True, index=True)
-    tier_name = Column(String, nullable=False)
+    tier_name = Column(String(50), nullable=False)
     tier = Column(Integer, nullable=False)  # 0, 1, 2, 3...
 
     memberships = relationship("Memberships", back_populates="tier")
@@ -88,9 +88,9 @@ class Memberships(Base):
     __tablename__ = "memberships"
 
     membership_id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
-    phone = Column(String, unique=True, nullable=False, index=True)
-    email = Column(String, unique=True, nullable=True, index=True)
+    name = Column(String(100), nullable=False)
+    phone = Column(String(20), unique=True, nullable=False, index=True)
+    email = Column(String(100), unique=True, nullable=True, index=True)
     joined_at = Column(DateTime, server_default=func.now(), nullable=False)
     points_balance = Column(Integer, default=0, nullable=False)
 
@@ -107,11 +107,11 @@ class MenuItems(Base):
     __tablename__ = "menu_items"
 
     menu_item_id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
-    type = Column(String, nullable=False)
-    description = Column(String, nullable=True)
+    name = Column(String(100), nullable=False)
+    type = Column(String(50), nullable=False)
+    description = Column(String(255), nullable=True)
     price = Column(DECIMAL(10, 2), nullable=False)
-    category = Column(String, nullable=False)
+    category = Column(String(50), nullable=False)
     is_available = Column(Boolean, default=True, nullable=False)
 
     order_items = relationship("OrderItems", back_populates="menu_item")
@@ -128,9 +128,9 @@ class Stock(Base):
     stock_id = Column(Integer, primary_key=True, index=True)
     branch_id = Column(Integer, ForeignKey(
         "branches.branch_id"), nullable=False)
-    stk_name = Column(String, nullable=False)
+    stk_name = Column(String(100), nullable=False)
     amount_remaining = Column(DECIMAL(10, 2), nullable=False)
-    unit = Column(String, nullable=False)
+    unit = Column(String(20), nullable=False)
 
     branch = relationship("Branches", back_populates="stock_items")
     menu_ingredients = relationship("MenuIngredients", back_populates="stock")

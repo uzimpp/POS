@@ -30,14 +30,14 @@ export default function RolesPage() {
     // Form State
     const [formData, setFormData] = useState<RoleCreate>({
         role_name: "",
-        tier: 1,
+        seniority: 1,
     });
 
     const handleOpenAdd = () => {
         setEditingRole(null);
         setFormData({
             role_name: "",
-            tier: 1,
+            seniority: 1,
         });
         setIsModalOpen(true);
     };
@@ -46,7 +46,7 @@ export default function RolesPage() {
         setEditingRole(role);
         setFormData({
             role_name: role.role_name,
-            tier: role.tier,
+            seniority: role.seniority,
         });
         setIsModalOpen(true);
     };
@@ -119,7 +119,7 @@ export default function RolesPage() {
                                     Role Name
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Tier
+                                    Seniority
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Actions
@@ -136,7 +136,7 @@ export default function RolesPage() {
                                         {role.role_name}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {role.tier}
+                                        {role.seniority}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                         <button
@@ -211,15 +211,15 @@ export default function RolesPage() {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">
-                                    Tier (Higher = More Senior)
+                                    Seniority (Higher = More Senior)
                                 </label>
                                 <input
                                     type="number"
                                     required
                                     min="0"
-                                    value={formData.tier}
+                                    value={formData.seniority}
                                     onChange={(e) =>
-                                        setFormData({ ...formData, tier: parseInt(e.target.value) })
+                                        setFormData({ ...formData, seniority: parseInt(e.target.value) })
                                     }
                                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                                 />

@@ -33,7 +33,7 @@ class Branch(BranchBase):
 # =========================
 class RoleBase(BaseModel):
     role_name: str
-    tier: int  # Higher = more senior
+    seniority: int  # Higher = more senior
 
 
 class RoleCreate(RoleBase):

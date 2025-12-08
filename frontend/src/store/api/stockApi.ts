@@ -6,6 +6,10 @@ export interface Stock {
   stk_name: string;
   amount_remaining: number;
   unit: string;
+  branch?: {
+    branch_id: number;
+    name: string;
+  };
 }
 
 export interface StockCreate {
@@ -17,8 +21,17 @@ export interface StockCreate {
 
 export const stockApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getStock: builder.query<Stock[], void>({
-      query: () => "/stock",
+    getStock: builder.query<Stock[], { branch_ids?: number[] } | void>({
+      query: (params) => {
+        let url = "/stock";
+        if (params && params.branch_ids && params.branch_ids.length > 0) {
+          const queryString = params.branch_ids
+            .map((id) => `branch_ids=${id}`)
+            .join("&");
+          url += `?${queryString}`;
+        }
+        return url;
+      },
       providesTags: ["Stock"],
     }),
     getStockByBranch: builder.query<Stock[], number>({

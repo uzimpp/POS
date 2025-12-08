@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from typing import List
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session, joinedload
+from typing import List, Optional
 from ..database import get_db
 from .. import models, schemas
 
@@ -8,14 +8,17 @@ router = APIRouter(prefix="/api/employees", tags=["employees"])
 
 
 @router.get("/", response_model=List[schemas.Employee])
-def get_employees(branch_id: int = None, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    query = db.query(models.Employees)
-    if branch_id:
-        query = query.filter(models.Employees.branch_id == branch_id)
-    # Default to active employees only? Or let frontend filter?
-    # Let's return all for now to allow toggle, or filter by is_active=True by default?
-    # Requirement implies soft delete, usually we filter out inactive by default.
-    # Let's add an optional include_inactive flag.
+def get_employees(
+    branch_ids: Optional[List[int]] = Query(None), 
+    skip: int = 0, 
+    limit: int = 100, 
+    db: Session = Depends(get_db)
+):
+    query = db.query(models.Employees).options(joinedload(models.Employees.branch))
+    
+    if branch_ids:
+        query = query.filter(models.Employees.branch_id.in_(branch_ids))
+        
     return query.offset(skip).limit(limit).all()
 
 
@@ -30,6 +33,13 @@ def get_employee(employee_id: int, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=schemas.Employee)
 def create_employee(employee: schemas.EmployeeCreate, db: Session = Depends(get_db)):
+    # Check if branch exists and is active
+    branch = db.query(models.Branches).filter(models.Branches.branch_id == employee.branch_id).first()
+    if not branch:
+        raise HTTPException(status_code=404, detail="Branch not found")
+    if not branch.is_active:
+        raise HTTPException(status_code=400, detail="Cannot add employee to an inactive branch")
+
     db_employee = models.Employees(**employee.dict())
     db.add(db_employee)
     db.commit()

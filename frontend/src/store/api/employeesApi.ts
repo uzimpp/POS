@@ -14,6 +14,10 @@ export interface Employee {
     role_name: string;
     tier: number;
   };
+  branch?: {
+    branch_id: number;
+    name: string;
+  };
 }
 
 export interface EmployeeCreate {
@@ -27,8 +31,17 @@ export interface EmployeeCreate {
 
 export const employeesApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getEmployees: builder.query<Employee[], void>({
-      query: () => "/employees",
+    getEmployees: builder.query<Employee[], { branch_ids?: number[] } | void>({
+      query: (params) => {
+        let url = "/employees";
+        if (params && params.branch_ids && params.branch_ids.length > 0) {
+          const queryString = params.branch_ids
+            .map((id) => `branch_ids=${id}`)
+            .join("&");
+          url += `?${queryString}`;
+        }
+        return url;
+      },
       providesTags: ["Employees"],
     }),
     getEmployeesByBranch: builder.query<Employee[], number>({
