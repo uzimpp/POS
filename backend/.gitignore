@@ -1,0 +1,28 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment folders
+venv/
+env/
+.venv/
+
+# Python egg metadata
+*.egg-info/
+.eggs/
+
+# Local development settings
+*.sqlite3
+
+# Pytest / coverage files
+.pytest_cache/
+.coverage
+htmlcov/
+
+# MyPy type checking
+.mypy_cache/
+
+# Uvicorn logs
+*.log

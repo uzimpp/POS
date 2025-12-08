@@ -39,25 +39,3 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
-# --- Python / FastAPI ignores ---
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Virtual environments
-venv/
-.venv/
-
-# Python packaging
-*.egg-info/
-.eggs/
-
-# Python test/coverage caches
-.pytest_cache/
-.coverage
-htmlcov/
-
-# MyPy cache
-.mypy_cache/
