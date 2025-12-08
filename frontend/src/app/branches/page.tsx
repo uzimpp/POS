@@ -12,6 +12,7 @@ import {
   BranchCreate,
 } from "../../store/api/branchesApi";
 
+import { ErrorModal } from "../../components/ErrorModal";
 import { ConfirmModal } from "../../components/ConfirmModal";
 
 export default function BranchesPage() {
@@ -22,6 +23,7 @@ export default function BranchesPage() {
   const [deleteBranch] = useDeleteBranchMutation();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [errorModal, setErrorModal] = useState({ isOpen: false, message: "" });
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
   const [showDeleted, setShowDeleted] = useState(false); // Toggle state
 
@@ -85,15 +87,30 @@ export default function BranchesPage() {
           id: editingBranch.branch_id,
           data: formData,
         }).unwrap();
-        // alert("Branch updated successfully");
       } else {
         await createBranch(formData).unwrap();
-        // alert("Branch created successfully");
       }
       setIsModalOpen(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("Failed to save branch");
+      let errorMessage = "Failed to save branch";
+
+      // Try to extract validation error message from backend
+      if (err?.data?.detail) {
+        if (Array.isArray(err.data.detail)) {
+          // Pydantic validation error array
+          const messages = err.data.detail.map((e: any) => {
+            const field = e.loc ? e.loc[e.loc.length - 1] : 'Field';
+            return `${field}: ${e.msg}`;
+          });
+          errorMessage = `Validation Error:\n${messages.join("\n")}`;
+        } else if (typeof err.data.detail === "string") {
+          // Generic detail string
+          errorMessage = err.data.detail;
+        }
+      }
+
+      setErrorModal({ isOpen: true, message: errorMessage });
     }
   };
 
@@ -245,7 +262,7 @@ export default function BranchesPage() {
       {/* Modal */}
       {
         isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black bg-opacity-50">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
               <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
                 <h3 className="text-lg font-medium text-gray-900">
@@ -281,7 +298,7 @@ export default function BranchesPage() {
                     required
                     value={formData.name}
                     onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
+                      setFormData(prev => ({ ...prev, name: e.target.value }))
                     }
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   />
@@ -295,7 +312,7 @@ export default function BranchesPage() {
                     required
                     value={formData.address}
                     onChange={(e) =>
-                      setFormData({ ...formData, address: e.target.value })
+                      setFormData(prev => ({ ...prev, address: e.target.value }))
                     }
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   />
@@ -309,9 +326,11 @@ export default function BranchesPage() {
                     required
                     value={formData.phone}
                     onChange={(e) =>
-                      setFormData({ ...formData, phone: e.target.value })
+                      setFormData(prev => ({ ...prev, phone: e.target.value }))
                     }
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    minLength={9}
+                    maxLength={15}
                   />
                 </div>
                 <div className="pt-4 flex justify-end gap-3">
@@ -342,6 +361,12 @@ export default function BranchesPage() {
         onConfirm={handleConfirmDelete}
         onCancel={() => setIsDeleteModalOpen(false)}
         isDestructive={true}
+      />
+      <ErrorModal
+        isOpen={errorModal.isOpen}
+        title="Validation Error"
+        message={errorModal.message}
+        onClose={() => setErrorModal({ ...errorModal, isOpen: false })}
       />
     </Layout >
   );

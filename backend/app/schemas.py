@@ -4,16 +4,16 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 # =========================
 # Branch Schemas
 # =========================
 class BranchBase(BaseModel):
-    name: str
-    address: str
-    phone: str
+    name: str = Field(..., max_length=50)
+    address: str = Field(..., max_length=200)
+    phone: str = Field(..., min_length=9, max_length=15)
     is_active: bool = True
 
 
@@ -32,8 +32,8 @@ class Branch(BranchBase):
 # Role Schemas
 # =========================
 class RoleBase(BaseModel):
-    role_name: str
-    seniority: int  # Higher = more senior
+    role_name: str = Field(..., max_length=50)
+    seniority: int = Field(..., ge=0)  # Higher = more senior
 
 
 class RoleCreate(RoleBase):
@@ -75,7 +75,7 @@ class EmployeeBase(BaseModel):
     first_name: str
     last_name: str
     is_active: bool = True
-    salary: int  # Monthly salary in baht (integer)
+    salary: int = Field(..., ge=0)  # Monthly salary in baht (integer)
 
 
 class EmployeeCreate(EmployeeBase):
@@ -96,10 +96,10 @@ class Employee(EmployeeBase):
 # Membership Schemas
 # =========================
 class MembershipBase(BaseModel):
-    name: str
-    phone: str
-    email: Optional[str] = None
-    points_balance: int = 0
+    name: str = Field(..., max_length=100)
+    phone: str = Field(..., min_length=9, max_length=15)
+    email: Optional[str] = Field(None, max_length=100)
+    points_balance: int = Field(0, ge=0)
     tier_id: int  # FK → tiers.tier_id
 
 
@@ -121,9 +121,9 @@ class Membership(MembershipBase):
 # =========================
 class StockBase(BaseModel):
     branch_id: int
-    stk_name: str
-    amount_remaining: Decimal
-    unit: str
+    stk_name: str = Field(..., max_length=100)
+    amount_remaining: Decimal = Field(..., ge=0)
+    unit: str = Field(..., max_length=20)
 
 
 class StockCreate(StockBase):
@@ -142,10 +142,10 @@ class Stock(StockBase):
 # Menu Item Schemas
 # =========================
 class MenuItemBase(BaseModel):
-    name: str
-    type: str                       # dish, addon, set
-    description: Optional[str] = None
-    price: Decimal
+    name: str = Field(..., max_length=100)
+    type: str = Field(..., max_length=50)                       # dish, addon, set
+    description: Optional[str] = Field(None, max_length=255)
+    price: Decimal = Field(..., ge=0)
     category: str                   # Main, Topping, Drink, Appetizer
     is_available: bool = True
 
