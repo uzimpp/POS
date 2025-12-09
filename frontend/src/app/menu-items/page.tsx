@@ -483,7 +483,12 @@ export default function MenuItemsPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {sortedItems && sortedItems.length > 0 ? (
                   sortedItems.map((item) => (
-                    <tr key={item.menu_item_id} className="hover:bg-gray-50">
+                    <tr
+                      key={item.menu_item_id}
+                      className={`hover:bg-gray-50 ${
+                        item.is_available ? "" : "opacity-50"
+                      }`}
+                    >
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         #{item.menu_item_id}
                       </td>
