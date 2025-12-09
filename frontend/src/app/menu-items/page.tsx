@@ -17,6 +17,7 @@ export default function MenuItemsPage() {
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterAvailable, setFilterAvailable] = useState<string>("all");
   const [showModal, setShowModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteItemId, setDeleteItemId] = useState<number | null>(null);
@@ -122,12 +123,22 @@ export default function MenuItemsPage() {
   const filteredItems = menuItems?.filter((item) => {
     const categoryMatch =
       filterCategory === "all" || item.category === filterCategory;
+
     const availableMatch =
       filterAvailable === "all" ||
       (filterAvailable === "available" && item.is_available) ||
       (filterAvailable === "unavailable" && !item.is_available);
-    return categoryMatch && availableMatch;
+
+    const query = searchTerm.trim().toLowerCase();
+
+    const searchMatch =
+      query === "" ||
+      item.name.toLowerCase().includes(query) ||
+      String(item.menu_item_id).includes(query);
+
+    return categoryMatch && availableMatch && searchMatch;
   });
+
 
   if (isLoading) {
     return (
@@ -253,8 +264,22 @@ export default function MenuItemsPage() {
 
               <div className="mb-3">
                 <label className="block mb-1">Description</label>
-                <input className="w-full border rounded px-3 py-2" value={form.description} onChange={e => setForm(f => ({...f, description: e.target.value}))} />
+                <input
+                  className="w-full border rounded px-3 py-2"
+                  value={form.description}
+                  onChange={e =>
+                    setForm(f => ({
+                      ...f,
+                      description: e.target.value.slice(0, 300),
+                    }))
+                  }
+                  maxLength={300}
+                />
+                <p className="text-gray-400 text-sm mt-1">
+                  {form.description.length}/300 characters
+                </p>
               </div>
+
               <div className="mb-3">
                 <label className="block mb-1">Status</label>
                 <select className="w-full border rounded px-3 py-2" value={form.is_available ? "available" : "unavailable"} onChange={e => setForm(f => ({...f, is_available: e.target.value === "available"}))}>
@@ -325,8 +350,22 @@ export default function MenuItemsPage() {
               </div>
               <div className="mb-3">
                 <label className="block mb-1">Description</label>
-                <input className="w-full border rounded px-3 py-2" value={form.description} onChange={e => setForm(f => ({...f, description: e.target.value}))} />
+                <input
+                  className="w-full border rounded px-3 py-2"
+                  value={form.description}
+                  onChange={e =>
+                    setForm(f => ({
+                      ...f,
+                      description: e.target.value.slice(0, 300),
+                    }))
+                  }
+                  maxLength={300}
+                />
+                <p className="text-gray-400 text-sm mt-1">
+                  {form.description.length}/300 characters
+                </p>
               </div>
+
               <div className="mb-3">
                 <label className="block mb-1">Status</label>
                 <select className="w-full border rounded px-3 py-2" value={form.is_available ? "available" : "unavailable"} onChange={e => setForm(f => ({...f, is_available: e.target.value === "available"}))}>
@@ -379,6 +418,7 @@ export default function MenuItemsPage() {
               </option>
             ))}
           </select>
+
           <select
             value={filterAvailable}
             onChange={(e) => setFilterAvailable(e.target.value)}
@@ -388,6 +428,14 @@ export default function MenuItemsPage() {
             <option value="available">Available Only</option>
             <option value="unavailable">Unavailable Only</option>
           </select>
+
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search by ID or name"
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1 max-w-xs"
+          />
         </div>
 
         <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
@@ -440,9 +488,10 @@ export default function MenuItemsPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         ฿{parseFloat(item.price).toFixed(2)}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
+                      <td className="px-6 py-4 text-sm text-gray-500 max-w-xs whitespace-normal break-words">
                         {item.description || "N/A"}
                       </td>
+
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button
                           onClick={() =>
