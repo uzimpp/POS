@@ -139,6 +139,17 @@ export default function MenuItemsPage() {
     return categoryMatch && availableMatch && searchMatch;
   });
 
+  const sortedItems = filteredItems
+  ? [...filteredItems].sort((a, b) => {
+      // First: Available (true) before Unavailable (false)
+      if (a.is_available !== b.is_available) {
+        return a.is_available ? -1 : 1;
+      }
+      // If both have same availability, sort by ID ascending
+      return a.menu_item_id - b.menu_item_id;
+    })
+  : [];
+
 
   if (isLoading) {
     return (
@@ -470,8 +481,8 @@ export default function MenuItemsPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredItems && filteredItems.length > 0 ? (
-                  filteredItems.map((item) => (
+                {sortedItems && sortedItems.length > 0 ? (
+                  sortedItems.map((item) => (
                     <tr key={item.menu_item_id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         #{item.menu_item_id}
