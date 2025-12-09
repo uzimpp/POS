@@ -10,14 +10,14 @@ router = APIRouter(prefix="/api/menu-ingredients", tags=["menu-ingredients"])
 @router.get("/", response_model=List[schemas.MenuIngredient])
 def get_menu_ingredients(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     menu_ingredients = db.query(
-        models.MenuIngredient).offset(skip).limit(limit).all()
+        models.MenuIngredients).offset(skip).limit(limit).all()
     return menu_ingredients
 
 
 @router.get("/{ingredient_id}", response_model=schemas.MenuIngredient)
 def get_menu_ingredient(ingredient_id: int, db: Session = Depends(get_db)):
-    menu_ingredient = db.query(models.MenuIngredient).filter(
-        models.MenuIngredient.id == ingredient_id).first()
+    menu_ingredient = db.query(models.MenuIngredients).filter(
+        models.MenuIngredients.id == ingredient_id).first()
     if not menu_ingredient:
         raise HTTPException(
             status_code=404, detail="Menu ingredient not found")
@@ -26,15 +26,15 @@ def get_menu_ingredient(ingredient_id: int, db: Session = Depends(get_db)):
 
 @router.get("/menu-item/{menu_item_id}", response_model=List[schemas.MenuIngredient])
 def get_ingredients_by_menu_item(menu_item_id: int, db: Session = Depends(get_db)):
-    menu_ingredients = db.query(models.MenuIngredient).filter(
-        models.MenuIngredient.menu_item_id == menu_item_id
+    menu_ingredients = db.query(models.MenuIngredients).filter(
+        models.MenuIngredients.menu_item_id == menu_item_id
     ).all()
     return menu_ingredients
 
 
 @router.post("/", response_model=schemas.MenuIngredient)
 def create_menu_ingredient(menu_ingredient: schemas.MenuIngredientCreate, db: Session = Depends(get_db)):
-    db_menu_ingredient = models.MenuIngredient(**menu_ingredient.dict())
+    db_menu_ingredient = models.MenuIngredients(**menu_ingredient.dict())
     db.add(db_menu_ingredient)
     db.commit()
     db.refresh(db_menu_ingredient)
@@ -43,8 +43,8 @@ def create_menu_ingredient(menu_ingredient: schemas.MenuIngredientCreate, db: Se
 
 @router.put("/{ingredient_id}", response_model=schemas.MenuIngredient)
 def update_menu_ingredient(ingredient_id: int, menu_ingredient: schemas.MenuIngredientCreate, db: Session = Depends(get_db)):
-    db_menu_ingredient = db.query(models.MenuIngredient).filter(
-        models.MenuIngredient.id == ingredient_id).first()
+    db_menu_ingredient = db.query(models.MenuIngredients).filter(
+        models.MenuIngredients.id == ingredient_id).first()
     if not db_menu_ingredient:
         raise HTTPException(
             status_code=404, detail="Menu ingredient not found")
@@ -57,8 +57,8 @@ def update_menu_ingredient(ingredient_id: int, menu_ingredient: schemas.MenuIngr
 
 @router.delete("/{ingredient_id}")
 def delete_menu_ingredient(ingredient_id: int, db: Session = Depends(get_db)):
-    db_menu_ingredient = db.query(models.MenuIngredient).filter(
-        models.MenuIngredient.id == ingredient_id).first()
+    db_menu_ingredient = db.query(models.MenuIngredients).filter(
+        models.MenuIngredients.id == ingredient_id).first()
     if not db_menu_ingredient:
         raise HTTPException(
             status_code=404, detail="Menu ingredient not found")

@@ -22,7 +22,7 @@ export interface MenuItemCreate {
 export const menuItemsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getMenuItems: builder.query<MenuItem[], void>({
-      query: () => "/menu-items",
+      query: () => "/menu-items/",
       providesTags: ["MenuItems"],
     }),
     getMenuItem: builder.query<MenuItem, number>({
