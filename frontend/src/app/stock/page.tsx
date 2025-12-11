@@ -4,13 +4,51 @@ import { useState } from "react";
 import { Layout } from "../../components/Layout";
 import {
   useGetStockQuery,
-  useDeleteStockItemMutation,
+  useDeleteStockMutation,
+  useCreateStockMutation,
+  useUpdateStockMutation,
+  Stock,
+  StockCreate,
 } from "../../store/api/stockApi";
+import { useGetBranchesQuery } from "../../store/api/branchesApi";
+import { MultiSelect } from "../../components/MultiSelect";
+import { StockModal } from "../../components/StockModal";
 
 export default function StockPage() {
-  const { data: stock, isLoading, error } = useGetStockQuery();
-  const [deleteStockItem] = useDeleteStockItemMutation();
+  const [selectedBranchIds, setSelectedBranchIds] = useState<(number | string)[]>([]);
+  const { data: stock, isLoading, error } = useGetStockQuery({
+    branch_ids: selectedBranchIds.length > 0 ? (selectedBranchIds as number[]) : undefined,
+  });
+  const { data: branches } = useGetBranchesQuery();
+  const [deleteStockItem] = useDeleteStockMutation();
+  const [createStock] = useCreateStockMutation();
+  const [updateStock] = useUpdateStockMutation();
   const [filterLowStock, setFilterLowStock] = useState<boolean>(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingStock, setEditingStock] = useState<Stock | undefined>(undefined);
+
+  const handleCreate = () => {
+    setEditingStock(undefined);
+    setIsModalOpen(true);
+  };
+
+  const handleEdit = (item: Stock) => {
+    setEditingStock(item);
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = async (data: StockCreate) => {
+    try {
+      if (editingStock) {
+        await updateStock({ id: editingStock.stock_id, data }).unwrap();
+      } else {
+        await createStock(data).unwrap();
+      }
+      setIsModalOpen(false);
+    } catch (err) {
+      alert(`Failed to ${editingStock ? "update" : "create"} stock item`);
+    }
+  };
 
   const handleDelete = async (id: number) => {
     if (confirm("Are you sure you want to delete this stock item?")) {
@@ -23,11 +61,11 @@ export default function StockPage() {
   };
 
   const filteredStock = filterLowStock
-    ? stock?.filter((item) => parseFloat(item.amount_remaining) < 10)
+    ? stock?.filter((item) => item.amount_remaining < 10)
     : stock;
 
   const lowStockCount =
-    stock?.filter((item) => parseFloat(item.amount_remaining) < 10).length || 0;
+    stock?.filter((item) => item.amount_remaining < 10).length || 0;
 
   if (isLoading) {
     return (
@@ -59,9 +97,23 @@ export default function StockPage() {
             </h1>
             <p className="text-gray-600 mt-2">Manage your inventory</p>
           </div>
-          <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-            Add Stock Item
-          </button>
+          <div className="flex gap-2 items-center">
+            <div className="z-50">
+              <MultiSelect
+                options={branches?.map(b => ({ value: b.branch_id, label: b.name })) || []}
+                selectedValues={selectedBranchIds}
+                onChange={setSelectedBranchIds}
+                label=""
+                placeholder="Filter by Branch"
+              />
+            </div>
+            <button
+              onClick={handleCreate}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors h-[42px]"
+            >
+              Add Stock Item
+            </button>
+          </div>
         </div>
 
         {lowStockCount > 0 && (
@@ -114,6 +166,9 @@ export default function StockPage() {
                     Amount Remaining
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Branch
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Unit
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -127,7 +182,7 @@ export default function StockPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredStock && filteredStock.length > 0 ? (
                   filteredStock.map((item) => {
-                    const amount = parseFloat(item.amount_remaining);
+                    const amount = item.amount_remaining;
                     const isLowStock = amount < 10;
                     return (
                       <tr key={item.stock_id} className="hover:bg-gray-50">
@@ -138,25 +193,30 @@ export default function StockPage() {
                           {item.stk_name}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {amount.toFixed(2)}
+                          {Number(amount).toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {item.branch?.name || "N/A"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {item.unit}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              isLowStock
-                                ? "bg-red-100 text-red-800"
-                                : "bg-green-100 text-green-800"
-                            }`}
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${isLowStock
+                              ? "bg-red-100 text-red-800"
+                              : "bg-green-100 text-green-800"
+                              }`}
                           >
                             {isLowStock ? "Low Stock" : "In Stock"}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <div className="flex gap-2">
-                            <button className="text-blue-600 hover:text-blue-900">
+                            <button
+                              onClick={() => handleEdit(item)}
+                              className="text-blue-600 hover:text-blue-900"
+                            >
                               Edit
                             </button>
                             <button
@@ -185,6 +245,13 @@ export default function StockPage() {
           </div>
         </div>
       </div>
+      <StockModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleSubmit}
+        stockItem={editingStock}
+        branches={branches?.filter(b => b.is_active) || []}
+      />
     </Layout>
   );
 }

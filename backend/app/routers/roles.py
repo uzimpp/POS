@@ -43,12 +43,22 @@ def update_role(role_id: int, role: schemas.RoleCreate, db: Session = Depends(ge
     return db_role
 
 
+from sqlalchemy.exc import IntegrityError
+
 @router.delete("/{role_id}")
 def delete_role(role_id: int, db: Session = Depends(get_db)):
     db_role = db.query(models.Roles).filter(
         models.Roles.role_id == role_id).first()
     if not db_role:
         raise HTTPException(status_code=404, detail="Role not found")
-    db.delete(db_role)
-    db.commit()
+    
+    try:
+        db.delete(db_role)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=400, 
+            detail="Cannot delete role because it is assigned to one or more employees."
+        )
     return {"message": "Role deleted successfully"}
