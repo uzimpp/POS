@@ -12,14 +12,14 @@ router = APIRouter(prefix="/api/orders", tags=["orders"])
 
 @router.get("/", response_model=List[schemas.Order])
 def get_orders(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    orders = db.query(models.Order).offset(skip).limit(limit).all()
+    orders = db.query(models.Orders).offset(skip).limit(limit).all()
     return orders
 
 
 @router.get("/{order_id}", response_model=schemas.Order)
 def get_order(order_id: int, db: Session = Depends(get_db)):
-    order = db.query(models.Order).filter(
-        models.Order.order_id == order_id).first()
+    order = db.query(models.Orders).filter(
+        models.Orders.order_id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     return order
@@ -34,7 +34,7 @@ def create_order(order: schemas.OrderCreate, db: Session = Depends(get_db)):
         total_price += line_total
 
     # Create order
-    db_order = models.Order(
+    db_order = models.Orders(
         membership_id=order.membership_id,
         employee_id=order.employee_id,
         order_type=order.order_type,
@@ -48,7 +48,7 @@ def create_order(order: schemas.OrderCreate, db: Session = Depends(get_db)):
     # Create order items
     for item in order.order_items:
         line_total = item.quantity * item.unit_price
-        db_order_item = models.OrderItem(
+        db_order_item = models.OrderItems(
             order_id=db_order.order_id,
             menu_item_id=item.menu_item_id,
             status=item.status or "PREPARING",
@@ -65,8 +65,8 @@ def create_order(order: schemas.OrderCreate, db: Session = Depends(get_db)):
 
 @router.put("/{order_id}", response_model=schemas.Order)
 def update_order(order_id: int, order: schemas.OrderCreate, db: Session = Depends(get_db)):
-    db_order = db.query(models.Order).filter(
-        models.Order.order_id == order_id).first()
+    db_order = db.query(models.Orders).filter(
+        models.Orders.order_id == order_id).first()
     if not db_order:
         raise HTTPException(status_code=404, detail="Order not found")
 
@@ -84,12 +84,12 @@ def update_order(order_id: int, order: schemas.OrderCreate, db: Session = Depend
     db_order.total_price = total_price
 
     # Delete existing order items and create new ones
-    db.query(models.OrderItem).filter(
-        models.OrderItem.order_id == order_id).delete()
+    db.query(models.OrderItems).filter(
+        models.OrderItems.order_id == order_id).delete()
 
     for item in order.order_items:
         line_total = item.quantity * item.unit_price
-        db_order_item = models.OrderItem(
+        db_order_item = models.OrderItems(
             order_id=db_order.order_id,
             menu_item_id=item.menu_item_id,
             status=item.status or "PREPARING",
@@ -106,8 +106,8 @@ def update_order(order_id: int, order: schemas.OrderCreate, db: Session = Depend
 
 @router.delete("/{order_id}")
 def delete_order(order_id: int, db: Session = Depends(get_db)):
-    db_order = db.query(models.Order).filter(
-        models.Order.order_id == order_id).first()
+    db_order = db.query(models.Orders).filter(
+        models.Orders.order_id == order_id).first()
     if not db_order:
         raise HTTPException(status_code=404, detail="Order not found")
     db.delete(db_order)

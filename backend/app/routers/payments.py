@@ -10,14 +10,14 @@ router = APIRouter(prefix="/api/payments", tags=["payments"])
 
 @router.get("/", response_model=List[schemas.Payment])
 def get_payments(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    payments = db.query(models.Payment).offset(skip).limit(limit).all()
+    payments = db.query(models.Payments).offset(skip).limit(limit).all()
     return payments
 
 
 @router.get("/{order_id}", response_model=schemas.Payment)
 def get_payment(order_id: int, db: Session = Depends(get_db)):
-    payment = db.query(models.Payment).filter(
-        models.Payment.order_id == order_id).first()
+    payment = db.query(models.Payments).filter(
+        models.Payments.order_id == order_id).first()
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
     return payment
@@ -26,21 +26,21 @@ def get_payment(order_id: int, db: Session = Depends(get_db)):
 @router.post("/", response_model=schemas.Payment)
 def create_payment(payment: schemas.PaymentCreate, db: Session = Depends(get_db)):
     # Verify order exists
-    order = db.query(models.Order).filter(
-        models.Order.order_id == payment.order_id).first()
+    order = db.query(models.Orders).filter(
+        models.Orders.order_id == payment.order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
     # Check if payment already exists
-    existing_payment = db.query(models.Payment).filter(
-        models.Payment.order_id == payment.order_id
+    existing_payment = db.query(models.Payments).filter(
+        models.Payments.order_id == payment.order_id
     ).first()
     if existing_payment:
         raise HTTPException(
             status_code=400, detail="Payment already exists for this order")
 
     # Create payment
-    db_payment = models.Payment(
+    db_payment = models.Payments(
         order_id=payment.order_id,
         paid_price=payment.paid_price,
         points_used=payment.points_used,
@@ -55,8 +55,8 @@ def create_payment(payment: schemas.PaymentCreate, db: Session = Depends(get_db)
 
     # If points were used, deduct from membership
     if payment.points_used > 0 and order.membership_id:
-        membership = db.query(models.Membership).filter(
-            models.Membership.membership_id == order.membership_id
+        membership = db.query(models.Memberships).filter(
+            models.Memberships.membership_id == order.membership_id
         ).first()
         if membership:
             membership.points_balance = max(
@@ -64,8 +64,8 @@ def create_payment(payment: schemas.PaymentCreate, db: Session = Depends(get_db)
 
     # Award points to membership (if applicable)
     if order.membership_id:
-        membership = db.query(models.Membership).filter(
-            models.Membership.membership_id == order.membership_id
+        membership = db.query(models.Memberships).filter(
+            models.Memberships.membership_id == order.membership_id
         ).first()
         if membership:
             # Award points based on paid_price (e.g., 1 point per 10 baht)
@@ -79,8 +79,8 @@ def create_payment(payment: schemas.PaymentCreate, db: Session = Depends(get_db)
 
 @router.put("/{order_id}", response_model=schemas.Payment)
 def update_payment(order_id: int, payment: schemas.PaymentBase, db: Session = Depends(get_db)):
-    db_payment = db.query(models.Payment).filter(
-        models.Payment.order_id == order_id).first()
+    db_payment = db.query(models.Payments).filter(
+        models.Payments.order_id == order_id).first()
     if not db_payment:
         raise HTTPException(status_code=404, detail="Payment not found")
 
@@ -94,14 +94,14 @@ def update_payment(order_id: int, payment: schemas.PaymentBase, db: Session = De
 
 @router.delete("/{order_id}")
 def delete_payment(order_id: int, db: Session = Depends(get_db)):
-    db_payment = db.query(models.Payment).filter(
-        models.Payment.order_id == order_id).first()
+    db_payment = db.query(models.Payments).filter(
+        models.Payments.order_id == order_id).first()
     if not db_payment:
         raise HTTPException(status_code=404, detail="Payment not found")
 
     # Update order status back to UNPAID
-    order = db.query(models.Order).filter(
-        models.Order.order_id == order_id).first()
+    order = db.query(models.Orders).filter(
+        models.Orders.order_id == order_id).first()
     if order:
         order.status = "UNPAID"
 
