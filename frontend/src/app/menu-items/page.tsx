@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Layout } from "../../components/Layout";
+import { Layout } from "@/components/layout";
 import {
   useGetMenuItemsQuery,
   useDeleteMenuItemMutation,
   useCreateMenuItemMutation,
   useUpdateMenuItemMutation,
-} from "../../store/api/menuItemsApi";
+} from "@/store/api/menuItemsApi";
+import { ConfirmModal, Modal } from "@/components/modals";
 
 export default function MenuItemsPage() {
   const { data: menuItems, isLoading, error } = useGetMenuItemsQuery();
@@ -140,16 +141,15 @@ export default function MenuItemsPage() {
   });
 
   const sortedItems = filteredItems
-  ? [...filteredItems].sort((a, b) => {
-      // First: Available (true) before Unavailable (false)
-      if (a.is_available !== b.is_available) {
-        return a.is_available ? -1 : 1;
-      }
-      // If both have same availability, sort by ID ascending
-      return a.menu_item_id - b.menu_item_id;
-    })
-  : [];
-
+    ? [...filteredItems].sort((a, b) => {
+        // First: Available (true) before Unavailable (false)
+        if (a.is_available !== b.is_available) {
+          return a.is_available ? -1 : 1;
+        }
+        // If both have same availability, sort by ID ascending
+        return a.menu_item_id - b.menu_item_id;
+      })
+    : [];
 
   if (isLoading) {
     return (
@@ -171,227 +171,374 @@ export default function MenuItemsPage() {
     );
   }
 
-
   return (
     <Layout>
-      {showDeleteModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white rounded-lg p-8 w-full max-w-md shadow-lg">
-            <h2 className="text-xl font-semibold mb-4 text-red-600">Delete Menu Item</h2>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to delete this menu item? This action cannot be undone.
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Delete Menu Item"
+        message={`Are you sure you want to delete "${deleteItemName}"? This action cannot be undone. You will have to re-enter the information of this menu again if you wish to add it back.`}
+        onConfirm={confirmDelete}
+        onCancel={() => setShowDeleteModal(false)}
+        isDestructive={true}
+      />
+      <Modal
+        isOpen={showModal}
+        onClose={() => {
+          setShowModal(false);
+          setForm({
+            name: "",
+            type: "",
+            description: "",
+            price: "",
+            category: "",
+            is_available: true,
+          });
+        }}
+        title="Add New Menu Item"
+      >
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            await createMenuItem(form);
+            setShowModal(false);
+            setForm({
+              name: "",
+              type: "",
+              description: "",
+              price: "",
+              category: "",
+              is_available: true,
+            });
+          }}
+        >
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Name
+            </label>
+            <input
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              value={form.name}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  name: e.target.value.slice(0, 50),
+                }))
+              }
+              required
+              maxLength={50}
+            />
+            <p className="text-gray-400 text-xs mt-1">
+              {form.name.length}/50 characters
             </p>
-            <div className="bg-red-50 border border-red-200 rounded p-4 mb-6">
-              <p className="text-red-600">
-                <b>You will have to re-enter the information of this menu again if you wish to add it back.</b>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Type
+            </label>
+            <select
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              value={form.type}
+              onChange={(e) => {
+                const newType = e.target.value;
+                setForm((f) => ({
+                  ...f,
+                  type: newType,
+                  // Set available to true by default, especially for Set type
+                  is_available: newType === "Set" ? true : f.is_available,
+                }));
+              }}
+              required
+            >
+              <option value="" className="text-gray-400">
+                Select Type
+              </option>
+              <option value="Dish">Dish</option>
+              <option value="Addon">Addon</option>
+              <option value="Set">Set</option>
+            </select>
+          </div>
+          <div className="mb-3">
+            <label className="block mb-1">Category</label>
+            <select
+              className="w-full border rounded px-3 py-2"
+              value={form.category}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, category: e.target.value }))
+              }
+              required
+            >
+              <option value="" className="text-gray-400">
+                Select Category
+              </option>
+              <option value="Main">Main</option>
+              <option value="Topping">Topping</option>
+              <option value="Drink">Drink</option>
+              <option value="Appetizer">Appetizer</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Price
+              <span className="ml-1 text-xs text-gray-500 font-normal">
+                (0–999999, up to 2 decimals)
+              </span>
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="999999"
+              step="0.01"
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              value={form.price}
+              onChange={(e) => handlePriceChange(e.target.value)}
+              placeholder="e.g. 199.99"
+              required
+            />
+            <p className="text-gray-400 text-xs mt-1">
+              Price must be between <span className="font-bold">0</span> and{" "}
+              <span className="font-bold">999999</span>, with at most{" "}
+              <span className="font-bold">2 decimal places</span>.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Description
+            </label>
+            <input
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              value={form.description}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  description: e.target.value.slice(0, 300),
+                }))
+              }
+              maxLength={300}
+            />
+            <p className="text-gray-400 text-xs mt-1">
+              {form.description.length}/300 characters
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Status
+            </label>
+            <select
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+              value={form.is_available ? "available" : "unavailable"}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  is_available: e.target.value === "available",
+                }))
+              }
+              disabled={form.type === "Set"}
+            >
+              <option value="available">Available</option>
+              <option value="unavailable">Unavailable</option>
+            </select>
+            {form.type === "Set" && (
+              <p className="text-gray-500 text-xs mt-1">
+                Set items are always available by default.
+              </p>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 pt-4">
+            <button
+              type="button"
+              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              onClick={() => setShowModal(false)}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              Add Item
+            </button>
+          </div>
+        </form>
+      </Modal>
+      <Modal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setEditingId(null);
+          setForm({
+            name: "",
+            type: "",
+            description: "",
+            price: "",
+            category: "",
+            is_available: true,
+          });
+        }}
+        title="Edit Menu Item"
+      >
+        <form onSubmit={handleEditSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Name
+            </label>
+            <input
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              value={form.name}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  name: e.target.value.slice(0, 50),
+                }))
+              }
+              required
+              maxLength={50}
+            />
+            <p className="text-gray-400 text-xs mt-1">
+              {form.name.length}/50 characters
+            </p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Type
+            </label>
+            <select
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              value={form.type}
+              onChange={(e) => {
+                const newType = e.target.value;
+                setForm((f) => ({
+                  ...f,
+                  type: newType,
+                  // Set available to true by default, especially for Set type
+                  is_available: newType === "Set" ? true : f.is_available,
+                }));
+              }}
+              required
+            >
+              <option value="" className="text-gray-400">
+                Select Type
+              </option>
+              <option value="Dish">Dish</option>
+              <option value="Addon">Addon</option>
+              <option value="Set">Set</option>
+            </select>
+          </div>
+          {form.type === "Set" && (
+            <div className="bg-blue-50 border border-blue-200 rounded p-3">
+              <p className="text-sm text-blue-800">
+                <strong>Note:</strong> Set items are automatically set as
+                available by default.
               </p>
             </div>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                className="px-4 py-2 border rounded hover:bg-gray-100"
-                onClick={() => setShowDeleteModal(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-                onClick={confirmDelete}
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {showModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white rounded-lg p-8 w-full max-w-md shadow-lg">
-            <h2 className="text-xl font-semibold mb-4">Add New Menu Item</h2>
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                await createMenuItem(form);
-                setShowModal(false);
-                setForm({
-                  name: "",
-                  type: "",
-                  description: "",
-                  price: "",
-                  category: "",
-                  is_available: true,
-                });
-              }}
+          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Category
+            </label>
+            <select
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              value={form.category}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, category: e.target.value }))
+              }
+              required
             >
-              <div className="mb-3">
-                <label className="block mb-1">Name</label>
-                <input className="w-full border rounded px-3 py-2" value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value.slice(0, 50)}))} required maxLength={50} />
-                <p className="text-gray-400 text-sm mt-1">{form.name.length}/50 characters</p>
-              </div>
-              <div className="mb-3">
-                <label className="block mb-1">Type</label>
-                <select className="w-full border rounded px-3 py-2" value={form.type} onChange={e => setForm(f => ({...f, type: e.target.value}))} required>
-                  <option value="" className="text-gray-400">Select Type</option>
-                  <option value="Dish">Dish</option>
-                  <option value="Addon">Addon</option>
-                  <option value="Set">Set</option>
-                </select>
-              </div>
-              <div className="mb-3">
-                <label className="block mb-1">Category</label>
-                <select className="w-full border rounded px-3 py-2" value={form.category} onChange={e => setForm(f => ({...f, category: e.target.value}))} required>
-                  <option value="" className="text-gray-400">Select Category</option>
-                  <option value="Main">Main</option>
-                  <option value="Topping">Topping</option>
-                  <option value="Drink">Drink</option>
-                  <option value="Appetizer">Appetizer</option>
-                </select>
-              </div>
-              <div className="mb-3">
-                <label className="block mb-1">
-                  Price
-                  <span className="ml-1 text-xs text-gray-500 font-normal">
-                    (0–999999, up to 2 decimals)
-                  </span>
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="999999"
-                  step="0.01"
-                  className="w-full border rounded px-3 py-2"
-                  value={form.price}
-                  onChange={e => handlePriceChange(e.target.value)}
-                  placeholder="e.g. 199.99"
-                  required
-                />
-                <p className="text-gray-400 text-xs mt-1">
-                  Price must be between <span className="font-bold">0</span> and{" "}
-                  <span className="font-bold">999999</span>, with at most{" "}
-                  <span className="font-bold">2 decimal places</span>.
-                </p>
-              </div>
-
-              <div className="mb-3">
-                <label className="block mb-1">Description</label>
-                <input
-                  className="w-full border rounded px-3 py-2"
-                  value={form.description}
-                  onChange={e =>
-                    setForm(f => ({
-                      ...f,
-                      description: e.target.value.slice(0, 300),
-                    }))
-                  }
-                  maxLength={300}
-                />
-                <p className="text-gray-400 text-sm mt-1">
-                  {form.description.length}/300 characters
-                </p>
-              </div>
-
-              <div className="mb-3">
-                <label className="block mb-1">Status</label>
-                <select className="w-full border rounded px-3 py-2" value={form.is_available ? "available" : "unavailable"} onChange={e => setForm(f => ({...f, is_available: e.target.value === "available"}))}>
-                  <option value="available">Available</option>
-                  <option value="unavailable">Unavailable</option>
-                </select>
-              </div>
-              <div className="flex justify-end gap-2 mt-4">
-                <button type="button" className="px-4 py-2 border rounded" onClick={() => setShowModal(false)}>Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Add Item</button>
-              </div>
-            </form>
+              <option value="" className="text-gray-400">
+                Select Category
+              </option>
+              <option value="Main">Main</option>
+              <option value="Topping">Topping</option>
+              <option value="Drink">Drink</option>
+              <option value="Appetizer">Appetizer</option>
+            </select>
           </div>
-        </div>
-      )}
-      {showEditModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white rounded-lg p-8 w-full max-w-md shadow-lg">
-            <h2 className="text-xl font-semibold mb-4">Edit Menu Item</h2>
-            <form onSubmit={handleEditSubmit}>
-              <div className="mb-3">
-                <label className="block mb-1">Name</label>
-                <input className="w-full border rounded px-3 py-2" value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value.slice(0, 50)}))} required maxLength={50} />
-                <p className="text-gray-400 text-sm mt-1">{form.name.length}/50 characters</p>
-              </div>
-              <div className="mb-3">
-                <label className="block mb-1">Type</label>
-                <select className="w-full border rounded px-3 py-2" value={form.type} onChange={e => setForm(f => ({...f, type: e.target.value}))} required>
-                  <option value="" className="text-gray-400">Select Type</option>
-                  <option value="Dish">Dish</option>
-                  <option value="Addon">Addon</option>
-                  <option value="Set">Set</option>
-                </select>
-              </div>
-              <div className="mb-3">
-                <label className="block mb-1">Category</label>
-                <select className="w-full border rounded px-3 py-2" value={form.category} onChange={e => setForm(f => ({...f, category: e.target.value}))} required>
-                  <option value="" className="text-gray-400">Select Category</option>
-                  <option value="Main">Main</option>
-                  <option value="Topping">Topping</option>
-                  <option value="Drink">Drink</option>
-                  <option value="Appetizer">Appetizer</option>
-                </select>
-              </div>
-              <div className="mb-3">
-                <label className="block mb-1">
-                  Price
-                  <span className="ml-1 text-xs text-gray-500 font-normal">
-                    (0–999999, up to 2 decimals)
-                  </span>
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="999999"
-                  step="0.01"
-                  className="w-full border rounded px-3 py-2"
-                  value={form.price}
-                  onChange={e => handlePriceChange(e.target.value)}
-                  placeholder="e.g. 199.99"
-                  required
-                />
-                <p className="text-gray-400 text-xs mt-1">
-                  Price must be between <span className="font-bold">0</span> and{" "}
-                  <span className="font-bold">999999</span>, with at most{" "}
-                  <span className="font-bold">2 decimal places</span>.
-                </p>
-              </div>
-              <div className="mb-3">
-                <label className="block mb-1">Description</label>
-                <input
-                  className="w-full border rounded px-3 py-2"
-                  value={form.description}
-                  onChange={e =>
-                    setForm(f => ({
-                      ...f,
-                      description: e.target.value.slice(0, 300),
-                    }))
-                  }
-                  maxLength={300}
-                />
-                <p className="text-gray-400 text-sm mt-1">
-                  {form.description.length}/300 characters
-                </p>
-              </div>
-
-              <div className="mb-3">
-                <label className="block mb-1">Status</label>
-                <select className="w-full border rounded px-3 py-2" value={form.is_available ? "available" : "unavailable"} onChange={e => setForm(f => ({...f, is_available: e.target.value === "available"}))}>
-                  <option value="available">Available</option>
-                  <option value="unavailable">Unavailable</option>
-                </select>
-              </div>
-              <div className="flex justify-end gap-2 mt-4">
-                <button type="button" className="px-4 py-2 border rounded" onClick={() => setShowEditModal(false)}>Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save Changes</button>
-              </div>
-            </form>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Price
+              <span className="ml-1 text-xs text-gray-500 font-normal">
+                (0–999999, up to 2 decimals)
+              </span>
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="999999"
+              step="0.01"
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              value={form.price}
+              onChange={(e) => handlePriceChange(e.target.value)}
+              placeholder="e.g. 199.99"
+              required
+            />
+            <p className="text-gray-400 text-xs mt-1">
+              Price must be between <span className="font-bold">0</span> and{" "}
+              <span className="font-bold">999999</span>, with at most{" "}
+              <span className="font-bold">2 decimal places</span>.
+            </p>
           </div>
-        </div>
-      )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Description
+            </label>
+            <input
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              value={form.description}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  description: e.target.value.slice(0, 300),
+                }))
+              }
+              maxLength={300}
+            />
+            <p className="text-gray-400 text-xs mt-1">
+              {form.description.length}/300 characters
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Status
+            </label>
+            <select
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+              value={form.is_available ? "available" : "unavailable"}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  is_available: e.target.value === "available",
+                }))
+              }
+              disabled={form.type === "Set"}
+            >
+              <option value="available">Available</option>
+              <option value="unavailable">Unavailable</option>
+            </select>
+            {form.type === "Set" && (
+              <p className="text-gray-500 text-xs mt-1">
+                Set items are always available by default.
+              </p>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 pt-4">
+            <button
+              type="button"
+              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              onClick={() => setShowEditModal(false)}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              Save Changes
+            </button>
+          </div>
+        </form>
+      </Modal>
       <div>
         <div className="mb-6 flex items-center justify-between">
           <div>
@@ -407,7 +554,7 @@ export default function MenuItemsPage() {
                 description: "",
                 price: "",
                 category: "",
-                is_available: true,
+                is_available: true, // Default to available for all new items
               });
               setShowModal(true);
             }}
@@ -513,7 +660,10 @@ export default function MenuItemsPage() {
                           onClick={() =>
                             updateMenuItem({
                               id: item.menu_item_id,
-                              data: { ...item, is_available: !item.is_available },
+                              data: {
+                                ...item,
+                                is_available: !item.is_available,
+                              },
                             })
                           }
                           className={`px-2 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors ${
@@ -534,7 +684,9 @@ export default function MenuItemsPage() {
                             Edit
                           </button>
                           <button
-                            onClick={() => handleDelete(item.menu_item_id, item.name)}
+                            onClick={() =>
+                              handleDelete(item.menu_item_id, item.name)
+                            }
                             className="text-red-600 hover:text-red-900"
                           >
                             Delete

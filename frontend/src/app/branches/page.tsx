@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Layout } from "../../components/Layout";
+import { Layout } from "@/components/layout";
 import {
   useGetBranchesQuery,
   useCreateBranchMutation,
@@ -10,10 +10,9 @@ import {
   useDeleteBranchMutation,
   Branch,
   BranchCreate,
-} from "../../store/api/branchesApi";
+} from "@/store/api/branchesApi";
 
-import { ErrorModal } from "../../components/ErrorModal";
-import { ConfirmModal } from "../../components/ConfirmModal";
+import { ErrorModal, ConfirmModal, BranchModal } from "@/components/modals";
 
 export default function BranchesPage() {
   const router = useRouter(); // Use useRouter for navigation
@@ -31,32 +30,13 @@ export default function BranchesPage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [branchToDelete, setBranchToDelete] = useState<number | null>(null);
 
-  const [formData, setFormData] = useState<BranchCreate>({
-    name: "",
-    address: "",
-    phone: "",
-    is_active: true,
-  });
-
   const handleOpenAdd = () => {
     setEditingBranch(null);
-    setFormData({
-      name: "",
-      address: "",
-      phone: "",
-      is_active: true,
-    });
     setIsModalOpen(true);
   };
 
   const handleOpenEdit = (branch: Branch) => {
     setEditingBranch(branch);
-    setFormData({
-      name: branch.name,
-      address: branch.address,
-      phone: branch.phone,
-      is_active: branch.is_active,
-    });
     setIsModalOpen(true);
   };
 
@@ -79,16 +59,15 @@ export default function BranchesPage() {
     }
   };
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (data: BranchCreate) => {
     try {
       if (editingBranch) {
         await updateBranch({
           id: editingBranch.branch_id,
-          data: formData,
+          data,
         }).unwrap();
       } else {
-        await createBranch(formData).unwrap();
+        await createBranch(data).unwrap();
       }
       setIsModalOpen(false);
     } catch (err: any) {
@@ -100,7 +79,7 @@ export default function BranchesPage() {
         if (Array.isArray(err.data.detail)) {
           // Pydantic validation error array
           const messages = err.data.detail.map((e: any) => {
-            const field = e.loc ? e.loc[e.loc.length - 1] : 'Field';
+            const field = e.loc ? e.loc[e.loc.length - 1] : "Field";
             return `${field}: ${e.msg}`;
           });
           errorMessage = `Validation Error:\n${messages.join("\n")}`;
@@ -114,7 +93,10 @@ export default function BranchesPage() {
     }
   };
 
-  if (isLoading) return <div className="p-8 text-center text-gray-500">Loading branches...</div>;
+  if (isLoading)
+    return (
+      <div className="p-8 text-center text-gray-500">Loading branches...</div>
+    );
   if (error) {
     console.error("Error loading branches:", error);
     // Don't return error UI, just show empty table or "No branches" if that's the result
@@ -127,10 +109,14 @@ export default function BranchesPage() {
 
   return (
     <Layout>
-      {(!branches || branches.length === 0) ? (
+      {!branches || branches.length === 0 ? (
         <div className="text-center py-20">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-4">No branches found</h2>
-          <p className="text-gray-500 mb-8">Get started by creating your first branch.</p>
+          <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+            No branches found
+          </h2>
+          <p className="text-gray-500 mb-8">
+            Get started by creating your first branch.
+          </p>
           <button
             onClick={handleOpenAdd}
             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
@@ -141,7 +127,9 @@ export default function BranchesPage() {
       ) : (
         <div className="bg-white rounded-lg shadow">
           <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50 rounded-t-lg">
-            <h1 className="text-xl font-bold text-gray-800">Branch Management</h1>
+            <h1 className="text-xl font-bold text-gray-800">
+              Branch Management
+            </h1>
             <div className="flex items-center gap-4">
               <label className="flex items-center cursor-pointer">
                 <div className="relative">
@@ -152,12 +140,14 @@ export default function BranchesPage() {
                     onChange={(e) => setShowDeleted(e.target.checked)}
                   />
                   <div
-                    className={`block w-10 h-6 rounded-full transition-colors ${showDeleted ? "bg-blue-500" : "bg-gray-300"
-                      }`}
+                    className={`block w-10 h-6 rounded-full transition-colors ${
+                      showDeleted ? "bg-blue-500" : "bg-gray-300"
+                    }`}
                   ></div>
                   <div
-                    className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${showDeleted ? "transform translate-x-4" : ""
-                      }`}
+                    className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${
+                      showDeleted ? "transform translate-x-4" : ""
+                    }`}
                   ></div>
                 </div>
                 <div className="ml-3 text-sm font-medium text-gray-700">
@@ -201,8 +191,11 @@ export default function BranchesPage() {
                 {displayBranches.map((branch) => (
                   <tr
                     key={branch.branch_id}
-                    className={`transition-colors ${!branch.is_active ? "bg-gray-50 opacity-60" : "hover:bg-gray-50"
-                      }`}
+                    className={`transition-colors ${
+                      !branch.is_active
+                        ? "bg-gray-50 opacity-60"
+                        : "hover:bg-gray-50"
+                    }`}
                   >
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       #{branch.branch_id}
@@ -218,10 +211,11 @@ export default function BranchesPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${branch.is_active
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                          }`}
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          branch.is_active
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800"
+                        }`}
                       >
                         {branch.is_active ? "Active" : "Inactive"}
                       </span>
@@ -244,7 +238,9 @@ export default function BranchesPage() {
                         )}
 
                         <button
-                          onClick={() => router.push(`/branches/${branch.branch_id}`)}
+                          onClick={() =>
+                            router.push(`/branches/${branch.branch_id}`)
+                          }
                           className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded text-sm font-medium transition-colors ml-2"
                         >
                           Details
@@ -259,100 +255,12 @@ export default function BranchesPage() {
         </div>
       )}
 
-      {/* Modal */}
-      {
-        isModalOpen && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black bg-opacity-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-              <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                <h3 className="text-lg font-medium text-gray-900">
-                  {editingBranch ? "Edit Branch" : "Add New Branch"}
-                </h3>
-                <button
-                  onClick={() => setIsModalOpen(false)}
-                  className="text-gray-400 hover:text-gray-500"
-                >
-                  <span className="sr-only">Close</span>
-                  <svg
-                    className="h-6 w-6"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-              <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Branch Name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData(prev => ({ ...prev, name: e.target.value }))
-                    }
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Address
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.address}
-                    onChange={(e) =>
-                      setFormData(prev => ({ ...prev, address: e.target.value }))
-                    }
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Phone
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.phone}
-                    onChange={(e) =>
-                      setFormData(prev => ({ ...prev, phone: e.target.value }))
-                    }
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    minLength={9}
-                    maxLength={15}
-                  />
-                </div>
-                <div className="pt-4 flex justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsModalOpen(false)}
-                    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  >
-                    {editingBranch ? "Save Changes" : "Add Branch"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )
-      }
+      <BranchModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleSubmit}
+        branch={editingBranch}
+      />
 
       <ConfirmModal
         isOpen={isDeleteModalOpen}
@@ -368,6 +276,6 @@ export default function BranchesPage() {
         message={errorModal.message}
         onClose={() => setErrorModal({ ...errorModal, isOpen: false })}
       />
-    </Layout >
+    </Layout>
   );
 }

@@ -51,11 +51,26 @@ export const menuItems: {
         stroke="currentColor"
         viewBox="0 0 24 24"
       >
+        {/* Hamburger bun top */}
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
           strokeWidth={1.4}
-          d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
+          d="M4 8c0-1.1.9-2 2-2h12c1.1 0 2 .9 2 2v1c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2V8z"
+        />
+        {/* Hamburger patty */}
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={1.4}
+          d="M4 12h16M4 13h16"
+        />
+        {/* Hamburger bun bottom */}
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={1.4}
+          d="M4 15c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-1c0-1.1-.9-2-2-2H6c-1.1 0-2 .9-2 2v1z"
         />
       </svg>
     ),

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAppSelector } from "../store/hooks";
+import { useAppSelector } from "@/store/hooks";
 import Sidebar from "./Sidebar";
 
 export function Layout({ children }: { children: React.ReactNode }) {

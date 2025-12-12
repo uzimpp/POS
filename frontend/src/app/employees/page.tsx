@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Layout } from "../../components/Layout";
+import { Layout } from "@/components/layout";
 import {
   useGetEmployeesQuery,
   useDeleteEmployeeMutation,
@@ -9,16 +9,25 @@ import {
   useUpdateEmployeeMutation,
   Employee,
   EmployeeCreate,
-} from "../../store/api/employeesApi";
-import { useGetRolesQuery } from "../../store/api/rolesApi";
-import { useGetBranchesQuery } from "../../store/api/branchesApi";
-import { MultiSelect } from "../../components/MultiSelect";
-import { EmployeeModal } from "../../components/EmployeeModal";
+} from "@/store/api/employeesApi";
+import { useGetRolesQuery } from "@/store/api/rolesApi";
+import { useGetBranchesQuery } from "@/store/api/branchesApi";
+import { MultiSelect } from "@/components/forms";
+import { EmployeeModal } from "@/components/modals";
 
 export default function EmployeesPage() {
-  const [selectedBranchIds, setSelectedBranchIds] = useState<(number | string)[]>([]);
-  const { data: employees, isLoading, error } = useGetEmployeesQuery({
-    branch_ids: selectedBranchIds.length > 0 ? (selectedBranchIds as number[]) : undefined,
+  const [selectedBranchIds, setSelectedBranchIds] = useState<
+    (number | string)[]
+  >([]);
+  const {
+    data: employees,
+    isLoading,
+    error,
+  } = useGetEmployeesQuery({
+    branch_ids:
+      selectedBranchIds.length > 0
+        ? (selectedBranchIds as number[])
+        : undefined,
   });
   const { data: roles } = useGetRolesQuery();
   const { data: branches } = useGetBranchesQuery();
@@ -27,7 +36,9 @@ export default function EmployeesPage() {
   const [updateEmployee] = useUpdateEmployeeMutation();
   const [filterActive, setFilterActive] = useState<string>("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingEmployee, setEditingEmployee] = useState<Employee | undefined>(undefined);
+  const [editingEmployee, setEditingEmployee] = useState<Employee | undefined>(
+    undefined
+  );
 
   const handleCreate = () => {
     setEditingEmployee(undefined);
@@ -42,7 +53,10 @@ export default function EmployeesPage() {
   const handleSubmit = async (data: EmployeeCreate) => {
     try {
       if (editingEmployee) {
-        await updateEmployee({ id: editingEmployee.employee_id, data }).unwrap();
+        await updateEmployee({
+          id: editingEmployee.employee_id,
+          data,
+        }).unwrap();
       } else {
         await createEmployee(data).unwrap();
       }
@@ -66,8 +80,8 @@ export default function EmployeesPage() {
     filterActive === "all"
       ? employees
       : filterActive === "active"
-        ? employees?.filter((emp) => emp.is_active)
-        : employees?.filter((emp) => !emp.is_active);
+      ? employees?.filter((emp) => emp.is_active)
+      : employees?.filter((emp) => !emp.is_active);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -109,7 +123,12 @@ export default function EmployeesPage() {
             <div className="flex gap-2 items-center">
               <div className="z-50">
                 <MultiSelect
-                  options={branches?.map(b => ({ value: b.branch_id, label: b.name })) || []}
+                  options={
+                    branches?.map((b) => ({
+                      value: b.branch_id,
+                      label: b.name,
+                    })) || []
+                  }
                   selectedValues={selectedBranchIds}
                   onChange={setSelectedBranchIds}
                   label=""
@@ -190,10 +209,11 @@ export default function EmployeesPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${employee.is_active
-                            ? "bg-green-100 text-green-800"
-                            : "bg-gray-100 text-gray-800"
-                            }`}
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            employee.is_active
+                              ? "bg-green-100 text-green-800"
+                              : "bg-gray-100 text-gray-800"
+                          }`}
                         >
                           {employee.is_active ? "Active" : "Inactive"}
                         </span>
@@ -237,7 +257,7 @@ export default function EmployeesPage() {
         onSubmit={handleSubmit}
         employee={editingEmployee}
         roles={roles || []}
-        branches={branches?.filter(b => b.is_active) || []}
+        branches={branches?.filter((b) => b.is_active) || []}
       />
     </Layout>
   );

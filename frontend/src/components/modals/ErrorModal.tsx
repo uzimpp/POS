@@ -16,7 +16,7 @@ export const ErrorModal: React.FC<ErrorModalProps> = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 bg-opacity-50">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden transform transition-all">
                 <div className="px-6 py-4 bg-red-50 border-b border-red-100 flex justify-between items-center">
                     <div className="flex items-center gap-3">
