@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from .database import SessionLocal, engine
 from .models import (
-    Role, Employee, Membership, MenuItem, Stock, MenuIngredient, Order, OrderItem, Payment
+    Roles, Employees, Memberships, Menu, Stock, Recipe, Ingredients, Orders, OrderItems, Payments, Branches, Tiers
 )
 from decimal import Decimal
 from datetime import datetime, timedelta
@@ -12,79 +12,138 @@ def seed_database():
     db = SessionLocal()
     try:
         # Clear existing data
-        db.query(Payment).delete()
-        db.query(OrderItem).delete()
-        db.query(Order).delete()
-        db.query(MenuIngredient).delete()
-        db.query(MenuItem).delete()
+        db.query(Payments).delete()
+        db.query(OrderItems).delete()
+        db.query(Orders).delete()
+        db.query(Recipe).delete()
+        db.query(Menu).delete()
         db.query(Stock).delete()
-        db.query(Membership).delete()
-        db.query(Employee).delete()
-        db.query(Role).delete()
+        db.query(Ingredients).delete()
+        db.query(Memberships).delete()
+        db.query(Employees).delete()
+        db.query(Roles).delete()
+        db.query(Tiers).delete()
+        db.query(Branches).delete()
         db.commit()
+
+        # Seed Tiers
+        tiers_data = [
+            {"tier_name": "Bronze", "tier": 0},
+            {"tier_name": "Silver", "tier": 1},
+            {"tier_name": "Gold", "tier": 2},
+            {"tier_name": "Platinum", "tier": 3},
+        ]
+        tiers = []
+        for tier_data in tiers_data:
+            tier = Tiers(**tier_data)
+            db.add(tier)
+            tiers.append(tier)
+        db.commit()
+        for t in tiers:
+            db.refresh(t)
+        tier_dict = {t.tier_name: t for t in tiers}
+
+        # Seed Branches
+        branches_data = [
+            {"name": "Main Branch", "address": "123 Main St",
+                "phone": "021234567", "is_active": True},
+        ]
+        branches = []
+        for branch_data in branches_data:
+            branch = Branches(**branch_data)
+            db.add(branch)
+            branches.append(branch)
+        db.commit()
+        for b in branches:
+            db.refresh(b)
+        main_branch = branches[0]
 
         # Seed Roles
         roles_data = [
-            {"role_name": "Manager", "ranking": 3},
-            {"role_name": "Chef", "ranking": 2},
-            {"role_name": "Cashier", "ranking": 1},
+            {"role_name": "Manager", "seniority": 3},
+            {"role_name": "Chef", "seniority": 2},
+            {"role_name": "Cashier", "seniority": 1},
         ]
         roles = []
         for role_data in roles_data:
-            role = Role(**role_data)
+            role = Roles(**role_data)
             db.add(role)
             roles.append(role)
         db.commit()
-        db.refresh(roles[0])
-        db.refresh(roles[1])
-        db.refresh(roles[2])
+        for r in roles:
+            db.refresh(r)
 
         # Seed Employees
         employees_data = [
-            {"role_id": roles[0].role_id, "first_name": "Somsak",
+            {"branch_id": main_branch.branch_id, "role_id": roles[0].role_id, "first_name": "Somsak",
                 "last_name": "Tan", "is_active": True, "salary": 50000},
-            {"role_id": roles[1].role_id, "first_name": "Niran",
+            {"branch_id": main_branch.branch_id, "role_id": roles[1].role_id, "first_name": "Niran",
                 "last_name": "Wong", "is_active": True, "salary": 35000},
-            {"role_id": roles[1].role_id, "first_name": "Pim",
+            {"branch_id": main_branch.branch_id, "role_id": roles[1].role_id, "first_name": "Pim",
                 "last_name": "Suk", "is_active": True, "salary": 35000},
-            {"role_id": roles[2].role_id, "first_name": "Aom",
+            {"branch_id": main_branch.branch_id, "role_id": roles[2].role_id, "first_name": "Aom",
                 "last_name": "Lee", "is_active": True, "salary": 25000},
         ]
         employees = []
         for emp_data in employees_data:
-            employee = Employee(**emp_data)
+            employee = Employees(**emp_data)
             db.add(employee)
             employees.append(employee)
         db.commit()
         for emp in employees:
             db.refresh(emp)
 
-        # Seed Stock (Ingredients)
+        # Seed Ingredients (master table)
+        ingredients_data = [
+            {"name": "Rice", "base_unit": "g", "is_active": True},
+            {"name": "Curry Paste", "base_unit": "ml", "is_active": True},
+            {"name": "Chicken", "base_unit": "g", "is_active": True},
+            {"name": "Beef", "base_unit": "g", "is_active": True},
+            {"name": "Pork", "base_unit": "g", "is_active": True},
+            {"name": "Mixed Vegetables", "base_unit": "g", "is_active": True},
+            {"name": "Coconut Milk", "base_unit": "ml", "is_active": True},
+            {"name": "Onions", "base_unit": "piece", "is_active": True},
+            {"name": "Potatoes", "base_unit": "piece", "is_active": True},
+            {"name": "Eggs", "base_unit": "piece", "is_active": True},
+            {"name": "Pickled Vegetables", "base_unit": "g", "is_active": True},
+            {"name": "Soft Drink", "base_unit": "piece", "is_active": True},
+        ]
+        ingredients = []
+        for ing_data in ingredients_data:
+            ingredient = Ingredients(**ing_data)
+            db.add(ingredient)
+            ingredients.append(ingredient)
+        db.commit()
+        for ing in ingredients:
+            db.refresh(ing)
+        ingredient_dict = {ing.name: ing for ing in ingredients}
+
+        # Seed Stock (per-branch inventory)
         stock_data = [
-            {"stk_name": "Rice", "amount_remaining": Decimal(
-                "50000"), "unit": "g"},
-            {"stk_name": "Curry Paste", "amount_remaining": Decimal(
-                "10000"), "unit": "ml"},
-            {"stk_name": "Chicken", "amount_remaining": Decimal(
-                "20000"), "unit": "g"},
-            {"stk_name": "Beef", "amount_remaining": Decimal(
-                "15000"), "unit": "g"},
-            {"stk_name": "Pork", "amount_remaining": Decimal(
-                "18000"), "unit": "g"},
-            {"stk_name": "Mixed Vegetables",
-                "amount_remaining": Decimal("12000"), "unit": "g"},
-            {"stk_name": "Coconut Milk",
-                "amount_remaining": Decimal("8000"), "unit": "ml"},
-            {"stk_name": "Onions", "amount_remaining": Decimal(
-                "100"), "unit": "piece"},
-            {"stk_name": "Potatoes", "amount_remaining": Decimal(
-                "80"), "unit": "piece"},
-            {"stk_name": "Eggs", "amount_remaining": Decimal(
-                "200"), "unit": "piece"},
-            {"stk_name": "Pickled Vegetables",
-                "amount_remaining": Decimal("5000"), "unit": "g"},
-            {"stk_name": "Soft Drink", "amount_remaining": Decimal(
-                "100"), "unit": "piece"},
+            {"branch_id": main_branch.branch_id,
+                "ingredient_id": ingredient_dict["Rice"].ingredient_id, "amount_remaining": Decimal("50000")},
+            {"branch_id": main_branch.branch_id,
+                "ingredient_id": ingredient_dict["Curry Paste"].ingredient_id, "amount_remaining": Decimal("10000")},
+            {"branch_id": main_branch.branch_id,
+                "ingredient_id": ingredient_dict["Chicken"].ingredient_id, "amount_remaining": Decimal("20000")},
+            {"branch_id": main_branch.branch_id,
+                "ingredient_id": ingredient_dict["Beef"].ingredient_id, "amount_remaining": Decimal("15000")},
+            {"branch_id": main_branch.branch_id,
+                "ingredient_id": ingredient_dict["Pork"].ingredient_id, "amount_remaining": Decimal("18000")},
+            {"branch_id": main_branch.branch_id,
+                "ingredient_id": ingredient_dict["Mixed Vegetables"].ingredient_id, "amount_remaining": Decimal("12000")},
+            {"branch_id": main_branch.branch_id,
+                "ingredient_id": ingredient_dict["Coconut Milk"].ingredient_id, "amount_remaining": Decimal("8000")},
+            {"branch_id": main_branch.branch_id,
+                "ingredient_id": ingredient_dict["Onions"].ingredient_id, "amount_remaining": Decimal("100")},
+            {"branch_id": main_branch.branch_id,
+                "ingredient_id": ingredient_dict["Potatoes"].ingredient_id, "amount_remaining": Decimal("80")},
+            {"branch_id": main_branch.branch_id,
+                "ingredient_id": ingredient_dict["Eggs"].ingredient_id, "amount_remaining": Decimal("200")},
+            {"branch_id": main_branch.branch_id,
+                "ingredient_id": ingredient_dict["Pickled Vegetables"].ingredient_id, "amount_remaining": Decimal("5000")},
+            {"branch_id": main_branch.branch_id,
+                "ingredient_id": ingredient_dict["Soft Drink"].ingredient_id, "amount_remaining": Decimal("100")},
         ]
         stocks = []
         for stock_item in stock_data:
@@ -95,8 +154,8 @@ def seed_database():
         for stock in stocks:
             db.refresh(stock)
 
-        # Create stock lookup dictionary
-        stock_dict = {s.stk_name: s for s in stocks}
+        # Create stock lookup dictionary (by ingredient name)
+        stock_dict = {s.ingredient.name: s for s in stocks}
 
         # Seed Menu Items
         menu_items_data = [
@@ -129,7 +188,7 @@ def seed_database():
         ]
         menu_items = []
         for item_data in menu_items_data:
-            menu_item = MenuItem(**item_data)
+            menu_item = Menu(**item_data)
             db.add(menu_item)
             menu_items.append(menu_item)
         db.commit()
@@ -139,91 +198,91 @@ def seed_database():
         # Create menu item lookup dictionary
         menu_dict = {m.name: m for m in menu_items}
 
-        # Seed Menu Ingredients
-        menu_ingredients_data = [
+        # Seed Recipes (menu ingredients)
+        recipes_data = [
             # Chicken Curry Rice ingredients
             {"menu_item_id": menu_dict["Chicken Curry Rice"].menu_item_id,
-                "stock_id": stock_dict["Rice"].stock_id, "qty_per_unit": Decimal("200"), "unit": "g"},
+                "ingredient_id": ingredient_dict["Rice"].ingredient_id, "qty_per_unit": Decimal("200")},
             {"menu_item_id": menu_dict["Chicken Curry Rice"].menu_item_id,
-                "stock_id": stock_dict["Curry Paste"].stock_id, "qty_per_unit": Decimal("50"), "unit": "ml"},
+                "ingredient_id": ingredient_dict["Curry Paste"].ingredient_id, "qty_per_unit": Decimal("50")},
             {"menu_item_id": menu_dict["Chicken Curry Rice"].menu_item_id,
-                "stock_id": stock_dict["Chicken"].stock_id, "qty_per_unit": Decimal("150"), "unit": "g"},
+                "ingredient_id": ingredient_dict["Chicken"].ingredient_id, "qty_per_unit": Decimal("150")},
             {"menu_item_id": menu_dict["Chicken Curry Rice"].menu_item_id,
-                "stock_id": stock_dict["Onions"].stock_id, "qty_per_unit": Decimal("0.5"), "unit": "piece"},
+                "ingredient_id": ingredient_dict["Onions"].ingredient_id, "qty_per_unit": Decimal("0.5")},
             {"menu_item_id": menu_dict["Chicken Curry Rice"].menu_item_id,
-                "stock_id": stock_dict["Potatoes"].stock_id, "qty_per_unit": Decimal("1"), "unit": "piece"},
+                "ingredient_id": ingredient_dict["Potatoes"].ingredient_id, "qty_per_unit": Decimal("1")},
             # Beef Curry Rice ingredients
             {"menu_item_id": menu_dict["Beef Curry Rice"].menu_item_id,
-                "stock_id": stock_dict["Rice"].stock_id, "qty_per_unit": Decimal("200"), "unit": "g"},
+                "ingredient_id": ingredient_dict["Rice"].ingredient_id, "qty_per_unit": Decimal("200")},
             {"menu_item_id": menu_dict["Beef Curry Rice"].menu_item_id,
-                "stock_id": stock_dict["Curry Paste"].stock_id, "qty_per_unit": Decimal("50"), "unit": "ml"},
+                "ingredient_id": ingredient_dict["Curry Paste"].ingredient_id, "qty_per_unit": Decimal("50")},
             {"menu_item_id": menu_dict["Beef Curry Rice"].menu_item_id,
-                "stock_id": stock_dict["Beef"].stock_id, "qty_per_unit": Decimal("150"), "unit": "g"},
+                "ingredient_id": ingredient_dict["Beef"].ingredient_id, "qty_per_unit": Decimal("150")},
             {"menu_item_id": menu_dict["Beef Curry Rice"].menu_item_id,
-                "stock_id": stock_dict["Mixed Vegetables"].stock_id, "qty_per_unit": Decimal("100"), "unit": "g"},
+                "ingredient_id": ingredient_dict["Mixed Vegetables"].ingredient_id, "qty_per_unit": Decimal("100")},
             # Pork Curry Rice ingredients
             {"menu_item_id": menu_dict["Pork Curry Rice"].menu_item_id,
-                "stock_id": stock_dict["Rice"].stock_id, "qty_per_unit": Decimal("200"), "unit": "g"},
+                "ingredient_id": ingredient_dict["Rice"].ingredient_id, "qty_per_unit": Decimal("200")},
             {"menu_item_id": menu_dict["Pork Curry Rice"].menu_item_id,
-                "stock_id": stock_dict["Curry Paste"].stock_id, "qty_per_unit": Decimal("50"), "unit": "ml"},
+                "ingredient_id": ingredient_dict["Curry Paste"].ingredient_id, "qty_per_unit": Decimal("50")},
             {"menu_item_id": menu_dict["Pork Curry Rice"].menu_item_id,
-                "stock_id": stock_dict["Pork"].stock_id, "qty_per_unit": Decimal("150"), "unit": "g"},
+                "ingredient_id": ingredient_dict["Pork"].ingredient_id, "qty_per_unit": Decimal("150")},
             {"menu_item_id": menu_dict["Pork Curry Rice"].menu_item_id,
-                "stock_id": stock_dict["Onions"].stock_id, "qty_per_unit": Decimal("0.5"), "unit": "piece"},
+                "ingredient_id": ingredient_dict["Onions"].ingredient_id, "qty_per_unit": Decimal("0.5")},
             # Vegetable Curry Rice ingredients
             {"menu_item_id": menu_dict["Vegetable Curry Rice"].menu_item_id,
-                "stock_id": stock_dict["Rice"].stock_id, "qty_per_unit": Decimal("200"), "unit": "g"},
+                "ingredient_id": ingredient_dict["Rice"].ingredient_id, "qty_per_unit": Decimal("200")},
             {"menu_item_id": menu_dict["Vegetable Curry Rice"].menu_item_id,
-                "stock_id": stock_dict["Curry Paste"].stock_id, "qty_per_unit": Decimal("40"), "unit": "ml"},
+                "ingredient_id": ingredient_dict["Curry Paste"].ingredient_id, "qty_per_unit": Decimal("40")},
             {"menu_item_id": menu_dict["Vegetable Curry Rice"].menu_item_id,
-                "stock_id": stock_dict["Mixed Vegetables"].stock_id, "qty_per_unit": Decimal("200"), "unit": "g"},
+                "ingredient_id": ingredient_dict["Mixed Vegetables"].ingredient_id, "qty_per_unit": Decimal("200")},
             # Curry Rice Combo ingredients
             {"menu_item_id": menu_dict["Curry Rice Combo"].menu_item_id,
-                "stock_id": stock_dict["Rice"].stock_id, "qty_per_unit": Decimal("200"), "unit": "g"},
+                "ingredient_id": ingredient_dict["Rice"].ingredient_id, "qty_per_unit": Decimal("200")},
             {"menu_item_id": menu_dict["Curry Rice Combo"].menu_item_id,
-                "stock_id": stock_dict["Curry Paste"].stock_id, "qty_per_unit": Decimal("50"), "unit": "ml"},
+                "ingredient_id": ingredient_dict["Curry Paste"].ingredient_id, "qty_per_unit": Decimal("50")},
             {"menu_item_id": menu_dict["Curry Rice Combo"].menu_item_id,
-                "stock_id": stock_dict["Chicken"].stock_id, "qty_per_unit": Decimal("150"), "unit": "g"},
+                "ingredient_id": ingredient_dict["Chicken"].ingredient_id, "qty_per_unit": Decimal("150")},
             {"menu_item_id": menu_dict["Curry Rice Combo"].menu_item_id,
-                "stock_id": stock_dict["Soft Drink"].stock_id, "qty_per_unit": Decimal("1"), "unit": "piece"},
+                "ingredient_id": ingredient_dict["Soft Drink"].ingredient_id, "qty_per_unit": Decimal("1")},
             # Extra Meat addon
             {"menu_item_id": menu_dict["Extra Meat"].menu_item_id,
-                "stock_id": stock_dict["Chicken"].stock_id, "qty_per_unit": Decimal("100"), "unit": "g"},
+                "ingredient_id": ingredient_dict["Chicken"].ingredient_id, "qty_per_unit": Decimal("100")},
             # Extra Curry addon
             {"menu_item_id": menu_dict["Extra Curry"].menu_item_id,
-                "stock_id": stock_dict["Curry Paste"].stock_id, "qty_per_unit": Decimal("30"), "unit": "ml"},
+                "ingredient_id": ingredient_dict["Curry Paste"].ingredient_id, "qty_per_unit": Decimal("30")},
             # Fried Egg addon
             {"menu_item_id": menu_dict["Fried Egg"].menu_item_id,
-                "stock_id": stock_dict["Eggs"].stock_id, "qty_per_unit": Decimal("1"), "unit": "piece"},
+                "ingredient_id": ingredient_dict["Eggs"].ingredient_id, "qty_per_unit": Decimal("1")},
             # Pickled Vegetables addon
             {"menu_item_id": menu_dict["Pickled Vegetables"].menu_item_id,
-                "stock_id": stock_dict["Pickled Vegetables"].stock_id, "qty_per_unit": Decimal("50"), "unit": "g"},
+                "ingredient_id": ingredient_dict["Pickled Vegetables"].ingredient_id, "qty_per_unit": Decimal("50")},
         ]
-        for ing_data in menu_ingredients_data:
-            menu_ingredient = MenuIngredient(**ing_data)
-            db.add(menu_ingredient)
+        for recipe_data in recipes_data:
+            recipe = Recipe(**recipe_data)
+            db.add(recipe)
         db.commit()
 
         # Seed Memberships
         memberships_data = [
             {"name": "John Smith", "phone": "0812345678",
-                "email": "john@example.com", "points_balance": 150, "membership_tier": "Gold"},
+                "email": "john@example.com", "points_balance": 150, "tier_id": tier_dict["Gold"].tier_id},
             {"name": "Jane Doe", "phone": "0823456789", "email": "jane@example.com",
-                "points_balance": 80, "membership_tier": "Silver"},
+                "points_balance": 80, "tier_id": tier_dict["Silver"].tier_id},
             {"name": "Bob Johnson", "phone": "0834567890", "email": "bob@example.com",
-                "points_balance": 30, "membership_tier": "Bronze"},
+                "points_balance": 30, "tier_id": tier_dict["Bronze"].tier_id},
             {"name": "Alice Brown", "phone": "0845678901",
-                "email": "alice@example.com", "points_balance": 200, "membership_tier": "Platinum"},
+                "email": "alice@example.com", "points_balance": 200, "tier_id": tier_dict["Platinum"].tier_id},
             {"name": "Charlie Wilson", "phone": "0856789012",
-                "email": "charlie@example.com", "points_balance": 50, "membership_tier": "Silver"},
+                "email": "charlie@example.com", "points_balance": 50, "tier_id": tier_dict["Silver"].tier_id},
             {"name": "Diana Lee", "phone": "0867890123", "email": "diana@example.com",
-                "points_balance": 10, "membership_tier": "Bronze"},
+                "points_balance": 10, "tier_id": tier_dict["Bronze"].tier_id},
             {"name": "Edward Chen", "phone": "0878901234",
-                "email": "edward@example.com", "points_balance": 120, "membership_tier": "Gold"},
+                "email": "edward@example.com", "points_balance": 120, "tier_id": tier_dict["Gold"].tier_id},
         ]
         memberships = []
         for mem_data in memberships_data:
-            membership = Membership(**mem_data)
+            membership = Memberships(**mem_data)
             db.add(membership)
             memberships.append(membership)
         db.commit()
@@ -343,7 +402,8 @@ def seed_database():
                     "status": item_data["status"]
                 })
 
-            order = Order(
+            order = Orders(
+                branch_id=main_branch.branch_id,
                 membership_id=order_data["membership_id"],
                 employee_id=order_data["employee_id"],
                 order_type=order_data["order_type"],
@@ -357,7 +417,7 @@ def seed_database():
 
             # Create order items
             for item_data in order_items_list:
-                order_item = OrderItem(
+                order_item = OrderItems(
                     order_id=order.order_id,
                     menu_item_id=item_data["menu_item_id"],
                     status=item_data["status"],
@@ -370,7 +430,7 @@ def seed_database():
             # Create payment if order is paid
             if order_data["payment"]:
                 payment_data = order_data["payment"]
-                payment = Payment(
+                payment = Payments(
                     order_id=order.order_id,
                     paid_price=payment_data["paid_price"],
                     points_used=payment_data.get("points_used", 0),

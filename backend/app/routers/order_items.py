@@ -40,8 +40,8 @@ def create_order_item(order_item: schemas.OrderItemCreate, db: Session = Depends
         raise HTTPException(status_code=404, detail="Order not found")
 
     # Validate menu item exists and is available
-    menu_item = db.query(models.MenuItems).filter(
-        models.MenuItems.menu_item_id == order_item.menu_item_id
+    menu_item = db.query(models.Menu).filter(
+        models.Menu.menu_item_id == order_item.menu_item_id
     ).first()
     if not menu_item:
         raise HTTPException(status_code=404, detail="Menu item not found")
@@ -91,8 +91,8 @@ def update_order_item(order_item_id: int, order_item: schemas.OrderItemCreate, d
     # Validate menu item exists and is available (if menu_item_id changed)
     menu_item = None
     if order_item.menu_item_id != db_order_item.menu_item_id:
-        menu_item = db.query(models.MenuItems).filter(
-            models.MenuItems.menu_item_id == order_item.menu_item_id
+        menu_item = db.query(models.Menu).filter(
+            models.Menu.menu_item_id == order_item.menu_item_id
         ).first()
         if not menu_item:
             raise HTTPException(status_code=404, detail="Menu item not found")

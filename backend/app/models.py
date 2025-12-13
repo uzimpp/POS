@@ -104,10 +104,25 @@ class Memberships(Base):
 
 
 # -------------------------------------------------
-# Menu Items
+# Ingredients (master table for ingredient definitions)
 # -------------------------------------------------
-class MenuItems(Base):
-    __tablename__ = "menu_items"
+class Ingredients(Base):
+    __tablename__ = "ingredients"
+
+    ingredient_id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False)  # "Chicken", "Rice", "Oil"
+    base_unit = Column(String(20), nullable=False)  # "g", "ml", "piece"
+    is_active = Column(Boolean, default=True, nullable=False)
+
+    recipes = relationship("Recipe", back_populates="ingredient")
+    stock_items = relationship("Stock", back_populates="ingredient")
+
+
+# -------------------------------------------------
+# Menu (renamed from MenuItems)
+# -------------------------------------------------
+class Menu(Base):
+    __tablename__ = "menu"
 
     menu_item_id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
@@ -118,8 +133,7 @@ class MenuItems(Base):
     is_available = Column(Boolean, default=True, nullable=False)
 
     order_items = relationship("OrderItems", back_populates="menu_item")
-    menu_ingredients = relationship(
-        "MenuIngredients", back_populates="menu_item")
+    recipes = relationship("Recipe", back_populates="menu_item")
 
 
 # -------------------------------------------------
@@ -131,30 +145,30 @@ class Stock(Base):
     stock_id = Column(Integer, primary_key=True, index=True)
     branch_id = Column(Integer, ForeignKey(
         "branches.branch_id"), nullable=False)
-    stk_name = Column(String(100), nullable=False)
+    ingredient_id = Column(Integer, ForeignKey(
+        "ingredients.ingredient_id"), nullable=False)
     amount_remaining = Column(DECIMAL(10, 2), nullable=False)
-    unit = Column(String(20), nullable=False)
 
     branch = relationship("Branches", back_populates="stock_items")
-    menu_ingredients = relationship("MenuIngredients", back_populates="stock")
+    ingredient = relationship("Ingredients", back_populates="stock_items")
     stock_movements = relationship("StockMovements", back_populates="stock")
 
 
 # -------------------------------------------------
-# Menu Ingredients (recipe mapping)
+# Recipe (renamed from MenuIngredients, recipe mapping)
 # -------------------------------------------------
-class MenuIngredients(Base):
-    __tablename__ = "menu_ingredients"
+class Recipe(Base):
+    __tablename__ = "recipe"
 
     id = Column(Integer, primary_key=True, index=True)
     menu_item_id = Column(Integer, ForeignKey(
-        "menu_items.menu_item_id"), nullable=False)
-    stock_id = Column(Integer, ForeignKey("stock.stock_id"), nullable=False)
+        "menu.menu_item_id"), nullable=False)
+    ingredient_id = Column(Integer, ForeignKey(
+        "ingredients.ingredient_id"), nullable=False)
     qty_per_unit = Column(DECIMAL(10, 2), nullable=False)
-    unit = Column(String, nullable=False)
 
-    menu_item = relationship("MenuItems", back_populates="menu_ingredients")
-    stock = relationship("Stock", back_populates="menu_ingredients")
+    menu_item = relationship("Menu", back_populates="recipes")
+    ingredient = relationship("Ingredients", back_populates="recipes")
 
 
 # -------------------------------------------------
@@ -193,14 +207,14 @@ class OrderItems(Base):
     order_item_id = Column(Integer, primary_key=True, index=True)
     order_id = Column(Integer, ForeignKey("orders.order_id"), nullable=False)
     menu_item_id = Column(Integer, ForeignKey(
-        "menu_items.menu_item_id"), nullable=False)
+        "menu.menu_item_id"), nullable=False)
     status = Column(String, nullable=False)
     quantity = Column(Integer, nullable=False)
     unit_price = Column(DECIMAL(10, 2), nullable=False)
     line_total = Column(DECIMAL(10, 2), nullable=False)
 
     order = relationship("Orders", back_populates="order_items")
-    menu_item = relationship("MenuItems", back_populates="order_items")
+    menu_item = relationship("Menu", back_populates="order_items")
 
 
 # -------------------------------------------------

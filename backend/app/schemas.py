@@ -124,9 +124,8 @@ class Membership(MembershipBase):
 # =========================
 class StockBase(BaseModel):
     branch_id: int
-    stk_name: str = Field(..., max_length=100)
+    ingredient_id: int
     amount_remaining: Decimal = Field(..., ge=0)
-    unit: str = Field(..., max_length=20)
 
 
 class StockCreate(StockBase):
@@ -136,15 +135,36 @@ class StockCreate(StockBase):
 class Stock(StockBase):
     stock_id: int
     branch: Optional[Branch] = None
+    ingredient: Optional[Ingredient] = None
 
     class Config:
         from_attributes = True
 
 
 # =========================
-# Menu Item Schemas
+# Ingredient Schemas
 # =========================
-class MenuItemBase(BaseModel):
+class IngredientBase(BaseModel):
+    name: str = Field(..., max_length=100)
+    base_unit: str = Field(..., max_length=20)  # "g", "ml", "piece"
+    is_active: bool = True
+
+
+class IngredientCreate(IngredientBase):
+    pass
+
+
+class Ingredient(IngredientBase):
+    ingredient_id: int
+
+    class Config:
+        from_attributes = True
+
+
+# =========================
+# Menu Schemas (renamed from MenuItem)
+# =========================
+class MenuBase(BaseModel):
     name: str = Field(..., max_length=100)
     # dish, addon, set
     type: str = Field(..., max_length=50)
@@ -154,11 +174,11 @@ class MenuItemBase(BaseModel):
     is_available: bool = True
 
 
-class MenuItemCreate(MenuItemBase):
+class MenuCreate(MenuBase):
     pass
 
 
-class MenuItem(MenuItemBase):
+class Menu(MenuBase):
     menu_item_id: int
 
     class Config:
@@ -166,23 +186,22 @@ class MenuItem(MenuItemBase):
 
 
 # =========================
-# Menu Ingredient Schemas
+# Recipe Schemas (renamed from MenuIngredient)
 # =========================
-class MenuIngredientBase(BaseModel):
+class RecipeBase(BaseModel):
     menu_item_id: int
-    stock_id: int
+    ingredient_id: int
     qty_per_unit: Decimal
-    unit: str
 
 
-class MenuIngredientCreate(MenuIngredientBase):
+class RecipeCreate(RecipeBase):
     pass
 
 
-class MenuIngredient(MenuIngredientBase):
+class Recipe(RecipeBase):
     id: int
-    menu_item: Optional[MenuItem] = None
-    stock: Optional[Stock] = None
+    menu_item: Optional[Menu] = None
+    ingredient: Optional[Ingredient] = None
 
     class Config:
         from_attributes = True
@@ -210,7 +229,7 @@ class OrderItemCreate(BaseModel):
 class OrderItem(OrderItemBase):
     order_item_id: int
     order_id: int
-    menu_item: Optional[MenuItem] = None
+    menu_item: Optional[Menu] = None
 
     class Config:
         from_attributes = True
@@ -302,3 +321,5 @@ class StockMovement(StockMovementBase):
 Order.model_rebuild()
 Payment.model_rebuild()
 StockMovement.model_rebuild()
+Recipe.model_rebuild()
+Stock.model_rebuild()

@@ -14,16 +14,19 @@ router = APIRouter(
 
 @router.get("/", response_model=List[schemas.Stock])
 def read_stock_items(
-    branch_ids: Optional[List[int]] = Query(None), 
-    skip: int = 0, 
-    limit: int = 100, 
+    branch_ids: Optional[List[int]] = Query(None),
+    skip: int = 0,
+    limit: int = 100,
     db: Session = Depends(get_db)
 ):
-    query = db.query(models.Stock).options(joinedload(models.Stock.branch))
-    
+    query = db.query(models.Stock).options(
+        joinedload(models.Stock.branch),
+        joinedload(models.Stock.ingredient)
+    )
+
     if branch_ids:
         query = query.filter(models.Stock.branch_id.in_(branch_ids))
-        
+
     return query.offset(skip).limit(limit).all()
 
 

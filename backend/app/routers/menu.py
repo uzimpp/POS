@@ -4,45 +4,45 @@ from typing import List
 from ..database import get_db
 from .. import models, schemas
 
-router = APIRouter(prefix="/api/menu-items", tags=["menu-items"])
+router = APIRouter(prefix="/api/menu", tags=["menu"])
 
 
-@router.get("/", response_model=List[schemas.MenuItem])
+@router.get("/", response_model=List[schemas.Menu])
 def get_menu_items(
     available_only: bool = False,
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db)
 ):
-    query = db.query(models.MenuItems)
+    query = db.query(models.Menu)
     if available_only:
-        query = query.filter(models.MenuItems.is_available == True)
+        query = query.filter(models.Menu.is_available == True)
     menu_items = query.offset(skip).limit(limit).all()
     return menu_items
 
 
-@router.get("/{menu_item_id}", response_model=schemas.MenuItem)
+@router.get("/{menu_item_id}", response_model=schemas.Menu)
 def get_menu_item(menu_item_id: int, db: Session = Depends(get_db)):
-    menu_item = db.query(models.MenuItems).filter(
-        models.MenuItems.menu_item_id == menu_item_id).first()
+    menu_item = db.query(models.Menu).filter(
+        models.Menu.menu_item_id == menu_item_id).first()
     if not menu_item:
         raise HTTPException(status_code=404, detail="Menu item not found")
     return menu_item
 
 
-@router.post("/", response_model=schemas.MenuItem)
-def create_menu_item(menu_item: schemas.MenuItemCreate, db: Session = Depends(get_db)):
-    db_menu_item = models.MenuItems(**menu_item.dict())
+@router.post("/", response_model=schemas.Menu)
+def create_menu_item(menu_item: schemas.MenuCreate, db: Session = Depends(get_db)):
+    db_menu_item = models.Menu(**menu_item.dict())
     db.add(db_menu_item)
     db.commit()
     db.refresh(db_menu_item)
     return db_menu_item
 
 
-@router.put("/{menu_item_id}", response_model=schemas.MenuItem)
-def update_menu_item(menu_item_id: int, menu_item: schemas.MenuItemCreate, db: Session = Depends(get_db)):
-    db_menu_item = db.query(models.MenuItems).filter(
-        models.MenuItems.menu_item_id == menu_item_id).first()
+@router.put("/{menu_item_id}", response_model=schemas.Menu)
+def update_menu_item(menu_item_id: int, menu_item: schemas.MenuCreate, db: Session = Depends(get_db)):
+    db_menu_item = db.query(models.Menu).filter(
+        models.Menu.menu_item_id == menu_item_id).first()
     if not db_menu_item:
         raise HTTPException(status_code=404, detail="Menu item not found")
     for key, value in menu_item.dict().items():
@@ -54,8 +54,8 @@ def update_menu_item(menu_item_id: int, menu_item: schemas.MenuItemCreate, db: S
 
 @router.delete("/{menu_item_id}")
 def delete_menu_item(menu_item_id: int, db: Session = Depends(get_db)):
-    db_menu_item = db.query(models.MenuItems).filter(
-        models.MenuItems.menu_item_id == menu_item_id).first()
+    db_menu_item = db.query(models.Menu).filter(
+        models.Menu.menu_item_id == menu_item_id).first()
     if not db_menu_item:
         raise HTTPException(status_code=404, detail="Menu item not found")
     db.delete(db_menu_item)

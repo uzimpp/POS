@@ -43,8 +43,8 @@ def create_order(order: schemas.OrderCreate, db: Session = Depends(get_db)):
 
     # Validate and fetch menu items, copy prices
     menu_item_ids = [item.menu_item_id for item in order.order_items]
-    menu_items = db.query(models.MenuItems).filter(
-        models.MenuItems.menu_item_id.in_(menu_item_ids)
+    menu_items = db.query(models.Menu).filter(
+        models.Menu.menu_item_id.in_(menu_item_ids)
     ).all()
 
     menu_items_dict = {mi.menu_item_id: mi for mi in menu_items}
@@ -143,8 +143,8 @@ def update_order(order_id: int, order: schemas.OrderCreate, db: Session = Depend
 
     # Validate and fetch menu items, copy prices
     menu_item_ids = [item.menu_item_id for item in order.order_items]
-    menu_items = db.query(models.MenuItems).filter(
-        models.MenuItems.menu_item_id.in_(menu_item_ids)
+    menu_items = db.query(models.Menu).filter(
+        models.Menu.menu_item_id.in_(menu_item_ids)
     ).all()
 
     menu_items_dict = {mi.menu_item_id: mi for mi in menu_items}
