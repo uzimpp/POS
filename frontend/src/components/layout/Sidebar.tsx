@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRef, useEffect, useState } from "react";
-import { menuItems } from "../constants/menuItems";
+import { menuItems } from "@/constants/menuItems";
 
 interface SidebarProps {
   onWidthChange?: (width: number) => void;

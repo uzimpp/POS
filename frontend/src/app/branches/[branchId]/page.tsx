@@ -2,7 +2,7 @@
 
 import { useState, use, FormEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Layout } from "../../../components/Layout";
+import { Layout } from "@/components/layout";
 import {
     useGetEmployeesByBranchQuery,
     useCreateEmployeeMutation,
@@ -10,7 +10,7 @@ import {
     useDeleteEmployeeMutation,
     Employee,
     EmployeeCreate,
-} from "../../../store/api/employeesApi";
+} from "@/store/api/employeesApi";
 import {
     useGetStockByBranchQuery,
     useCreateStockMutation,
@@ -18,17 +18,23 @@ import {
     useDeleteStockMutation,
     Stock,
     StockCreate,
-} from "../../../store/api/stockApi";
-import { useGetBranchesQuery } from "../../../store/api/branchesApi";
-import { useGetRolesQuery } from "../../../store/api/rolesApi";
+} from "@/store/api/stockApi";
+import { useGetBranchesQuery } from "@/store/api/branchesApi";
+import { useGetRolesQuery } from "@/store/api/rolesApi";
 
-import { ConfirmModal } from "../../../components/ConfirmModal";
+import { ConfirmModal } from "@/components/modals";
 
-export default function BranchDetailPage({ params }: { params: Promise<{ branchId: string }> }) {
+export default function BranchDetailPage({
+  params,
+}: {
+  params: Promise<{ branchId: string }>;
+}) {
     const resolvedParams = use(params);
     const branchId = parseInt(resolvedParams.branchId);
     const router = useRouter();
-    const [activeTab, setActiveTab] = useState<"employees" | "stock">("employees");
+  const [activeTab, setActiveTab] = useState<"employees" | "stock">(
+    "employees"
+  );
 
     // Fetch Branch Info (for title)
     const { data: branches } = useGetBranchesQuery();
@@ -40,7 +46,10 @@ export default function BranchDetailPage({ params }: { params: Promise<{ branchI
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50 rounded-t-lg">
                     <div className="flex items-center gap-3">
-                        <button onClick={() => router.back()} className="text-gray-500 hover:text-gray-700">
+            <button
+              onClick={() => router.back()}
+              className="text-gray-500 hover:text-gray-700"
+            >
                             &larr; Back
                         </button>
                         <h1 className="text-xl font-bold text-gray-800">
@@ -50,7 +59,8 @@ export default function BranchDetailPage({ params }: { params: Promise<{ branchI
                     <div className="flex space-x-2">
                         <button
                             onClick={() => setActiveTab("employees")}
-                            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === "employees"
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === "employees"
                                 ? "bg-blue-600 text-white"
                                 : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                                 }`}
@@ -59,7 +69,8 @@ export default function BranchDetailPage({ params }: { params: Promise<{ branchI
                         </button>
                         <button
                             onClick={() => setActiveTab("stock")}
-                            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === "stock"
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === "stock"
                                 ? "bg-blue-600 text-white"
                                 : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                                 }`}
@@ -155,7 +166,10 @@ function EmployeeManager({ branchId }: { branchId: number }) {
         e.preventDefault();
         try {
             if (editingEmployee) {
-                await updateEmployee({ id: editingEmployee.employee_id, data: formData }).unwrap();
+        await updateEmployee({
+          id: editingEmployee.employee_id,
+          data: formData,
+        }).unwrap();
             } else {
                 await createEmployee(formData).unwrap();
             }
@@ -164,10 +178,10 @@ function EmployeeManager({ branchId }: { branchId: number }) {
             console.error(err);
             alert("Failed to save employee");
         }
-    }
+  };
 
     const displayEmployees = employees
-        ? employees.filter(e => showInactive || e.is_active)
+    ? employees.filter((e) => showInactive || e.is_active)
         : [];
 
     if (isLoading) return <div>Loading employees...</div>;
@@ -178,10 +192,17 @@ function EmployeeManager({ branchId }: { branchId: number }) {
                 <h2 className="text-lg font-semibold">Employees</h2>
                 <div className="flex gap-4 items-center">
                     <label className="flex items-center gap-2 cursor-pointer text-sm">
-                        <input type="checkbox" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={showInactive}
+              onChange={(e) => setShowInactive(e.target.checked)}
+            />
                         Show Inactive
                     </label>
-                    <button onClick={handleOpenAdd} className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">
+          <button
+            onClick={handleOpenAdd}
+            className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
+          >
                         + Add Employee
                     </button>
                 </div>
@@ -191,78 +212,171 @@ function EmployeeManager({ branchId }: { branchId: number }) {
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Salary</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                ID
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Name
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Role
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Salary
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Status
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Actions
+              </th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         {displayEmployees.map((emp) => (
-                            <tr key={emp.employee_id} className={!emp.is_active ? "opacity-50 bg-gray-50" : ""}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">#{emp.employee_id}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{emp.first_name} {emp.last_name}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Tier {emp.role?.tier || emp.role_id}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{emp.salary.toLocaleString()}</td>
+              <tr
+                key={emp.employee_id}
+                className={!emp.is_active ? "opacity-50 bg-gray-50" : ""}
+              >
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  #{emp.employee_id}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {emp.first_name} {emp.last_name}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  Tier {emp.role?.tier || emp.role_id}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {emp.salary.toLocaleString()}
+                </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                    <span className={`px-2 py-1 rounded-full text-xs ${emp.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                        {emp.is_active ? 'Active' : 'Inactive'}
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs ${
+                      emp.is_active
+                        ? "bg-green-100 text-green-800"
+                        : "bg-red-100 text-red-800"
+                    }`}
+                  >
+                    {emp.is_active ? "Active" : "Inactive"}
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <button onClick={() => handleOpenEdit(emp)} className="text-blue-600 hover:text-blue-900 mr-3">Edit</button>
+                  <button
+                    onClick={() => handleOpenEdit(emp)}
+                    className="text-blue-600 hover:text-blue-900 mr-3"
+                  >
+                    Edit
+                  </button>
                                     {emp.is_active && (
-                                        <button onClick={() => handleDeleteClick(emp.employee_id)} className="text-red-600 hover:text-red-900">Delete</button>
+                    <button
+                      onClick={() => handleDeleteClick(emp.employee_id)}
+                      className="text-red-600 hover:text-red-900"
+                    >
+                      Delete
+                    </button>
                                     )}
                                 </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
-                {displayEmployees.length === 0 && <p className="text-center py-4 text-gray-500">No employees found.</p>}
+        {displayEmployees.length === 0 && (
+          <p className="text-center py-4 text-gray-500">No employees found.</p>
+        )}
             </div>
 
             {/* Employee Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
                     <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-                        <h3 className="text-lg font-medium mb-4">{editingEmployee ? "Edit Employee" : "Add Employee"}</h3>
+            <h3 className="text-lg font-medium mb-4">
+              {editingEmployee ? "Edit Employee" : "Add Employee"}
+            </h3>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">First Name</label>
-                                    <input type="text" required className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-                                        value={formData.first_name} onChange={e => setFormData({ ...formData, first_name: e.target.value })} />
+                  <label className="block text-sm font-medium text-gray-700">
+                    First Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                    value={formData.first_name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, first_name: e.target.value })
+                    }
+                  />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">Last Name</label>
-                                    <input type="text" required className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-                                        value={formData.last_name} onChange={e => setFormData({ ...formData, last_name: e.target.value })} />
+                  <label className="block text-sm font-medium text-gray-700">
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                    value={formData.last_name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, last_name: e.target.value })
+                    }
+                  />
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700">Role</label>
+                <label className="block text-sm font-medium text-gray-700">
+                  Role
+                </label>
                                 <select
                                     required
                                     className="mt-1 block w-full border border-gray-300 rounded-md p-2"
                                     value={formData.role_id}
-                                    onChange={e => setFormData({ ...formData, role_id: parseInt(e.target.value) })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      role_id: parseInt(e.target.value),
+                    })
+                  }
                                 >
-                                    {roles?.map(role => (
-                                        <option key={role.role_id} value={role.role_id}>{role.role_name}</option>
+                  {roles?.map((role) => (
+                    <option key={role.role_id} value={role.role_id}>
+                      {role.role_name}
+                    </option>
                                     ))}
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700">Salary</label>
-                                <input type="number" required className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-                                    value={formData.salary} onChange={e => setFormData({ ...formData, salary: parseInt(e.target.value) })} />
+                <label className="block text-sm font-medium text-gray-700">
+                  Salary
+                </label>
+                <input
+                  type="number"
+                  required
+                  className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                  value={formData.salary}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      salary: parseInt(e.target.value),
+                    })
+                  }
+                />
                             </div>
                             <div className="flex justify-end gap-2 mt-4">
-                                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 border rounded text-gray-700 hover:bg-gray-50">Cancel</button>
-                                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save</button>
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 border rounded text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Save
+                </button>
                             </div>
                         </form>
                     </div>
@@ -298,7 +412,7 @@ function StockManager({ branchId }: { branchId: number }) {
         branch_id: branchId,
         stk_name: "",
         amount_remaining: 0,
-        unit: "units"
+    unit: "units",
     });
 
     const handleOpenAdd = () => {
@@ -307,7 +421,7 @@ function StockManager({ branchId }: { branchId: number }) {
             branch_id: branchId,
             stk_name: "",
             amount_remaining: 0,
-            unit: "units"
+      unit: "units",
         });
         setIsModalOpen(true);
     };
@@ -318,10 +432,10 @@ function StockManager({ branchId }: { branchId: number }) {
             branch_id: item.branch_id,
             stk_name: item.stk_name,
             amount_remaining: item.amount_remaining,
-            unit: item.unit
+      unit: item.unit,
         });
         setIsModalOpen(true);
-    }
+  };
 
     const handleDeleteClick = (id: number) => {
         setStockToDelete(id);
@@ -345,7 +459,10 @@ function StockManager({ branchId }: { branchId: number }) {
         e.preventDefault();
         try {
             if (editingStock) {
-                await updateStock({ id: editingStock.stock_id, data: formData }).unwrap();
+        await updateStock({
+          id: editingStock.stock_id,
+          data: formData,
+        }).unwrap();
             } else {
                 await createStock(formData).unwrap();
             }
@@ -354,7 +471,7 @@ function StockManager({ branchId }: { branchId: number }) {
             console.error(err);
             alert("Failed to save stock");
         }
-    }
+  };
 
     if (isLoading) return <div>Loading stock...</div>;
 
@@ -362,7 +479,10 @@ function StockManager({ branchId }: { branchId: number }) {
         <div>
             <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-semibold">Stock Inventory</h2>
-                <button onClick={handleOpenAdd} className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">
+        <button
+          onClick={handleOpenAdd}
+          className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
+        >
                     + Add Stock
                 </button>
             </div>
@@ -371,57 +491,133 @@ function StockManager({ branchId }: { branchId: number }) {
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item Name</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                ID
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Item Name
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Quantity
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Unit
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Actions
+              </th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         {stockItems?.map((item) => (
                             <tr key={item.stock_id}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">#{item.stock_id}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.stk_name}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.amount_remaining}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.unit}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  #{item.stock_id}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {item.stk_name}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {item.amount_remaining}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {item.unit}
+                </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <button onClick={() => handleOpenEdit(item)} className="text-blue-600 hover:text-blue-900 mr-3">Edit</button>
-                                    <button onClick={() => handleDeleteClick(item.stock_id)} className="text-red-600 hover:text-red-900">Delete</button>
+                  <button
+                    onClick={() => handleOpenEdit(item)}
+                    className="text-blue-600 hover:text-blue-900 mr-3"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDeleteClick(item.stock_id)}
+                    className="text-red-600 hover:text-red-900"
+                  >
+                    Delete
+                  </button>
                                 </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
-                {stockItems?.length === 0 && <p className="text-center py-4 text-gray-500">No stock items found.</p>}
+        {stockItems?.length === 0 && (
+          <p className="text-center py-4 text-gray-500">
+            No stock items found.
+          </p>
+        )}
             </div>
 
             {/* Stock Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
                     <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-                        <h3 className="text-lg font-medium mb-4">{editingStock ? "Edit Stock Item" : "Add Stock Item"}</h3>
+            <h3 className="text-lg font-medium mb-4">
+              {editingStock ? "Edit Stock Item" : "Add Stock Item"}
+            </h3>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700">Item Name</label>
-                                <input type="text" required className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-                                    value={formData.stk_name} onChange={e => setFormData({ ...formData, stk_name: e.target.value })} />
+                <label className="block text-sm font-medium text-gray-700">
+                  Item Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                  value={formData.stk_name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, stk_name: e.target.value })
+                  }
+                />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">Quantity</label>
-                                    <input type="number" step="0.01" required className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-                                        value={formData.amount_remaining} onChange={e => setFormData({ ...formData, amount_remaining: parseFloat(e.target.value) })} />
+                  <label className="block text-sm font-medium text-gray-700">
+                    Quantity
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                    value={formData.amount_remaining}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        amount_remaining: parseFloat(e.target.value),
+                      })
+                    }
+                  />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">Unit</label>
-                                    <input type="text" required className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-                                        value={formData.unit} onChange={e => setFormData({ ...formData, unit: e.target.value })} />
+                  <label className="block text-sm font-medium text-gray-700">
+                    Unit
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                    value={formData.unit}
+                    onChange={(e) =>
+                      setFormData({ ...formData, unit: e.target.value })
+                    }
+                  />
                                 </div>
                             </div>
                             <div className="flex justify-end gap-2 mt-4">
-                                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 border rounded text-gray-700 hover:bg-gray-50">Cancel</button>
-                                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save</button>
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 border rounded text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Save
+                </button>
                             </div>
                         </form>
                     </div>

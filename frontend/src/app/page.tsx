@@ -1,12 +1,12 @@
 "use client";
 
-import { Layout } from "../components/Layout";
-import { useGetOrdersQuery } from "../store/api/ordersApi";
-import { useGetMenuItemsQuery } from "../store/api/menuItemsApi";
-import { useGetEmployeesQuery } from "../store/api/employeesApi";
-import { useGetMembershipsQuery } from "../store/api/membershipsApi";
-import { useGetPaymentsQuery } from "../store/api/paymentsApi";
-import { useGetStockQuery } from "../store/api/stockApi";
+import { Layout } from "@/components/layout";
+import { useGetOrdersQuery } from "@/store/api/ordersApi";
+import { useGetMenuItemsQuery } from "@/store/api/menuItemsApi";
+import { useGetEmployeesQuery } from "@/store/api/employeesApi";
+import { useGetMembershipsQuery } from "@/store/api/membershipsApi";
+import { useGetPaymentsQuery } from "@/store/api/paymentsApi";
+import { useGetStockQuery } from "@/store/api/stockApi";
 
 function DashboardStats() {
   const { data: orders, isLoading: ordersLoading } = useGetOrdersQuery();

@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Layout } from "../../components/Layout";
+import { Layout } from "@/components/layout";
 import {
   useGetOrdersQuery,
   useDeleteOrderMutation,
-} from "../../store/api/ordersApi";
+} from "@/store/api/ordersApi";
 
 export default function OrdersPage() {
   const { data: orders, isLoading, error } = useGetOrdersQuery();

@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Layout } from "../../components/Layout";
+import { Layout } from "@/components/layout";
 import {
   useGetMembershipsQuery,
   useDeleteMembershipMutation,
-} from "../../store/api/membershipsApi";
+} from "@/store/api/membershipsApi";
 
 export default function MembershipsPage() {
   const { data: memberships, isLoading, error } = useGetMembershipsQuery();
