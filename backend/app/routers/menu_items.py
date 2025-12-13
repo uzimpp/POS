@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List
 from ..database import get_db
@@ -8,8 +8,16 @@ router = APIRouter(prefix="/api/menu-items", tags=["menu-items"])
 
 
 @router.get("/", response_model=List[schemas.MenuItem])
-def get_menu_items(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    menu_items = db.query(models.MenuItems).offset(skip).limit(limit).all()
+def get_menu_items(
+    available_only: bool = False,
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    query = db.query(models.MenuItems)
+    if available_only:
+        query = query.filter(models.MenuItems.is_available == True)
+    menu_items = query.offset(skip).limit(limit).all()
     return menu_items
 
 

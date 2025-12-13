@@ -23,7 +23,8 @@ class Branches(Base):
     branch_id = Column(Integer, primary_key=True, index=True)
     name = Column(String(50), nullable=False)
     address = Column(String(200), nullable=False)
-    phone = Column(String(20), nullable=False)
+    # Thai phone number: 9 digits (company) or 10 digits (mobile)
+    phone = Column(String(10), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
 
     employees = relationship("Employees", back_populates="branch")
@@ -40,7 +41,8 @@ class Roles(Base):
 
     role_id = Column(Integer, primary_key=True, index=True)
     role_name = Column(String(50), nullable=False)
-    seniority = Column(Integer, nullable=False)     # Changed from ranking → tier -> seniority
+    # Changed from ranking → tier -> seniority
+    seniority = Column(Integer, nullable=False)
 
     employees = relationship("Employees", back_populates="role")
 
@@ -89,7 +91,8 @@ class Memberships(Base):
 
     membership_id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
-    phone = Column(String(20), unique=True, nullable=False, index=True)
+    # Thai phone number: 9 digits (company) or 10 digits (mobile)
+    phone = Column(String(10), unique=True, nullable=False, index=True)
     email = Column(String(100), unique=True, nullable=True, index=True)
     joined_at = Column(DateTime, server_default=func.now(), nullable=False)
     points_balance = Column(Integer, default=0, nullable=False)

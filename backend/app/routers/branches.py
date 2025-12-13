@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..database import get_db
+from ..utils.validators import validate_thai_phone
+
 
 router = APIRouter(
     prefix="/api/branches",
@@ -29,6 +31,9 @@ def read_branch(branch_id: int, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=schemas.Branch, status_code=status.HTTP_201_CREATED)
 def create_branch(branch: schemas.BranchCreate, db: Session = Depends(get_db)):
+    # Validate phone number
+    validate_thai_phone(branch.phone)
+
     db_branch = models.Branches(**branch.model_dump())
     db.add(db_branch)
     db.commit()
@@ -43,6 +48,9 @@ def update_branch(branch_id: int, branch_update: schemas.BranchCreate, db: Sessi
         models.Branches.branch_id == branch_id).first()
     if db_branch is None:
         raise HTTPException(status_code=404, detail="Branch not found")
+
+    # Validate phone number
+    validate_thai_phone(branch_update.phone)
 
     for key, value in branch_update.model_dump().items():
         setattr(db_branch, key, value)

@@ -13,7 +13,8 @@ from pydantic import BaseModel, Field
 class BranchBase(BaseModel):
     name: str = Field(..., max_length=50)
     address: str = Field(..., max_length=200)
-    phone: str = Field(..., min_length=9, max_length=15)
+    phone: str = Field(..., min_length=9, max_length=10,
+                       pattern=r"^[0-9]+$", description="Thai phone number: 9 digits (company) or 10 digits (mobile)")
     is_active: bool = True
 
 
@@ -97,8 +98,10 @@ class Employee(EmployeeBase):
 # =========================
 class MembershipBase(BaseModel):
     name: str = Field(..., max_length=100)
-    phone: str = Field(..., min_length=9, max_length=15)
-    email: Optional[str] = Field(None, max_length=100)
+    phone: str = Field(..., min_length=9, max_length=10,
+                       pattern=r"^[0-9]+$", description="Thai phone number: 9 digits (company) or 10 digits (mobile)")
+    email: Optional[str] = Field(
+        None, max_length=100, pattern=r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
     points_balance: int = Field(0, ge=0)
     tier_id: int  # FK → tiers.tier_id
 
@@ -143,7 +146,8 @@ class Stock(StockBase):
 # =========================
 class MenuItemBase(BaseModel):
     name: str = Field(..., max_length=100)
-    type: str = Field(..., max_length=50)                       # dish, addon, set
+    # dish, addon, set
+    type: str = Field(..., max_length=50)
     description: Optional[str] = Field(None, max_length=255)
     price: Decimal = Field(..., ge=0)
     category: str                   # Main, Topping, Drink, Appetizer
@@ -199,8 +203,8 @@ class OrderItemCreate(BaseModel):
     order_id: int
     menu_item_id: int
     quantity: int
-    unit_price: Decimal
     status: str = "PREPARING"
+    # unit_price is NOT included - it will always be copied from menu_item.price
 
 
 class OrderItem(OrderItemBase):

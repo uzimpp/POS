@@ -39,15 +39,33 @@ def create_order_item(order_item: schemas.OrderItemCreate, db: Session = Depends
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    # Calculate line_total
-    line_total = order_item.quantity * order_item.unit_price
+    # Validate menu item exists and is available
+    menu_item = db.query(models.MenuItems).filter(
+        models.MenuItems.menu_item_id == order_item.menu_item_id
+    ).first()
+    if not menu_item:
+        raise HTTPException(status_code=404, detail="Menu item not found")
+    if not menu_item.is_available:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Menu item '{menu_item.name}' (ID: {order_item.menu_item_id}) is not available"
+        )
+    if order_item.quantity <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Quantity must be greater than 0"
+        )
+
+    # Always copy price from menu item (snapshot at time of ordering)
+    unit_price = menu_item.price
+    line_total = order_item.quantity * unit_price
 
     db_order_item = models.OrderItems(
         order_id=order_item.order_id,
         menu_item_id=order_item.menu_item_id,
         status=order_item.status or "PREPARING",
         quantity=order_item.quantity,
-        unit_price=order_item.unit_price,
+        unit_price=unit_price,  # Store the price at time of ordering
         line_total=line_total
     )
     db.add(db_order_item)
@@ -70,13 +88,41 @@ def update_order_item(order_item_id: int, order_item: schemas.OrderItemCreate, d
     if not db_order_item:
         raise HTTPException(status_code=404, detail="Order item not found")
 
-    # Recalculate line_total if quantity or unit_price changed
-    line_total = order_item.quantity * order_item.unit_price
+    # Validate menu item exists and is available (if menu_item_id changed)
+    menu_item = None
+    if order_item.menu_item_id != db_order_item.menu_item_id:
+        menu_item = db.query(models.MenuItems).filter(
+            models.MenuItems.menu_item_id == order_item.menu_item_id
+        ).first()
+        if not menu_item:
+            raise HTTPException(status_code=404, detail="Menu item not found")
+        if not menu_item.is_available:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Menu item '{menu_item.name}' (ID: {order_item.menu_item_id}) is not available"
+            )
+
+    if order_item.quantity <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Quantity must be greater than 0"
+        )
+
+    # Always get price from menu item (if menu_item_id changed, get new price; otherwise keep existing)
+    if order_item.menu_item_id != db_order_item.menu_item_id:
+        # Menu item changed - use the new menu item's current price
+        unit_price = menu_item.price
+    else:
+        # Same menu item - keep the original price snapshot (don't update to current price)
+        unit_price = db_order_item.unit_price
+
+    # Recalculate line_total
+    line_total = order_item.quantity * unit_price
 
     order_id = db_order_item.order_id
     db_order_item.menu_item_id = order_item.menu_item_id
     db_order_item.quantity = order_item.quantity
-    db_order_item.unit_price = order_item.unit_price
+    db_order_item.unit_price = unit_price  # Store the price at time of update
     db_order_item.status = order_item.status or "PREPARING"
     db_order_item.line_total = line_total
 
