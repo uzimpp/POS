@@ -93,79 +93,76 @@ export default function BranchesPage() {
     }
   };
 
-  if (isLoading)
-    return (
-      <div className="p-8 text-center text-gray-500">Loading branches...</div>
-    );
-  if (error) {
-    console.error("Error loading branches:", error);
-    // Don't return error UI, just show empty table or "No branches" if that's the result
-  }
-
   // Filter branches based on toggle
   const displayBranches = branches
     ? branches.filter((b) => showDeleted || b.is_active)
     : [];
 
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center py-12">
+          <div className="text-gray-500">Loading branches...</div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (error) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center py-12">
+          <div className="text-red-500">Error loading branches</div>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
-      {!branches || branches.length === 0 ? (
-        <div className="text-center py-20">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-4">
-            No branches found
-          </h2>
-          <p className="text-gray-500 mb-8">
-            Get started by creating your first branch.
-          </p>
-          <button
-            onClick={handleOpenAdd}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
-          >
-            Add First Branch
-          </button>
-        </div>
-      ) : (
-        <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50 rounded-t-lg">
-            <h1 className="text-xl font-bold text-gray-800">
-              Branch Management
-            </h1>
-            <div className="flex items-center gap-4">
-              <label className="flex items-center cursor-pointer">
-                <div className="relative">
-                  <input
-                    type="checkbox"
-                    className="sr-only"
-                    checked={showDeleted}
-                    onChange={(e) => setShowDeleted(e.target.checked)}
-                  />
-                  <div
-                    className={`block w-10 h-6 rounded-full transition-colors ${
-                      showDeleted ? "bg-blue-500" : "bg-gray-300"
-                    }`}
-                  ></div>
-                  <div
-                    className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${
-                      showDeleted ? "transform translate-x-4" : ""
-                    }`}
-                  ></div>
-                </div>
-                <div className="ml-3 text-sm font-medium text-gray-700">
-                  Show Inactive
-                </div>
-              </label>
-              <button
-                onClick={handleOpenAdd}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
-              >
-                + Add Branch
-              </button>
-            </div>
+      <div>
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800">Branches</h1>
+            <p className="text-gray-600 mt-2">Manage your branch locations</p>
           </div>
+          <div className="flex gap-2 items-center">
+            <label className="flex items-center cursor-pointer">
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  className="sr-only"
+                  checked={showDeleted}
+                  onChange={(e) => setShowDeleted(e.target.checked)}
+                />
+                <div
+                  className={`block w-10 h-6 rounded-full transition-colors ${
+                    showDeleted ? "bg-blue-500" : "bg-gray-300"
+                  }`}
+                ></div>
+                <div
+                  className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${
+                    showDeleted ? "transform translate-x-4" : ""
+                  }`}
+                ></div>
+              </div>
+              <div className="ml-3 text-sm font-medium text-gray-700">
+                Show Inactive
+              </div>
+            </label>
+            <button
+              onClick={handleOpenAdd}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors h-[42px]"
+            >
+              Add Branch
+            </button>
+          </div>
+        </div>
 
+        <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     ID
@@ -188,72 +185,82 @@ export default function BranchesPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {displayBranches.map((branch) => (
-                  <tr
-                    key={branch.branch_id}
-                    className={`transition-colors ${
-                      !branch.is_active
-                        ? "bg-gray-50 opacity-60"
-                        : "hover:bg-gray-50"
-                    }`}
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      #{branch.branch_id}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {branch.name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {branch.address}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {branch.phone}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          branch.is_active
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
-                        }`}
-                      >
-                        {branch.is_active ? "Active" : "Inactive"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleOpenEdit(branch)}
-                          className="text-blue-600 hover:text-blue-900"
+                {displayBranches && displayBranches.length > 0 ? (
+                  displayBranches.map((branch) => (
+                    <tr
+                      key={branch.branch_id}
+                      className={`hover:bg-gray-50 ${
+                        !branch.is_active ? "opacity-60" : ""
+                      }`}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        #{branch.branch_id}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {branch.name}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {branch.address}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {branch.phone}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            branch.is_active
+                              ? "bg-green-100 text-green-800"
+                              : "bg-red-100 text-red-800"
+                          }`}
                         >
-                          Edit
-                        </button>
-                        {branch.is_active && (
+                          {branch.is_active ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex gap-2">
                           <button
-                            onClick={() => handleDeleteClick(branch.branch_id)}
-                            className="text-red-600 hover:text-red-900"
+                            onClick={() => handleOpenEdit(branch)}
+                            className="text-blue-600 hover:text-blue-900"
                           >
-                            Delete
+                            Edit
                           </button>
-                        )}
-
-                        <button
-                          onClick={() =>
-                            router.push(`/branches/${branch.branch_id}`)
-                          }
-                          className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded text-sm font-medium transition-colors ml-2"
-                        >
-                          Details
-                        </button>
-                      </div>
+                          {branch.is_active && (
+                            <button
+                              onClick={() =>
+                                handleDeleteClick(branch.branch_id)
+                              }
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              Delete
+                            </button>
+                          )}
+                          <button
+                            onClick={() =>
+                              router.push(`/branches/${branch.branch_id}`)
+                            }
+                            className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded text-sm font-medium transition-colors"
+                          >
+                            Details
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="px-6 py-4 text-center text-sm text-gray-500"
+                    >
+                      No branches found
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
         </div>
-      )}
+      </div>
 
       <BranchModal
         isOpen={isModalOpen}

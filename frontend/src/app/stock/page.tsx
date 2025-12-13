@@ -12,7 +12,7 @@ import {
 } from "@/store/api/stockApi";
 import { useGetBranchesQuery } from "@/store/api/branchesApi";
 import { MultiSelect } from "@/components/forms";
-import { StockModal } from "@/components/modals";
+import { StockModal, ConfirmModal } from "@/components/modals";
 
 export default function StockPage() {
   const [selectedBranchIds, setSelectedBranchIds] = useState<
@@ -37,6 +37,8 @@ export default function StockPage() {
   const [editingStock, setEditingStock] = useState<Stock | undefined>(
     undefined
   );
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [stockToDelete, setStockToDelete] = useState<number | null>(null);
 
   const handleCreate = () => {
     setEditingStock(undefined);
@@ -61,12 +63,21 @@ export default function StockPage() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (confirm("Are you sure you want to delete this stock item?")) {
+  const handleDeleteClick = (id: number) => {
+    setStockToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (stockToDelete !== null) {
       try {
-        await deleteStockItem(id).unwrap();
+        await deleteStockItem(stockToDelete).unwrap();
+        setIsDeleteModalOpen(false);
+        setStockToDelete(null);
       } catch (err) {
         alert("Failed to delete stock item");
+        setIsDeleteModalOpen(false);
+        setStockToDelete(null);
       }
     }
   };
@@ -221,9 +232,9 @@ export default function StockPage() {
                           <span
                             className={`px-2 py-1 rounded-full text-xs font-medium ${
                               isLowStock
-                                ? "bg-red-100 text-red-800"
-                                : "bg-green-100 text-green-800"
-                            }`}
+                              ? "bg-red-100 text-red-800"
+                              : "bg-green-100 text-green-800"
+                              }`}
                           >
                             {isLowStock ? "Low Stock" : "In Stock"}
                           </span>
@@ -237,7 +248,7 @@ export default function StockPage() {
                               Edit
                             </button>
                             <button
-                              onClick={() => handleDelete(item.stock_id)}
+                              onClick={() => handleDeleteClick(item.stock_id)}
                               className="text-red-600 hover:text-red-900"
                             >
                               Delete
@@ -268,6 +279,17 @@ export default function StockPage() {
         onSubmit={handleSubmit}
         stockItem={editingStock}
         branches={branches?.filter((b) => b.is_active) || []}
+      />
+      <ConfirmModal
+        isOpen={isDeleteModalOpen}
+        title="Delete Stock Item"
+        message="Are you sure you want to delete this stock item? This action cannot be undone."
+        onConfirm={handleConfirmDelete}
+        onCancel={() => {
+          setIsDeleteModalOpen(false);
+          setStockToDelete(null);
+        }}
+        isDestructive={true}
       />
     </Layout>
   );

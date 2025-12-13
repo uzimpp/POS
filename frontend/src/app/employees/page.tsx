@@ -13,7 +13,7 @@ import {
 import { useGetRolesQuery } from "@/store/api/rolesApi";
 import { useGetBranchesQuery } from "@/store/api/branchesApi";
 import { MultiSelect } from "@/components/forms";
-import { EmployeeModal } from "@/components/modals";
+import { EmployeeModal, ConfirmModal } from "@/components/modals";
 
 export default function EmployeesPage() {
   const [selectedBranchIds, setSelectedBranchIds] = useState<
@@ -39,6 +39,8 @@ export default function EmployeesPage() {
   const [editingEmployee, setEditingEmployee] = useState<Employee | undefined>(
     undefined
   );
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [employeeToDelete, setEmployeeToDelete] = useState<number | null>(null);
 
   const handleCreate = () => {
     setEditingEmployee(undefined);
@@ -66,12 +68,21 @@ export default function EmployeesPage() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (confirm("Are you sure you want to delete this employee?")) {
+  const handleDeleteClick = (id: number) => {
+    setEmployeeToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (employeeToDelete !== null) {
       try {
-        await deleteEmployee(id).unwrap();
+        await deleteEmployee(employeeToDelete).unwrap();
+        setIsDeleteModalOpen(false);
+        setEmployeeToDelete(null);
       } catch (err) {
         alert("Failed to delete employee");
+        setIsDeleteModalOpen(false);
+        setEmployeeToDelete(null);
       }
     }
   };
@@ -227,7 +238,9 @@ export default function EmployeesPage() {
                             Edit
                           </button>
                           <button
-                            onClick={() => handleDelete(employee.employee_id)}
+                            onClick={() =>
+                              handleDeleteClick(employee.employee_id)
+                            }
                             className="text-red-600 hover:text-red-900"
                           >
                             Delete
@@ -258,6 +271,17 @@ export default function EmployeesPage() {
         employee={editingEmployee}
         roles={roles || []}
         branches={branches?.filter((b) => b.is_active) || []}
+      />
+      <ConfirmModal
+        isOpen={isDeleteModalOpen}
+        title="Delete Employee"
+        message="Are you sure you want to delete this employee? This action cannot be undone."
+        onConfirm={handleConfirmDelete}
+        onCancel={() => {
+          setIsDeleteModalOpen(false);
+          setEmployeeToDelete(null);
+        }}
+        isDestructive={true}
       />
     </Layout>
   );

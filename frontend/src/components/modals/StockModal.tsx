@@ -24,6 +24,17 @@ export const StockModal: React.FC<StockModalProps> = ({
     unit: "",
     branch_id: 0,
   });
+  const [amountInput, setAmountInput] = useState<string>("");
+  const [errors, setErrors] = useState({
+    stk_name: "",
+    unit: "",
+    branch_id: "",
+  });
+  const [touched, setTouched] = useState({
+    stk_name: false,
+    unit: false,
+    branch_id: false,
+  });
 
   useEffect(() => {
     if (stockItem) {
@@ -33,6 +44,9 @@ export const StockModal: React.FC<StockModalProps> = ({
         unit: stockItem.unit,
         branch_id: stockItem.branch_id,
       });
+      setAmountInput(stockItem.amount_remaining.toString());
+      setErrors({ stk_name: "", unit: "", branch_id: "" });
+      setTouched({ stk_name: false, unit: false, branch_id: false });
     } else {
       setFormData({
         stk_name: "",
@@ -40,12 +54,148 @@ export const StockModal: React.FC<StockModalProps> = ({
         unit: "",
         branch_id: branches.length > 0 ? branches[0].branch_id : 0,
       });
+      setAmountInput("");
+      setErrors({ stk_name: "", unit: "", branch_id: "" });
+      setTouched({ stk_name: false, unit: false, branch_id: false });
     }
   }, [stockItem, isOpen, branches]);
 
+  const validateName = (name: string): string => {
+    if (!name.trim()) {
+      return "Stock name is required";
+    }
+    return "";
+  };
+
+  const validateUnit = (unit: string): string => {
+    if (!unit.trim()) {
+      return "Unit is required";
+    }
+    return "";
+  };
+
+  const validateBranch = (branchId: number): string => {
+    if (branchId === 0) {
+      return "Please select a branch";
+    }
+    return "";
+  };
+
+  const handleNameChange = (value: string) => {
+    setFormData((prev) => ({ ...prev, stk_name: value }));
+    if (touched.stk_name) {
+      setErrors((prev) => ({ ...prev, stk_name: validateName(value) }));
+    }
+  };
+
+  const handleNameBlur = () => {
+    setTouched((prev) => ({ ...prev, stk_name: true }));
+    setErrors((prev) => ({
+      ...prev,
+      stk_name: validateName(formData.stk_name),
+    }));
+  };
+
+  const handleUnitChange = (value: string) => {
+    setFormData((prev) => ({ ...prev, unit: value }));
+    if (touched.unit) {
+      setErrors((prev) => ({ ...prev, unit: validateUnit(value) }));
+    }
+  };
+
+  const handleUnitBlur = () => {
+    setTouched((prev) => ({ ...prev, unit: true }));
+    setErrors((prev) => ({ ...prev, unit: validateUnit(formData.unit) }));
+  };
+
+  const handleBranchChange = (branchId: number) => {
+    setFormData((prev) => ({ ...prev, branch_id: branchId }));
+    if (touched.branch_id) {
+      setErrors((prev) => ({ ...prev, branch_id: validateBranch(branchId) }));
+    }
+  };
+
+  const handleBranchBlur = () => {
+    setTouched((prev) => ({ ...prev, branch_id: true }));
+    setErrors((prev) => ({
+      ...prev,
+      branch_id: validateBranch(formData.branch_id),
+    }));
+  };
+
+  const handleAmountChange = (value: string) => {
+    // Allow empty string for better UX
+    setAmountInput(value);
+
+    // Only update formData if it's a valid number
+    if (value === "" || value === "-") {
+      // Keep empty or allow negative sign for typing
+      return;
+    }
+
+    const numValue = parseFloat(value);
+    if (!isNaN(numValue) && numValue >= 0) {
+      setFormData({
+        ...formData,
+        amount_remaining: numValue,
+      });
+    }
+  };
+
+  const handleAmountBlur = () => {
+    // On blur, ensure we have a valid number
+    if (amountInput === "" || amountInput === "-") {
+      setAmountInput("0");
+      setFormData({
+        ...formData,
+        amount_remaining: 0,
+      });
+    } else {
+      const numValue = parseFloat(amountInput);
+      if (isNaN(numValue) || numValue < 0) {
+        setAmountInput("0");
+        setFormData({
+          ...formData,
+          amount_remaining: 0,
+        });
+      } else {
+        // Normalize the display (remove leading zeros, etc.)
+        setAmountInput(numValue.toString());
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await onSubmit(formData);
+
+    // Mark all fields as touched and validate
+    setTouched({ stk_name: true, unit: true, branch_id: true });
+
+    const nameError = validateName(formData.stk_name);
+    const unitError = validateUnit(formData.unit);
+    const branchError = validateBranch(formData.branch_id);
+
+    setErrors({
+      stk_name: nameError,
+      unit: unitError,
+      branch_id: branchError,
+    });
+
+    // If any errors, don't submit
+    if (nameError || unitError || branchError) {
+      return;
+    }
+
+    // Ensure we have a valid number before submit
+    const finalAmount =
+      amountInput === "" || amountInput === "-"
+        ? 0
+        : parseFloat(amountInput) || 0;
+
+    await onSubmit({
+      ...formData,
+      amount_remaining: finalAmount >= 0 ? finalAmount : 0,
+    });
     onClose();
   };
 
@@ -64,28 +214,36 @@ export const StockModal: React.FC<StockModalProps> = ({
             type="text"
             required
             value={formData.stk_name}
-            onChange={(e) =>
-              setFormData({ ...formData, stk_name: e.target.value })
-            }
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            onChange={(e) => handleNameChange(e.target.value)}
+            onBlur={handleNameBlur}
+            className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+              errors.stk_name && touched.stk_name
+                ? "border-red-300 focus:border-red-500 focus:ring-red-500"
+                : "border-gray-300"
+            }`}
           />
+          {errors.stk_name && touched.stk_name && (
+            <p className="mt-1 text-sm text-red-600">{errors.stk_name}</p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">
             Amount Remaining
           </label>
           <input
-            type="number"
+            type="text"
             required
-            min="0"
-            step="0.01"
-            value={formData.amount_remaining}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                amount_remaining: Number(e.target.value),
-              })
-            }
+            inputMode="decimal"
+            value={amountInput}
+            onChange={(e) => {
+              const value = e.target.value;
+              // Allow: empty, numbers, decimal point, and negative sign (for typing)
+              if (value === "" || /^-?\d*\.?\d*$/.test(value)) {
+                handleAmountChange(value);
+              }
+            }}
+            onBlur={handleAmountBlur}
+            placeholder="0.00"
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
           />
         </div>
@@ -97,9 +255,17 @@ export const StockModal: React.FC<StockModalProps> = ({
             type="text"
             required
             value={formData.unit}
-            onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            onChange={(e) => handleUnitChange(e.target.value)}
+            onBlur={handleUnitBlur}
+            className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+              errors.unit && touched.unit
+                ? "border-red-300 focus:border-red-500 focus:ring-red-500"
+                : "border-gray-300"
+            }`}
           />
+          {errors.unit && touched.unit && (
+            <p className="mt-1 text-sm text-red-600">{errors.unit}</p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">
@@ -107,10 +273,13 @@ export const StockModal: React.FC<StockModalProps> = ({
           </label>
           <select
             value={formData.branch_id}
-            onChange={(e) =>
-              setFormData({ ...formData, branch_id: Number(e.target.value) })
-            }
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            onChange={(e) => handleBranchChange(Number(e.target.value))}
+            onBlur={handleBranchBlur}
+            className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+              errors.branch_id && touched.branch_id
+                ? "border-red-300 focus:border-red-500 focus:ring-red-500"
+                : "border-gray-300"
+            }`}
           >
             <option value={0}>Select Branch</option>
             {branches.map((branch) => (
@@ -119,6 +288,9 @@ export const StockModal: React.FC<StockModalProps> = ({
               </option>
             ))}
           </select>
+          {errors.branch_id && touched.branch_id && (
+            <p className="mt-1 text-sm text-red-600">{errors.branch_id}</p>
+          )}
         </div>
         <div className="flex justify-end gap-2 pt-4">
           <button

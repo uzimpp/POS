@@ -29,6 +29,19 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
     salary: 0,
     is_active: true,
   });
+  const [salaryInput, setSalaryInput] = useState<string>("");
+  const [errors, setErrors] = useState({
+    first_name: "",
+    last_name: "",
+    role_id: "",
+    branch_id: "",
+  });
+  const [touched, setTouched] = useState({
+    first_name: false,
+    last_name: false,
+    role_id: false,
+    branch_id: false,
+  });
 
   useEffect(() => {
     if (employee) {
@@ -40,6 +53,14 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
         salary: employee.salary,
         is_active: employee.is_active,
       });
+      setSalaryInput(employee.salary.toString());
+      setErrors({ first_name: "", last_name: "", role_id: "", branch_id: "" });
+      setTouched({
+        first_name: false,
+        last_name: false,
+        role_id: false,
+        branch_id: false,
+      });
     } else {
       setFormData({
         first_name: "",
@@ -49,12 +70,176 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
         salary: 0,
         is_active: true,
       });
+      setSalaryInput("");
+      setErrors({ first_name: "", last_name: "", role_id: "", branch_id: "" });
+      setTouched({
+        first_name: false,
+        last_name: false,
+        role_id: false,
+        branch_id: false,
+      });
     }
   }, [employee, isOpen, roles, branches]);
 
+  const validateFirstName = (firstName: string): string => {
+    if (!firstName.trim()) {
+      return "First name is required";
+    }
+    return "";
+  };
+
+  const validateLastName = (lastName: string): string => {
+    if (!lastName.trim()) {
+      return "Last name is required";
+    }
+    return "";
+  };
+
+  const validateRole = (roleId: number): string => {
+    if (roleId === 0) {
+      return "Please select a role";
+    }
+    return "";
+  };
+
+  const validateBranch = (branchId: number): string => {
+    if (branchId === 0) {
+      return "Please select a branch";
+    }
+    return "";
+  };
+
+  const handleFirstNameChange = (value: string) => {
+    setFormData((prev) => ({ ...prev, first_name: value }));
+    if (touched.first_name) {
+      setErrors((prev) => ({ ...prev, first_name: validateFirstName(value) }));
+    }
+  };
+
+  const handleFirstNameBlur = () => {
+    setTouched((prev) => ({ ...prev, first_name: true }));
+    setErrors((prev) => ({
+      ...prev,
+      first_name: validateFirstName(formData.first_name),
+    }));
+  };
+
+  const handleLastNameChange = (value: string) => {
+    setFormData((prev) => ({ ...prev, last_name: value }));
+    if (touched.last_name) {
+      setErrors((prev) => ({ ...prev, last_name: validateLastName(value) }));
+    }
+  };
+
+  const handleLastNameBlur = () => {
+    setTouched((prev) => ({ ...prev, last_name: true }));
+    setErrors((prev) => ({
+      ...prev,
+      last_name: validateLastName(formData.last_name),
+    }));
+  };
+
+  const handleRoleChange = (roleId: number) => {
+    setFormData((prev) => ({ ...prev, role_id: roleId }));
+    if (touched.role_id) {
+      setErrors((prev) => ({ ...prev, role_id: validateRole(roleId) }));
+    }
+  };
+
+  const handleRoleBlur = () => {
+    setTouched((prev) => ({ ...prev, role_id: true }));
+    setErrors((prev) => ({ ...prev, role_id: validateRole(formData.role_id) }));
+  };
+
+  const handleBranchChange = (branchId: number) => {
+    setFormData((prev) => ({ ...prev, branch_id: branchId }));
+    if (touched.branch_id) {
+      setErrors((prev) => ({ ...prev, branch_id: validateBranch(branchId) }));
+    }
+  };
+
+  const handleBranchBlur = () => {
+    setTouched((prev) => ({ ...prev, branch_id: true }));
+    setErrors((prev) => ({
+      ...prev,
+      branch_id: validateBranch(formData.branch_id),
+    }));
+  };
+
+  const handleSalaryChange = (value: string) => {
+    setSalaryInput(value);
+
+    if (value === "" || value === "-") {
+      return;
+    }
+
+    const numValue = parseFloat(value);
+    if (!isNaN(numValue) && numValue >= 0) {
+      setFormData({
+        ...formData,
+        salary: numValue,
+      });
+    }
+  };
+
+  const handleSalaryBlur = () => {
+    if (salaryInput === "" || salaryInput === "-") {
+      setSalaryInput("0");
+      setFormData({
+        ...formData,
+        salary: 0,
+      });
+    } else {
+      const numValue = parseFloat(salaryInput);
+      if (isNaN(numValue) || numValue < 0) {
+        setSalaryInput("0");
+        setFormData({
+          ...formData,
+          salary: 0,
+        });
+      } else {
+        setSalaryInput(numValue.toString());
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await onSubmit(formData);
+
+    // Mark all fields as touched and validate
+    setTouched({
+      first_name: true,
+      last_name: true,
+      role_id: true,
+      branch_id: true,
+    });
+
+    const firstNameError = validateFirstName(formData.first_name);
+    const lastNameError = validateLastName(formData.last_name);
+    const roleError = validateRole(formData.role_id);
+    const branchError = validateBranch(formData.branch_id);
+
+    setErrors({
+      first_name: firstNameError,
+      last_name: lastNameError,
+      role_id: roleError,
+      branch_id: branchError,
+    });
+
+    // If any errors, don't submit
+    if (firstNameError || lastNameError || roleError || branchError) {
+      return;
+    }
+
+    const finalSalary =
+      salaryInput === "" || salaryInput === "-"
+        ? 0
+        : parseFloat(salaryInput) || 0;
+
+    await onSubmit({
+      ...formData,
+      salary: finalSalary >= 0 ? finalSalary : 0,
+    });
     onClose();
   };
 
@@ -73,11 +258,17 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
             type="text"
             required
             value={formData.first_name}
-            onChange={(e) =>
-              setFormData({ ...formData, first_name: e.target.value })
-            }
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            onChange={(e) => handleFirstNameChange(e.target.value)}
+            onBlur={handleFirstNameBlur}
+            className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+              errors.first_name && touched.first_name
+                ? "border-red-300 focus:border-red-500 focus:ring-red-500"
+                : "border-gray-300"
+            }`}
           />
+          {errors.first_name && touched.first_name && (
+            <p className="mt-1 text-sm text-red-600">{errors.first_name}</p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">
@@ -87,11 +278,17 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
             type="text"
             required
             value={formData.last_name}
-            onChange={(e) =>
-              setFormData({ ...formData, last_name: e.target.value })
-            }
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            onChange={(e) => handleLastNameChange(e.target.value)}
+            onBlur={handleLastNameBlur}
+            className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+              errors.last_name && touched.last_name
+                ? "border-red-300 focus:border-red-500 focus:ring-red-500"
+                : "border-gray-300"
+            }`}
           />
+          {errors.last_name && touched.last_name && (
+            <p className="mt-1 text-sm text-red-600">{errors.last_name}</p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">
@@ -99,10 +296,13 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
           </label>
           <select
             value={formData.role_id}
-            onChange={(e) =>
-              setFormData({ ...formData, role_id: Number(e.target.value) })
-            }
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            onChange={(e) => handleRoleChange(Number(e.target.value))}
+            onBlur={handleRoleBlur}
+            className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+              errors.role_id && touched.role_id
+                ? "border-red-300 focus:border-red-500 focus:ring-red-500"
+                : "border-gray-300"
+            }`}
           >
             <option value={0}>Select Role</option>
             {roles.map((role) => (
@@ -111,6 +311,9 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
               </option>
             ))}
           </select>
+          {errors.role_id && touched.role_id && (
+            <p className="mt-1 text-sm text-red-600">{errors.role_id}</p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">
@@ -118,10 +321,13 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
           </label>
           <select
             value={formData.branch_id}
-            onChange={(e) =>
-              setFormData({ ...formData, branch_id: Number(e.target.value) })
-            }
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            onChange={(e) => handleBranchChange(Number(e.target.value))}
+            onBlur={handleBranchBlur}
+            className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+              errors.branch_id && touched.branch_id
+                ? "border-red-300 focus:border-red-500 focus:ring-red-500"
+                : "border-gray-300"
+            }`}
           >
             <option value={0}>Select Branch</option>
             {branches.map((branch) => (
@@ -130,19 +336,27 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
               </option>
             ))}
           </select>
+          {errors.branch_id && touched.branch_id && (
+            <p className="mt-1 text-sm text-red-600">{errors.branch_id}</p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">
             Salary
           </label>
           <input
-            type="number"
+            type="text"
             required
-            min="0"
-            value={formData.salary}
-            onChange={(e) =>
-              setFormData({ ...formData, salary: Number(e.target.value) })
-            }
+            inputMode="numeric"
+            value={salaryInput}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value === "" || /^-?\d*\.?\d*$/.test(value)) {
+                handleSalaryChange(value);
+              }
+            }}
+            onBlur={handleSalaryBlur}
+            placeholder="0"
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
           />
         </div>
