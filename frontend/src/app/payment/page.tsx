@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Layout } from "../../components/Layout";
+import { Layout } from "@/components/layout";
 import {
   useGetPaymentsQuery,
   useDeletePaymentMutation,
-} from "../../store/api/paymentsApi";
+} from "@/store/api/paymentsApi";
 
 export default function PaymentPage() {
   const { data: payments, isLoading, error } = useGetPaymentsQuery();
