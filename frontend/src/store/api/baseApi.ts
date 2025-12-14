@@ -7,6 +7,10 @@ export const baseApi = createApi({
   baseQuery: fetchBaseQuery({
     baseUrl: `${API_URL}/api`,
   }),
+  // Refetch data when component remounts or navigates back to page
+  refetchOnMountOrArgChange: true,
+  // Optional: also refetch when window regains focus
+  refetchOnFocus: true,
   tagTypes: [
     "Roles",
     "Employees",
