@@ -13,8 +13,9 @@ from pydantic import BaseModel, Field
 class BranchBase(BaseModel):
     name: str = Field(..., max_length=50)
     address: str = Field(..., max_length=200)
-    phone: str = Field(..., min_length=9, max_length=15)
-    is_active: bool = True
+    phone: str = Field(..., min_length=9, max_length=10,
+                       pattern=r"^[0-9]+$", description="Thai phone number: 9 digits (company) or 10 digits (mobile)")
+    is_deleted: bool = False
 
 
 class BranchCreate(BranchBase):
@@ -74,7 +75,7 @@ class EmployeeBase(BaseModel):
     role_id: int
     first_name: str
     last_name: str
-    is_active: bool = True
+    is_deleted: bool = False
     salary: int = Field(..., ge=0)  # Monthly salary in baht (integer)
 
 
@@ -97,8 +98,10 @@ class Employee(EmployeeBase):
 # =========================
 class MembershipBase(BaseModel):
     name: str = Field(..., max_length=100)
-    phone: str = Field(..., min_length=9, max_length=15)
-    email: Optional[str] = Field(None, max_length=100)
+    phone: str = Field(..., min_length=9, max_length=10,
+                       pattern=r"^[0-9]+$", description="Thai phone number: 9 digits (company) or 10 digits (mobile)")
+    email: Optional[str] = Field(
+        None, max_length=100, pattern=r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
     points_balance: int = Field(0, ge=0)
     tier_id: int  # FK → tiers.tier_id
 
@@ -121,9 +124,9 @@ class Membership(MembershipBase):
 # =========================
 class StockBase(BaseModel):
     branch_id: int
-    stk_name: str = Field(..., max_length=100)
+    ingredient_id: int
     amount_remaining: Decimal = Field(..., ge=0)
-    unit: str = Field(..., max_length=20)
+    is_deleted: bool = False
 
 
 class StockCreate(StockBase):
@@ -133,28 +136,50 @@ class StockCreate(StockBase):
 class Stock(StockBase):
     stock_id: int
     branch: Optional[Branch] = None
+    ingredient: Optional[Ingredient] = None
 
     class Config:
         from_attributes = True
 
 
 # =========================
-# Menu Item Schemas
+# Ingredient Schemas
 # =========================
-class MenuItemBase(BaseModel):
+class IngredientBase(BaseModel):
     name: str = Field(..., max_length=100)
-    type: str = Field(..., max_length=50)                       # dish, addon, set
+    base_unit: str = Field(..., max_length=20)  # "g", "ml", "piece"
+    is_deleted: bool = False
+
+
+class IngredientCreate(IngredientBase):
+    pass
+
+
+class Ingredient(IngredientBase):
+    ingredient_id: int
+
+    class Config:
+        from_attributes = True
+
+
+# =========================
+# Menu Schemas (renamed from MenuItem)
+# =========================
+class MenuBase(BaseModel):
+    name: str = Field(..., max_length=100)
+    # dish, addon, set
+    type: str = Field(..., max_length=50)
     description: Optional[str] = Field(None, max_length=255)
     price: Decimal = Field(..., ge=0)
     category: str                   # Main, Topping, Drink, Appetizer
     is_available: bool = True
 
 
-class MenuItemCreate(MenuItemBase):
+class MenuCreate(MenuBase):
     pass
 
 
-class MenuItem(MenuItemBase):
+class Menu(MenuBase):
     menu_item_id: int
 
     class Config:
@@ -162,23 +187,22 @@ class MenuItem(MenuItemBase):
 
 
 # =========================
-# Menu Ingredient Schemas
+# Recipe Schemas (renamed from MenuIngredient)
 # =========================
-class MenuIngredientBase(BaseModel):
+class RecipeBase(BaseModel):
     menu_item_id: int
-    stock_id: int
+    ingredient_id: int
     qty_per_unit: Decimal
-    unit: str
 
 
-class MenuIngredientCreate(MenuIngredientBase):
+class RecipeCreate(RecipeBase):
     pass
 
 
-class MenuIngredient(MenuIngredientBase):
+class Recipe(RecipeBase):
     id: int
-    menu_item: Optional[MenuItem] = None
-    stock: Optional[Stock] = None
+    menu_item: Optional[Menu] = None
+    ingredient: Optional[Ingredient] = None
 
     class Config:
         from_attributes = True
@@ -199,14 +223,18 @@ class OrderItemCreate(BaseModel):
     order_id: int
     menu_item_id: int
     quantity: int
-    unit_price: Decimal
     status: str = "PREPARING"
+    # unit_price is NOT included - it will always be copied from menu_item.price
+
+
+class OrderItemStatusUpdate(BaseModel):
+    status: str  # PREPARING, DONE, CANCELLED
 
 
 class OrderItem(OrderItemBase):
     order_item_id: int
     order_id: int
-    menu_item: Optional[MenuItem] = None
+    menu_item: Optional[Menu] = None
 
     class Config:
         from_attributes = True
@@ -227,6 +255,12 @@ class OrderCreate(OrderBase):
     order_items: List[OrderItemCreate]
 
 
+class OrderCreateEmpty(BaseModel):
+    branch_id: int
+    employee_id: int
+    order_type: str = "DINE_IN"  # DINE_IN, TAKEAWAY, DELIVERY
+
+
 class Order(OrderBase):
     order_id: int
     created_at: datetime
@@ -237,8 +271,8 @@ class Order(OrderBase):
     branch: Optional[Branch] = None
 
     order_items: List[OrderItem] = []
-    payment: Optional["Payment"] = None
-    stock_movements: List["StockMovement"] = []
+    payment: Optional["PaymentInOrder"] = None
+    stock_movements: List["StockMovementInOrder"] = []
 
     class Config:
         from_attributes = True
@@ -255,13 +289,27 @@ class PaymentBase(BaseModel):
     paid_timestamp: Optional[datetime] = None
 
 
-class PaymentCreate(PaymentBase):
+class PaymentCreate(BaseModel):
     order_id: int
+    # Optional - backend will calculate from order.total_price and points_used
+    paid_price: Optional[Decimal] = None
+    points_used: int = 0
+    payment_method: str             # CASH, QR, CARD, POINTS, etc.
+    payment_ref: Optional[str] = None
+    paid_timestamp: Optional[datetime] = None
 
 
 class Payment(PaymentBase):
     order_id: int
     order: Optional[Order] = None
+
+    class Config:
+        from_attributes = True
+
+
+# Payment schema for nested use in Order (excludes circular order reference)
+class PaymentInOrder(PaymentBase):
+    order_id: int
 
     class Config:
         from_attributes = True
@@ -294,7 +342,22 @@ class StockMovement(StockMovementBase):
         from_attributes = True
 
 
+# StockMovement schema for nested use in Order (excludes circular order reference)
+class StockMovementInOrder(StockMovementBase):
+    movement_id: int
+    created_at: datetime
+    stock: Optional[Stock] = None
+    employee: Optional[Employee] = None
+
+    class Config:
+        from_attributes = True
+
+
 # For Pydantic v2 circular references
 Order.model_rebuild()
 Payment.model_rebuild()
+PaymentInOrder.model_rebuild()
 StockMovement.model_rebuild()
+StockMovementInOrder.model_rebuild()
+Recipe.model_rebuild()
+Stock.model_rebuild()

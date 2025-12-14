@@ -1,5 +1,9 @@
 import { baseApi } from "./baseApi";
 
+// Import Menu type from menuApi instead of duplicating
+import { Menu } from "./menuApi";
+export type MenuItem = Menu;
+
 export interface OrderItem {
   order_item_id: number;
   order_id: number;
@@ -24,6 +28,7 @@ export interface OrderItemCreate {
 
 export interface Order {
   order_id: number;
+  branch_id: number;
   membership_id: number | null;
   employee_id: number;
   created_at: string;
@@ -54,6 +59,7 @@ export interface Order {
 }
 
 export interface OrderCreate {
+  branch_id: number;
   membership_id?: number | null;
   employee_id: number;
   order_type: string;
@@ -61,10 +67,33 @@ export interface OrderCreate {
   order_items: OrderItemCreate[];
 }
 
+export interface OrderCreateEmpty {
+  branch_id: number;
+  employee_id: number;
+  order_type?: string; // DINE_IN, TAKEAWAY, DELIVERY
+}
+
+export interface OrderFilters {
+  status?: string;
+  order_type?: string;
+}
+
 export const ordersApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getOrders: builder.query<Order[], void>({
-      query: () => "/orders",
+    getOrders: builder.query<Order[], OrderFilters | void>({
+      query: (params) => {
+        const searchParams = new URLSearchParams();
+        if (params) {
+          if (params.status) {
+            searchParams.append("status", params.status);
+          }
+          if (params.order_type) {
+            searchParams.append("order_type", params.order_type);
+          }
+        }
+        const queryString = searchParams.toString();
+        return `/orders${queryString ? `?${queryString}` : ""}`;
+      },
       providesTags: ["Orders"],
     }),
     getOrder: builder.query<Order, number>({
@@ -91,12 +120,28 @@ export const ordersApi = baseApi.injectEndpoints({
         "OrderItems",
       ],
     }),
-    deleteOrder: builder.mutation<void, number>({
-      query: (id) => ({
-        url: `/orders/${id}`,
-        method: "DELETE",
+    createEmptyOrder: builder.mutation<Order, OrderCreateEmpty>({
+      query: (body) => ({
+        url: "/orders/empty",
+        method: "POST",
+        body,
       }),
-      invalidatesTags: ["Orders", "OrderItems"],
+      invalidatesTags: ["Orders"],
+    }),
+    cancelOrder: builder.mutation<Order, number>({
+      query: (id) => ({
+        url: `/orders/${id}/cancel`,
+        method: "PUT",
+      }),
+      invalidatesTags: (result, error, id) => [
+        { type: "Orders", id },
+        "Orders",
+        "OrderItems",
+      ],
+    }),
+    getAvailableMenus: builder.query<MenuItem[], void>({
+      query: () => "/menu?available_only=true",
+      providesTags: ["Menus"],
     }),
   }),
 });
@@ -106,5 +151,7 @@ export const {
   useGetOrderQuery,
   useCreateOrderMutation,
   useUpdateOrderMutation,
-  useDeleteOrderMutation,
+  useCreateEmptyOrderMutation,
+  useCancelOrderMutation,
+  useGetAvailableMenusQuery,
 } = ordersApi;

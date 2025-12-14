@@ -11,14 +11,17 @@ try:
 except ImportError:
     # Fallback to sys.path append if PYTHONPATH env var not set correctly for direct script
     import os
-    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+    sys.path.append(os.path.abspath(
+        os.path.join(os.path.dirname(__file__), '../..')))
     from app.schemas import BranchCreate, EmployeeCreate, StockCreate
+
 
 def test_branch_constraints():
     print("Testing Branch Constraints...")
     # 1. Short phone
     try:
-        BranchCreate(name="Test", address="Addr", phone="123", is_active=True)
+        BranchCreate(name="Test", address="Addr",
+                     phone="123", is_deleted=False)
         print("FAIL: Short phone passed validation")
         raise AssertionError("Short phone should have failed")
     except ValidationError:
@@ -26,7 +29,8 @@ def test_branch_constraints():
 
     # 2. Long phone
     try:
-        BranchCreate(name="Test", address="Addr", phone="1"*16, is_active=True)
+        BranchCreate(name="Test", address="Addr",
+                     phone="1"*16, is_deleted=False)
         print("FAIL: Long phone passed validation")
         raise AssertionError("Long phone should have failed")
     except ValidationError:
@@ -34,11 +38,13 @@ def test_branch_constraints():
 
     # 3. Valid phone
     try:
-        BranchCreate(name="Test", address="Addr", phone="0812345678", is_active=True)
+        BranchCreate(name="Test", address="Addr",
+                     phone="0812345678", is_deleted=False)
         print("PASS: Valid phone passed validation")
     except ValidationError as e:
         print(f"FAIL: Valid phone failed validation: {e}")
         raise
+
 
 def test_employee_constraints():
     print("\nTesting Employee Constraints...")
@@ -47,12 +53,13 @@ def test_employee_constraints():
         EmployeeCreate(
             first_name="Test", last_name="User",
             role_id=1, branch_id=1,
-            salary=-1000, is_active=True
+            salary=-1000, is_deleted=False
         )
         print("FAIL: Negative salary passed validation")
         raise AssertionError("Negative salary should have failed")
     except ValidationError:
         print("PASS: Negative salary failed validation")
+
 
 def test_stock_constraints():
     print("\nTesting Stock Constraints...")
@@ -66,6 +73,7 @@ def test_stock_constraints():
         raise AssertionError("Negative amount should have failed")
     except ValidationError:
         print("PASS: Negative amount failed validation")
+
 
 if __name__ == "__main__":
     try:

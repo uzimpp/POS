@@ -1,31 +1,70 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Layout } from "@/components/layout";
 import {
   useGetOrdersQuery,
-  useDeleteOrderMutation,
+  useCreateEmptyOrderMutation,
+  OrderFilters,
 } from "@/store/api/ordersApi";
+import { useGetBranchesQuery } from "@/store/api/branchesApi";
+import { useGetEmployeesQuery } from "@/store/api/employeesApi";
 
 export default function OrdersPage() {
-  const { data: orders, isLoading, error } = useGetOrdersQuery();
-  const [deleteOrder] = useDeleteOrderMutation();
+  const router = useRouter();
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterOrderType, setFilterOrderType] = useState<string>("all");
 
-  const handleDelete = async (id: number) => {
-    if (confirm("Are you sure you want to delete this order?")) {
-      try {
-        await deleteOrder(id).unwrap();
-      } catch (err) {
-        alert("Failed to delete order");
-      }
+  // Build filters object
+  const filters: OrderFilters | undefined = (() => {
+    const filterObj: OrderFilters = {};
+    if (filterStatus !== "all") {
+      filterObj.status = filterStatus;
+    }
+    if (filterOrderType !== "all") {
+      filterObj.order_type = filterOrderType;
+    }
+    return Object.keys(filterObj).length > 0 ? filterObj : undefined;
+  })();
+
+  const { data: orders, isLoading, error } = useGetOrdersQuery(filters);
+  const { data: branches } = useGetBranchesQuery();
+  const { data: employees } = useGetEmployeesQuery();
+  const [createEmptyOrder] = useCreateEmptyOrderMutation();
+  const [selectedBranchId, setSelectedBranchId] = useState<number | null>(null);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(
+    null
+  );
+  const [orderType, setOrderType] = useState<string>("DINE_IN");
+
+  const handleTakeOrder = async () => {
+    if (!selectedBranchId || !selectedEmployeeId) {
+      alert("Please select both branch and employee");
+      return;
+    }
+
+    try {
+      const order = await createEmptyOrder({
+        branch_id: selectedBranchId,
+        employee_id: selectedEmployeeId,
+        order_type: orderType,
+      }).unwrap();
+      router.push(`/orders/${order.order_id}`);
+    } catch (err: any) {
+      alert(err?.data?.detail || "Failed to create order");
     }
   };
 
-  const filteredOrders =
-    filterStatus === "all"
-      ? orders
-      : orders?.filter((order) => order.status === filterStatus);
+  // Filter employees by selected branch
+  const availableEmployees = selectedBranchId
+    ? employees?.filter(
+        (emp) => emp.branch_id === selectedBranchId && !emp.is_deleted
+      )
+    : [];
+
+  // Backend filters orders based on status parameter
+  const filteredOrders = orders || [];
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString("en-US", {
@@ -78,23 +117,115 @@ export default function OrdersPage() {
   return (
     <Layout>
       <div>
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800">Orders</h1>
-            <p className="text-gray-600 mt-2">Manage and view all orders</p>
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-800">Orders</h1>
+              <p className="text-gray-600 mt-2">Manage and view all orders</p>
+            </div>
+            <div className="flex gap-2">
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Status</option>
+                <option value="UNPAID">Unpaid</option>
+                <option value="PAID">Paid</option>
+                <option value="CANCELLED">Cancelled</option>
+              </select>
+              <select
+                value={filterOrderType}
+                onChange={(e) => setFilterOrderType(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Types</option>
+                <option value="DINE_IN">Dine In</option>
+                <option value="TAKEAWAY">Takeaway</option>
+                <option value="DELIVERY">Delivery</option>
+              </select>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">All Status</option>
-              <option value="PENDING">Pending</option>
-              <option value="PAID">Paid</option>
-              <option value="COMPLETED">Completed</option>
-              <option value="CANCELLED">Cancelled</option>
-            </select>
+
+          {/* Take Order Section */}
+          <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">
+              Take New Order
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Branch *
+                </label>
+                <select
+                  value={selectedBranchId || ""}
+                  onChange={(e) => {
+                    setSelectedBranchId(
+                      e.target.value ? Number(e.target.value) : null
+                    );
+                    setSelectedEmployeeId(null); // Reset employee when branch changes
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Select Branch</option>
+                  {branches
+                    ?.filter((b) => !b.is_deleted)
+                    .map((branch) => (
+                      <option key={branch.branch_id} value={branch.branch_id}>
+                        {branch.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Employee *
+                </label>
+                <select
+                  value={selectedEmployeeId || ""}
+                  onChange={(e) =>
+                    setSelectedEmployeeId(
+                      e.target.value ? Number(e.target.value) : null
+                    )
+                  }
+                  disabled={!selectedBranchId}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                >
+                  <option value="">Select Employee</option>
+                  {availableEmployees?.map((employee) => (
+                    <option
+                      key={employee.employee_id}
+                      value={employee.employee_id}
+                    >
+                      {employee.first_name} {employee.last_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Order Type
+                </label>
+                <select
+                  value={orderType}
+                  onChange={(e) => setOrderType(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="DINE_IN">Dine In</option>
+                  <option value="TAKEAWAY">Takeaway</option>
+                  <option value="DELIVERY">Delivery</option>
+                </select>
+              </div>
+              <div className="flex items-end">
+                <button
+                  onClick={handleTakeOrder}
+                  disabled={!selectedBranchId || !selectedEmployeeId}
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  Take Order
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -110,7 +241,7 @@ export default function OrdersPage() {
                     Date
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Customer
+                    Membership
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Employee
@@ -140,7 +271,7 @@ export default function OrdersPage() {
                         {formatDate(order.created_at)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {order.membership?.name || "Walk-in"}
+                        {order.membership?.name || "N/A"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {order.employee
@@ -158,10 +289,12 @@ export default function OrdersPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <button
-                          onClick={() => handleDelete(order.order_id)}
-                          className="text-red-600 hover:text-red-900"
+                          onClick={() =>
+                            router.push(`/orders/${order.order_id}`)
+                          }
+                          className="text-blue-600 hover:text-blue-900"
                         >
-                          Delete
+                          View
                         </button>
                       </td>
                     </tr>

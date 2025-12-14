@@ -1,21 +1,21 @@
 import { useState, useEffect } from "react";
-import { MenuItem, MenuItemCreate } from "@/store/api/menuItemsApi";
+import { Menu, MenuCreate } from "@/store/api/menuApi";
 import { Modal } from "./Modal";
 
-interface MenuItemModalProps {
+interface MenuModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: MenuItemCreate) => Promise<void>;
-  menuItem?: MenuItem | null;
+  onSubmit: (data: MenuCreate) => Promise<void>;
+  menu?: Menu | null;
 }
 
-export const MenuItemModal: React.FC<MenuItemModalProps> = ({
+export const MenuModal: React.FC<MenuModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
-  menuItem,
+  menu,
 }) => {
-  const [formData, setFormData] = useState<MenuItemCreate>({
+  const [formData, setFormData] = useState<MenuCreate>({
     name: "",
     type: "",
     description: "",
@@ -37,14 +37,14 @@ export const MenuItemModal: React.FC<MenuItemModalProps> = ({
   });
 
   useEffect(() => {
-    if (menuItem) {
+    if (menu) {
       setFormData({
-        name: menuItem.name,
-        type: menuItem.type,
-        description: menuItem.description || "",
-        price: menuItem.price,
-        category: menuItem.category,
-        is_available: menuItem.is_available,
+        name: menu.name,
+        type: menu.type,
+        description: menu.description || "",
+        price: menu.price,
+        category: menu.category,
+        is_available: menu.is_available,
       });
       setErrors({ name: "", type: "", category: "", price: "" });
       setTouched({ name: false, type: false, category: false, price: false });
@@ -60,7 +60,7 @@ export const MenuItemModal: React.FC<MenuItemModalProps> = ({
       setErrors({ name: "", type: "", category: "", price: "" });
       setTouched({ name: false, type: false, category: false, price: false });
     }
-  }, [menuItem, isOpen]);
+  }, [menu, isOpen]);
 
   const validateName = (name: string): string => {
     if (!name.trim()) {
@@ -232,7 +232,7 @@ export const MenuItemModal: React.FC<MenuItemModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={menuItem ? "Edit Menu Item" : "Add New Menu Item"}
+      title={menu ? "Edit Menu" : "Add New Menu"}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
@@ -408,7 +408,7 @@ export const MenuItemModal: React.FC<MenuItemModalProps> = ({
             type="submit"
             className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
-            {menuItem ? "Save Changes" : "Add Item"}
+            {menu ? "Save Changes" : "Add Menu"}
           </button>
         </div>
       </form>

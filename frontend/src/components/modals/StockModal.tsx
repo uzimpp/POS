@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Stock, StockCreate } from "@/store/api/stockApi";
 import { Branch } from "@/store/api/branchesApi";
+import { useGetIngredientsQuery } from "@/store/api/ingredientsApi";
 import { Modal } from "./Modal";
 
 interface StockModalProps {
@@ -18,58 +19,47 @@ export const StockModal: React.FC<StockModalProps> = ({
   stockItem,
   branches,
 }) => {
+  const { data: ingredients } = useGetIngredientsQuery();
   const [formData, setFormData] = useState<StockCreate>({
-    stk_name: "",
+    ingredient_id: 0,
     amount_remaining: 0,
-    unit: "",
     branch_id: 0,
   });
   const [amountInput, setAmountInput] = useState<string>("");
   const [errors, setErrors] = useState({
-    stk_name: "",
-    unit: "",
+    ingredient_id: "",
     branch_id: "",
   });
   const [touched, setTouched] = useState({
-    stk_name: false,
-    unit: false,
+    ingredient_id: false,
     branch_id: false,
   });
 
   useEffect(() => {
     if (stockItem) {
       setFormData({
-        stk_name: stockItem.stk_name,
+        ingredient_id: stockItem.ingredient_id,
         amount_remaining: stockItem.amount_remaining,
-        unit: stockItem.unit,
         branch_id: stockItem.branch_id,
       });
       setAmountInput(stockItem.amount_remaining.toString());
-      setErrors({ stk_name: "", unit: "", branch_id: "" });
-      setTouched({ stk_name: false, unit: false, branch_id: false });
+      setErrors({ ingredient_id: "", branch_id: "" });
+      setTouched({ ingredient_id: false, branch_id: false });
     } else {
       setFormData({
-        stk_name: "",
+        ingredient_id: 0,
         amount_remaining: 0,
-        unit: "",
         branch_id: branches.length > 0 ? branches[0].branch_id : 0,
       });
       setAmountInput("");
-      setErrors({ stk_name: "", unit: "", branch_id: "" });
-      setTouched({ stk_name: false, unit: false, branch_id: false });
+      setErrors({ ingredient_id: "", branch_id: "" });
+      setTouched({ ingredient_id: false, branch_id: false });
     }
   }, [stockItem, isOpen, branches]);
 
-  const validateName = (name: string): string => {
-    if (!name.trim()) {
-      return "Stock name is required";
-    }
-    return "";
-  };
-
-  const validateUnit = (unit: string): string => {
-    if (!unit.trim()) {
-      return "Unit is required";
+  const validateIngredient = (ingredientId: number): string => {
+    if (ingredientId === 0) {
+      return "Please select an ingredient";
     }
     return "";
   };
@@ -81,31 +71,22 @@ export const StockModal: React.FC<StockModalProps> = ({
     return "";
   };
 
-  const handleNameChange = (value: string) => {
-    setFormData((prev) => ({ ...prev, stk_name: value }));
-    if (touched.stk_name) {
-      setErrors((prev) => ({ ...prev, stk_name: validateName(value) }));
+  const handleIngredientChange = (ingredientId: number) => {
+    setFormData((prev) => ({ ...prev, ingredient_id: ingredientId }));
+    if (touched.ingredient_id) {
+      setErrors((prev) => ({
+        ...prev,
+        ingredient_id: validateIngredient(ingredientId),
+      }));
     }
   };
 
-  const handleNameBlur = () => {
-    setTouched((prev) => ({ ...prev, stk_name: true }));
+  const handleIngredientBlur = () => {
+    setTouched((prev) => ({ ...prev, ingredient_id: true }));
     setErrors((prev) => ({
       ...prev,
-      stk_name: validateName(formData.stk_name),
+      ingredient_id: validateIngredient(formData.ingredient_id),
     }));
-  };
-
-  const handleUnitChange = (value: string) => {
-    setFormData((prev) => ({ ...prev, unit: value }));
-    if (touched.unit) {
-      setErrors((prev) => ({ ...prev, unit: validateUnit(value) }));
-    }
-  };
-
-  const handleUnitBlur = () => {
-    setTouched((prev) => ({ ...prev, unit: true }));
-    setErrors((prev) => ({ ...prev, unit: validateUnit(formData.unit) }));
   };
 
   const handleBranchChange = (branchId: number) => {
@@ -169,20 +150,18 @@ export const StockModal: React.FC<StockModalProps> = ({
     e.preventDefault();
 
     // Mark all fields as touched and validate
-    setTouched({ stk_name: true, unit: true, branch_id: true });
+    setTouched({ ingredient_id: true, branch_id: true });
 
-    const nameError = validateName(formData.stk_name);
-    const unitError = validateUnit(formData.unit);
+    const ingredientError = validateIngredient(formData.ingredient_id);
     const branchError = validateBranch(formData.branch_id);
 
     setErrors({
-      stk_name: nameError,
-      unit: unitError,
+      ingredient_id: ingredientError,
       branch_id: branchError,
     });
 
     // If any errors, don't submit
-    if (nameError || unitError || branchError) {
+    if (ingredientError || branchError) {
       return;
     }
 
@@ -208,27 +187,37 @@ export const StockModal: React.FC<StockModalProps> = ({
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            Name
+            Ingredient *
           </label>
-          <input
-            type="text"
-            required
-            value={formData.stk_name}
-            onChange={(e) => handleNameChange(e.target.value)}
-            onBlur={handleNameBlur}
+          <select
+            value={formData.ingredient_id}
+            onChange={(e) => handleIngredientChange(Number(e.target.value))}
+            onBlur={handleIngredientBlur}
             className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
-              errors.stk_name && touched.stk_name
+              errors.ingredient_id && touched.ingredient_id
                 ? "border-red-300 focus:border-red-500 focus:ring-red-500"
                 : "border-gray-300"
             }`}
-          />
-          {errors.stk_name && touched.stk_name && (
-            <p className="mt-1 text-sm text-red-600">{errors.stk_name}</p>
+          >
+            <option value={0}>Select Ingredient</option>
+            {ingredients
+              ?.filter((ing) => !ing.is_deleted)
+              .map((ingredient) => (
+                <option
+                  key={ingredient.ingredient_id}
+                  value={ingredient.ingredient_id}
+                >
+                  {ingredient.name} ({ingredient.base_unit})
+                </option>
+              ))}
+          </select>
+          {errors.ingredient_id && touched.ingredient_id && (
+            <p className="mt-1 text-sm text-red-600">{errors.ingredient_id}</p>
           )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            Amount Remaining
+            Amount Remaining *
           </label>
           <input
             type="text"
@@ -246,26 +235,6 @@ export const StockModal: React.FC<StockModalProps> = ({
             placeholder="0.00"
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
           />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Unit
-          </label>
-          <input
-            type="text"
-            required
-            value={formData.unit}
-            onChange={(e) => handleUnitChange(e.target.value)}
-            onBlur={handleUnitBlur}
-            className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
-              errors.unit && touched.unit
-                ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-                : "border-gray-300"
-            }`}
-          />
-          {errors.unit && touched.unit && (
-            <p className="mt-1 text-sm text-red-600">{errors.unit}</p>
-          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">

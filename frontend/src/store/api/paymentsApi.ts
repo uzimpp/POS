@@ -16,17 +16,46 @@ export interface Payment {
 
 export interface PaymentCreate {
   order_id: number;
-  paid_price: string;
+  paid_price?: string | null; // Optional - backend will calculate from order.total_price and points_used
   points_used?: number;
   payment_method: string;
   payment_ref?: string | null;
   paid_timestamp?: string | null;
 }
 
+export interface PaymentFilters {
+  payment_method?: string;
+  year?: number;
+  month?: number;
+  quarter?: number;
+  search?: string;
+}
+
 export const paymentsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getPayments: builder.query<Payment[], void>({
-      query: () => "/payments",
+    getPayments: builder.query<Payment[], PaymentFilters | void>({
+      query: (params) => {
+        const searchParams = new URLSearchParams();
+        if (params) {
+          if (params.payment_method) {
+            searchParams.append("payment_method", params.payment_method);
+          }
+          if (params.year) {
+            searchParams.append("year", params.year.toString());
+          }
+          if (params.month) {
+            searchParams.append("month", params.month.toString());
+          }
+          if (params.quarter) {
+            searchParams.append("quarter", params.quarter.toString());
+          }
+          if (params.search) {
+            searchParams.append("search", params.search);
+          }
+        }
+        const queryString = searchParams.toString();
+        return `/payments${queryString ? `?${queryString}` : ""}`;
+      },
       providesTags: ["Payments"],
     }),
     getPayment: builder.query<Payment, number>({
@@ -58,13 +87,6 @@ export const paymentsApi = baseApi.injectEndpoints({
         "Orders",
       ],
     }),
-    deletePayment: builder.mutation<void, number>({
-      query: (orderId) => ({
-        url: `/payments/${orderId}`,
-        method: "DELETE",
-      }),
-      invalidatesTags: ["Payments", "Orders"],
-    }),
   }),
 });
 
@@ -73,5 +95,4 @@ export const {
   useGetPaymentQuery,
   useCreatePaymentMutation,
   useUpdatePaymentMutation,
-  useDeletePaymentMutation,
 } = paymentsApi;

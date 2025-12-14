@@ -1,13 +1,7 @@
 import { configureStore } from "@reduxjs/toolkit";
+import { setupListeners } from "@reduxjs/toolkit/query";
 import themeReducer from "./themeSlice";
 import { baseApi } from "./api/baseApi";
-import { rolesApi } from "./api/rolesApi";
-import { employeesApi } from "./api/employeesApi";
-import { membershipsApi } from "./api/membershipsApi";
-import { stockApi } from "./api/stockApi";
-import { menuItemsApi } from "./api/menuItemsApi";
-import { ordersApi } from "./api/ordersApi";
-import { paymentsApi } from "./api/paymentsApi";
 
 export const store = configureStore({
   reducer: {
@@ -17,6 +11,9 @@ export const store = configureStore({
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware().concat(baseApi.middleware),
 });
+
+// Enable refetchOnFocus and refetchOnReconnect behaviors
+setupListeners(store.dispatch);
 
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;
