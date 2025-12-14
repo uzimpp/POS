@@ -336,7 +336,7 @@ def feed_ingredients(db: Session, data: dict) -> dict:
                     ingredient_id=csv_ing_id,
                     name=row.get('name'),
                     base_unit=row.get('base_unit'),
-                    is_deleted=not parse_boolean(row.get('is_deleted', 'false'))
+                    is_deleted=parse_boolean(row.get('is_deleted', 'false'))
                 )
                 db.add(ingredient)
                 db.commit()
