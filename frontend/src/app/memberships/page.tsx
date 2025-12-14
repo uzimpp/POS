@@ -286,7 +286,7 @@ export default function MembershipsPage() {
   return (
     <Layout>
       {showModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+        <div className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-50">
           <div className="bg-white rounded-lg p-8 w-full max-w-md shadow-lg">
             <h2 className="text-xl font-semibold mb-4">Add New Membership</h2>
             <form
@@ -530,7 +530,7 @@ export default function MembershipsPage() {
       )}
       {/* Manage Tiers Modal */}
       {showTierModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+        <div className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-50">
           <div className="bg-white rounded-lg w-full max-w-3xl shadow-lg max-h-[90vh] overflow-y-auto">
             <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50 sticky top-0">
               <h2 className="text-xl font-bold text-gray-800">Manage Tiers</h2>
