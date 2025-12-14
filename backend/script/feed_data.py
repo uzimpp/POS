@@ -17,8 +17,8 @@ from sqlalchemy import exists, text
 from app.database import SessionLocal, engine
 from app.models import (
     Branches, Roles, Employees, Tiers, Memberships,
-    MenuItems, Stock, MenuIngredients, Orders, OrderItems,
-    Payments, StockMovements
+    Menu, Stock, Recipe, Orders, OrderItems,
+    Payments, StockMovements, Ingredients
 )
 
 
@@ -80,6 +80,13 @@ def parse_string(value: str) -> str:
     return value.strip()
 
 
+def clean_phone(value: str) -> str:
+    """Remove dashes and spaces from phone number"""
+    if not value:
+        return None
+    return value.replace('-', '').replace(' ', '').strip()
+
+
 def feed_branches(db: Session, data: dict) -> dict:
     """Feed branches data"""
     branches_map = {}
@@ -100,16 +107,17 @@ def feed_branches(db: Session, data: dict) -> dict:
                     branch_id=csv_branch_id,
                     name=row.get('name'),
                     address=row.get('address'),
-                    phone=row.get('phone'),
-                    is_active=parse_boolean(row.get('is_active', 'true'))
+                    phone=clean_phone(row.get('phone')),
+                    is_deleted=not parse_boolean(row.get('is_active', 'true'))
                 )
                 db.add(branch)
-                db.flush()
+                db.commit() # Commit each branch immediately
                 branches_map[row.get('branch_id')] = branch.branch_id
                 print(f"  Added branch: {branch.name} (ID: {branch.branch_id})")
             except IntegrityError as e:
+                db.rollback() # Rollback only this transaction (since we committed previous ones)
                 print(f"  Branch already exists (duplicate), skipping: {row.get('name')}")
-                db.rollback()
+                
                 # Try to get existing branch
                 if csv_branch_id:
                     existing = db.query(Branches).filter(Branches.branch_id == csv_branch_id).first()
@@ -117,8 +125,8 @@ def feed_branches(db: Session, data: dict) -> dict:
                         branches_map[row.get('branch_id')] = existing.branch_id
                 continue
             except Exception as e:
-                print(f"  Failed to add branch {row.get('name')} (skipping): {e}")
                 db.rollback()
+                print(f"  Failed to add branch {row.get('name')} (skipping): {e}")
                 continue  # Continue instead of raise to allow other branches to be inserted
     return branches_map
 
@@ -147,20 +155,18 @@ def feed_roles(db: Session, data: dict) -> dict:
                 
                 # Use raw SQL insert to map CSV 'tier' to database 'seniority'
                 tier_value = parse_int(row.get('tier'))
-                db.execute(
-                    text("INSERT INTO roles (role_id, role_name, seniority) VALUES (:role_id, :role_name, :seniority)"),
-                    {
-                        "role_id": csv_role_id,
-                        "role_name": row.get('role_name'),
-                        "seniority": tier_value
-                    }
+                role = Roles(
+                    role_id=csv_role_id,
+                    role_name=row.get('role_name'),
+                    seniority=tier_value
                 )
-                db.flush()
-                roles_map[row.get('role_id')] = csv_role_id
-                print(f"  Added role: {row.get('role_name')} (ID: {csv_role_id})")
+                db.add(role)
+                db.commit()
+                roles_map[row.get('role_id')] = role.role_id
+                print(f"  Added role: {role.role_name} (ID: {role.role_id})")
             except IntegrityError as e:
-                print(f"  Role already exists (duplicate), skipping: {row.get('role_name')}")
                 db.rollback()
+                print(f"  Role already exists (duplicate), skipping: {row.get('role_name')}")
                 if csv_role_id:
                     try:
                         result = db.execute(
@@ -173,8 +179,8 @@ def feed_roles(db: Session, data: dict) -> dict:
                         pass
                 continue
             except Exception as e:
-                print(f"  Failed to add role {row.get('role_name')} (skipping): {e}")
                 db.rollback()
+                print(f"  Failed to add role {row.get('role_name')} (skipping): {e}")
                 continue  # Continue instead of raise to allow other roles to be inserted
     return roles_map
 
@@ -201,20 +207,20 @@ def feed_tiers(db: Session, data: dict) -> dict:
                     tier=parse_int(row.get('tier'))
                 )
                 db.add(tier)
-                db.flush()
+                db.commit()
                 tiers_map[row.get('tier_id')] = tier.tier_id
                 print(f"  Added tier: {tier.tier_name} (ID: {tier.tier_id})")
             except IntegrityError as e:
-                print(f"  Tier already exists (duplicate), skipping: {row.get('tier_name')}")
                 db.rollback()
+                print(f"  Tier already exists (duplicate), skipping: {row.get('tier_name')}")
                 if csv_tier_id:
                     existing = db.query(Tiers).filter(Tiers.tier_id == csv_tier_id).first()
                     if existing:
                         tiers_map[row.get('tier_id')] = existing.tier_id
                 continue
             except Exception as e:
-                print(f"  Failed to add tier {row.get('tier_name')} (skipping): {e}")
                 db.rollback()
+                print(f"  Failed to add tier {row.get('tier_name')} (skipping): {e}")
                 continue  # Continue instead of raise to allow other tiers to be inserted
     return tiers_map
 
@@ -244,24 +250,24 @@ def feed_employees(db: Session, data: dict, branches_map: dict, roles_map: dict)
                     first_name=row.get('first_name'),
                     last_name=row.get('last_name'),
                     salary=parse_int(row.get('salary')),
-                    is_active=parse_boolean(row.get('is_active', 'true')),
+                    is_deleted=not parse_boolean(row.get('is_active', 'true')),
                     joined_date=parse_datetime(row.get('joined_date')) if row.get('joined_date') else None
                 )
                 db.add(employee)
-                db.flush()
+                db.commit()
                 employees_map[row.get('employee_id')] = employee.employee_id
                 print(f"  Added employee: {employee.first_name} {employee.last_name} (ID: {employee.employee_id})")
             except IntegrityError as e:
-                print(f"  Employee already exists (duplicate), skipping: {row.get('first_name')} {row.get('last_name')}")
                 db.rollback()
+                print(f"  Employee already exists (duplicate), skipping: {row.get('first_name')} {row.get('last_name')}")
                 if csv_employee_id:
                     existing = db.query(Employees).filter(Employees.employee_id == csv_employee_id).first()
                     if existing:
                         employees_map[row.get('employee_id')] = existing.employee_id
                 continue
             except Exception as e:
-                print(f"  Failed to add employee {row.get('first_name')} {row.get('last_name')} (skipping): {e}")
                 db.rollback()
+                print(f"  Failed to add employee {row.get('first_name')} {row.get('last_name')} (skipping): {e}")
                 continue  # Continue instead of raise to allow other employees to be inserted
     return employees_map
 
@@ -286,29 +292,69 @@ def feed_memberships(db: Session, data: dict, tiers_map: dict) -> dict:
                 membership = Memberships(
                     membership_id=csv_membership_id,
                     name=row.get('name'),
-                    phone=row.get('phone'),
+                    phone=clean_phone(row.get('phone')),
                     email=parse_string(row.get('email')),  # Handle nullable email
                     points_balance=parse_int(row.get('points_balance', '0')),
                     tier_id=parse_int(tier_id) if tier_id else None,
                     joined_at=parse_datetime(row.get('joined_at')) if row.get('joined_at') else None
                 )
                 db.add(membership)
-                db.flush()
+                db.commit()
                 memberships_map[row.get('membership_id')] = membership.membership_id
                 print(f"  Added membership: {membership.name} (ID: {membership.membership_id})")
             except IntegrityError as e:
-                print(f"  Membership already exists (duplicate phone/email), skipping: {row.get('name')}")
                 db.rollback()
+                print(f"  Membership already exists (duplicate phone/email), skipping: {row.get('name')}")
                 if csv_membership_id:
                     existing = db.query(Memberships).filter(Memberships.membership_id == csv_membership_id).first()
                     if existing:
                         memberships_map[row.get('membership_id')] = existing.membership_id
                 continue
             except Exception as e:
-                print(f"  Failed to add membership {row.get('name')} (skipping): {e}")
                 db.rollback()
+                print(f"  Failed to add membership {row.get('name')} (skipping): {e}")
                 continue  # Continue instead of raise to allow other memberships to be inserted
     return memberships_map
+
+
+def feed_ingredients(db: Session, data: dict) -> dict:
+    """Feed ingredients data"""
+    ingredients_map = {}
+    if 'ingredients' in data:
+        for row in data['ingredients']:
+            try:
+                csv_ing_id = parse_int(row.get('ingredient_id')) if row.get('ingredient_id') else None
+                
+                if csv_ing_id:
+                    existing = db.query(Ingredients).filter(Ingredients.ingredient_id == csv_ing_id).first()
+                    if existing:
+                        print(f"  Ingredient ID {csv_ing_id} already exists, skipping: {existing.name}")
+                        ingredients_map[row.get('ingredient_id')] = existing.ingredient_id
+                        continue
+
+                ingredient = Ingredients(
+                    ingredient_id=csv_ing_id,
+                    name=row.get('name'),
+                    base_unit=row.get('base_unit'),
+                    is_deleted=not parse_boolean(row.get('is_deleted', 'false'))
+                )
+                db.add(ingredient)
+                db.commit()
+                ingredients_map[row.get('ingredient_id')] = ingredient.ingredient_id
+                print(f"  Added ingredient: {ingredient.name} (ID: {ingredient.ingredient_id})")
+            except IntegrityError as e:
+                db.rollback()
+                print(f"  Ingredient already exists (duplicate), skipping: {row.get('name')}")
+                if csv_ing_id:
+                    existing = db.query(Ingredients).filter(Ingredients.ingredient_id == csv_ing_id).first()
+                    if existing:
+                        ingredients_map[row.get('ingredient_id')] = existing.ingredient_id
+                continue
+            except Exception as e:
+                db.rollback()
+                print(f"  Failed to add ingredient {row.get('name')} (skipping): {e}")
+                continue
+    return ingredients_map
 
 
 def feed_stock(db: Session, data: dict, branches_map: dict) -> dict:
@@ -319,38 +365,39 @@ def feed_stock(db: Session, data: dict, branches_map: dict) -> dict:
             try:
                 csv_stock_id = parse_int(row.get('stock_id')) if row.get('stock_id') else None
                 
-                # Check if stock already exists
                 if csv_stock_id:
                     existing = db.query(Stock).filter(Stock.stock_id == csv_stock_id).first()
                     if existing:
-                        print(f"  Stock ID {csv_stock_id} already exists, skipping: {existing.stk_name}")
+                        print(f"  Stock ID {csv_stock_id} already exists, skipping")
                         stock_map[row.get('stock_id')] = existing.stock_id
                         continue
                 
                 branch_id = branches_map.get(row.get('branch_id'), row.get('branch_id'))
+                ingredient_id = parse_int(row.get('ingredient_id'))
+
                 stock = Stock(
                     stock_id=csv_stock_id,
                     branch_id=parse_int(branch_id) if branch_id else None,
-                    stk_name=row.get('stk_name'),
+                    ingredient_id=ingredient_id,
                     amount_remaining=parse_decimal(row.get('amount_remaining')),
-                    unit=row.get('unit')
+                    is_deleted=False
                 )
                 db.add(stock)
-                db.flush()
+                db.commit()
                 stock_map[row.get('stock_id')] = stock.stock_id
-                print(f"  Added stock: {stock.stk_name} (ID: {stock.stock_id})")
+                print(f"  Added stock: ID={stock.stock_id} for Ingredient={ingredient_id}")
             except IntegrityError as e:
-                print(f"  Stock already exists (duplicate), skipping: {row.get('stk_name')}")
                 db.rollback()
+                print(f"  Stock already exists (duplicate), skipping")
                 if csv_stock_id:
                     existing = db.query(Stock).filter(Stock.stock_id == csv_stock_id).first()
                     if existing:
                         stock_map[row.get('stock_id')] = existing.stock_id
                 continue
             except Exception as e:
-                print(f"  Failed to add stock {row.get('stk_name')} (skipping): {e}")
                 db.rollback()
-                continue  # Continue instead of raise to allow other stock items to be inserted
+                print(f"  Failed to add stock (skipping): {e}")
+                continue
     return stock_map
 
 
@@ -364,13 +411,13 @@ def feed_menu_items(db: Session, data: dict) -> dict:
                 
                 # Check if menu item already exists
                 if csv_menu_item_id:
-                    existing = db.query(MenuItems).filter(MenuItems.menu_item_id == csv_menu_item_id).first()
+                    existing = db.query(Menu).filter(Menu.menu_item_id == csv_menu_item_id).first()
                     if existing:
                         print(f"  Menu item ID {csv_menu_item_id} already exists, skipping: {existing.name}")
                         menu_items_map[row.get('menu_item_id')] = existing.menu_item_id
                         continue
                 
-                menu_item = MenuItems(
+                menu_item = Menu(
                     menu_item_id=csv_menu_item_id,
                     name=row.get('name'),
                     type=row.get('type'),
@@ -380,47 +427,56 @@ def feed_menu_items(db: Session, data: dict) -> dict:
                     is_available=parse_boolean(row.get('is_available', 'true'))
                 )
                 db.add(menu_item)
-                db.flush()
+                db.commit()
                 menu_items_map[row.get('menu_item_id')] = menu_item.menu_item_id
                 print(f"  Added menu item: {menu_item.name} (ID: {menu_item.menu_item_id})")
             except IntegrityError as e:
-                print(f"  Menu item already exists (duplicate), skipping: {row.get('name')}")
                 db.rollback()
+                print(f"  Menu item already exists (duplicate), skipping: {row.get('name')}")
                 if csv_menu_item_id:
-                    existing = db.query(MenuItems).filter(MenuItems.menu_item_id == csv_menu_item_id).first()
+                    existing = db.query(Menu).filter(Menu.menu_item_id == csv_menu_item_id).first()
                     if existing:
                         menu_items_map[row.get('menu_item_id')] = existing.menu_item_id
                 continue
             except Exception as e:
-                print(f"  Failed to add menu item {row.get('name')} (skipping): {e}")
                 db.rollback()
+                print(f"  Failed to add menu item {row.get('name')} (skipping): {e}")
                 continue  # Continue instead of raise to allow other menu items to be inserted
     return menu_items_map
 
 
 def feed_menu_ingredients(db: Session, data: dict, menu_items_map: dict, stock_map: dict):
-    """Feed menu ingredients data"""
+    """Feed menu ingredients (Recipe) data"""
+    # Note: CSV table is '#menu_ingredients', mapping to 'Recipe' model
     if 'menu_ingredients' in data:
         for row in data['menu_ingredients']:
             try:
+                # No primary key in CSV for recipe, usually composite or auto-inc on DB
+                # Recipe model has 'id' PK.
+                
                 menu_item_id = menu_items_map.get(row.get('menu_item_id'), row.get('menu_item_id'))
-                stock_id = stock_map.get(row.get('stock_id'), row.get('stock_id'))
-                menu_ingredient = MenuIngredients(
-                    menu_item_id=parse_int(menu_item_id) if menu_item_id else None,
-                    stock_id=parse_int(stock_id) if stock_id else None,
-                    qty_per_unit=parse_decimal(row.get('qty_per_unit')),
-                    unit=row.get('unit')
+                ingredient_id = parse_int(row.get('ingredient_id'))
+                
+                if not menu_item_id or not ingredient_id:
+                    print("  Skipping recipe item: missing menu_item_id or ingredient_id")
+                    continue
+
+                recipe = Recipe(
+                    menu_item_id=parse_int(menu_item_id),
+                    ingredient_id=ingredient_id,
+                    qty_per_unit=parse_decimal(row.get('qty_per_unit'))
                 )
-                db.add(menu_ingredient)
-                print(f"  Added menu ingredient: menu_item_id={menu_item_id}, stock_id={stock_id}")
+                db.add(recipe)
+                db.commit()
+                print(f"  Added recipe: MenuItem={menu_item_id}, Ingredient={ingredient_id}")
             except IntegrityError as e:
-                print(f"  Menu ingredient already exists (duplicate), skipping: menu_item_id={menu_item_id}, stock_id={stock_id}")
                 db.rollback()
+                print(f"  Recipe item already exists (duplicate), skipping")
                 continue
             except Exception as e:
-                print(f"  Failed to add menu ingredient (skipping): {e}")
                 db.rollback()
-                continue  # Continue instead of raise to allow other menu ingredients to be inserted
+                print(f"  Failed to add recipe (skipping): {e}")
+                continue
 
 
 def feed_orders(db: Session, data: dict, branches_map: dict, employees_map: dict, memberships_map: dict, menu_items_map: dict) -> dict:
@@ -462,20 +518,21 @@ def feed_orders(db: Session, data: dict, branches_map: dict, employees_map: dict
                     created_at=parse_datetime(row.get('created_at')) if row.get('created_at') else None
                 )
                 db.add(order)
-                db.flush()
+                db.commit()
                 orders_map[row.get('order_id')] = order.order_id
                 print(f"  Added order: ID={order.order_id}, total={order.total_price}")
             except IntegrityError as e:
-                print(f"  Order already exists (duplicate), skipping: {row.get('order_id')}")
                 db.rollback()
+                print(f"  Order insertion failed (IntegrityError): {e}")
                 if csv_order_id:
                     existing = db.query(Orders).filter(Orders.order_id == csv_order_id).first()
                     if existing:
                         orders_map[row.get('order_id')] = existing.order_id
+                        print(f"  (Order {csv_order_id} actually exists)")
                 continue
             except Exception as e:
-                print(f"  Failed to add order {csv_order_id} (skipping): {e}")
                 db.rollback()
+                print(f"  Failed to add order {csv_order_id} (skipping): {e}")
                 continue  # Continue instead of raise to allow other orders to be inserted
     return orders_map
 
@@ -509,15 +566,15 @@ def feed_order_items(db: Session, data: dict, orders_map: dict, menu_items_map: 
                     status=row.get('status')
                 )
                 db.add(order_item)
-                db.flush()  # Flush to catch errors early
+                db.commit()  # Commit to catch errors early
                 print(f"  Added order item: order_id={order_id}, menu_item_id={menu_item_id}")
             except IntegrityError as e:
-                print(f"  Order item already exists (duplicate), skipping: order_id={order_id}, menu_item_id={menu_item_id}")
                 db.rollback()
+                print(f"  Order item already exists (duplicate), skipping: order_id={order_id}, menu_item_id={menu_item_id}")
                 continue
             except Exception as e:
-                print(f"  Failed to add order item (skipping): order_id={order_id}, menu_item_id={menu_item_id}, error: {e}")
                 db.rollback()
+                print(f"  Failed to add order item (skipping): order_id={order_id}, menu_item_id={menu_item_id}, error: {e}")
                 continue  # Continue instead of raise to allow other items to be inserted
 
 
@@ -549,15 +606,15 @@ def feed_payments(db: Session, data: dict, orders_map: dict):
                     paid_timestamp=parse_datetime(row.get('paid_timestamp')) if row.get('paid_timestamp') else None  # Handle nullable timestamp
                 )
                 db.add(payment)
-                db.flush()  # Flush to catch errors early
+                db.commit()  # commit to catch errors early
                 print(f"  Added payment: order_id={order_id}")
             except IntegrityError as e:
-                print(f"  Payment already exists (duplicate), skipping: order_id={order_id}")
                 db.rollback()
+                print(f"  Payment already exists (duplicate), skipping: order_id={order_id}")
                 continue
             except Exception as e:
-                print(f"  Failed to add payment (skipping): order_id={order_id}, error: {e}")
                 db.rollback()
+                print(f"  Failed to add payment (skipping): order_id={order_id}, error: {e}")
                 continue  # Continue instead of raise to allow other payments to be inserted
 
 
@@ -566,45 +623,36 @@ def feed_stock_movements(db: Session, data: dict, stock_map: dict, employees_map
     if 'stock_movements' in data:
         for row in data['stock_movements']:
             try:
+                # No PK in CSV usually or auto-inc
+                
                 stock_id = stock_map.get(row.get('stock_id'), row.get('stock_id'))
+                employee_id = employees_map.get(row.get('employee_id'), row.get('employee_id'))
+                order_id = orders_map.get(row.get('order_id'), row.get('order_id'))
                 
-                # Handle nullable employee_id
-                employee_id = None
-                if row.get('employee_id') and row.get('employee_id').strip():
-                    employee_id = employees_map.get(row.get('employee_id'))
-                    if employee_id is None:
-                        employee_id = parse_int(row.get('employee_id'))
-                
-                # Handle nullable order_id - check if it exists in orders_map if provided
-                csv_order_id = row.get('order_id')
-                order_id = None
-                if csv_order_id and csv_order_id.strip():
-                    order_id = orders_map.get(csv_order_id)
-                    # Skip if order_id is provided but doesn't exist in orders_map
-                    if order_id is None:
-                        print(f"  Skipping stock movement: order_id={csv_order_id} not found in orders")
-                        continue
-                
-                stock_movement = StockMovements(
-                    stock_id=parse_int(stock_id) if stock_id else None,
-                    employee_id=employee_id,  # Can be None (nullable)
-                    order_id=order_id,  # Can be None (nullable)
+                if not stock_id:
+                    print(f"  Skipping movement: stock_id={row.get('stock_id')} not found")
+                    continue
+
+                movement = StockMovements(
+                    stock_id=parse_int(stock_id),
+                    employee_id=parse_int(employee_id) if employee_id else None,
+                    order_id=parse_int(order_id) if order_id else None,
                     qty_change=parse_decimal(row.get('qty_change')),
                     reason=row.get('reason'),
-                    note=parse_string(row.get('note')),  # Handle nullable note
-                    created_at=parse_datetime(row.get('created_at')) if row.get('created_at') else None
+                    note=parse_string(row.get('note')),
+                    created_at=parse_datetime(row.get('created_at'))
                 )
-                db.add(stock_movement)
-                db.flush()  # Flush to catch errors early
-                print(f"  Added stock movement: stock_id={stock_id}, qty_change={stock_movement.qty_change}")
+                db.add(movement)
+                db.commit()
+                print(f"  Added stock movement: Stock={stock_id}, Qty={movement.qty_change}")
             except IntegrityError as e:
-                print(f"  Stock movement already exists (duplicate), skipping: stock_id={stock_id}")
                 db.rollback()
+                print(f"  Stock movement error (integrity), skipping: {e}")
                 continue
             except Exception as e:
-                print(f"  Failed to add stock movement (skipping): stock_id={stock_id}, error: {e}")
                 db.rollback()
-                continue  # Continue instead of raise to allow other movements to be inserted
+                print(f"  Failed to add stock movement (skipping): {e}")
+                continue
 
 
 def read_csv_data(file_path: str) -> dict:
@@ -710,6 +758,12 @@ def feed_data_from_csv(csv_file: str, validate: bool = True):
         memberships_map = feed_memberships(db, data, tiers_map)
         db.commit()
         
+        print(f"\n{separator}")
+        print("Feeding Ingredients...")
+        print(separator)
+        ingredients_map = feed_ingredients(db, data)
+        db.commit()
+
         print(f"\n{separator}")
         print("Feeding Stock...")
         print(separator)

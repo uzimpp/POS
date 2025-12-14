@@ -2,7 +2,11 @@
 
 import { useState, useMemo } from "react";
 import { Layout } from "@/components/layout";
-import { useGetPaymentsQuery, PaymentFilters } from "@/store/api/paymentsApi";
+import {
+  useGetPaymentsQuery,
+  useGetPaymentStatsQuery,
+  PaymentFilters,
+} from "@/store/api/paymentsApi";
 
 export default function PaymentPage() {
   const currentYear = new Date().getFullYear();
@@ -51,16 +55,13 @@ export default function PaymentPage() {
   ]);
 
   const { data: payments, isLoading, error } = useGetPaymentsQuery(filters);
+  const { data: stats } = useGetPaymentStatsQuery(filters);
 
   // Backend filters payments, so no need for client-side filtering
   const filteredPayments = payments || [];
 
-  // Calculate total revenue from filtered payments
-  const totalRevenue = useMemo(() => {
-    return filteredPayments.reduce((sum, payment) => {
-      return sum + parseFloat(payment.paid_price || "0");
-    }, 0);
-  }, [filteredPayments]);
+  // Use server-side total revenue if available, or 0
+  const totalRevenue = stats?.total_revenue || 0;
 
   // Generate year options (current year and 5 years back)
   const yearOptions = Array.from({ length: 6 }, (_, i) => currentYear - i);
@@ -227,11 +228,10 @@ export default function PaymentPage() {
                       setSelectedMonth("");
                       setSelectedQuarter("");
                     }}
-                    className={`flex-1 px-2 py-2 text-sm border rounded-md transition-colors ${
-                      filterType === "year"
-                        ? "bg-blue-500 text-white border-blue-500"
-                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                    }`}
+                    className={`flex-1 px-2 py-2 text-sm border rounded-md transition-colors ${filterType === "year"
+                      ? "bg-blue-500 text-white border-blue-500"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                      }`}
                   >
                     {selectedYear ? "Year" : "All"}
                   </button>
@@ -241,11 +241,10 @@ export default function PaymentPage() {
                       setFilterType("month");
                       setSelectedQuarter("");
                     }}
-                    className={`flex-1 px-2 py-2 text-sm border rounded-md transition-colors ${
-                      filterType === "month"
-                        ? "bg-blue-500 text-white border-blue-500"
-                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                    }`}
+                    className={`flex-1 px-2 py-2 text-sm border rounded-md transition-colors ${filterType === "month"
+                      ? "bg-blue-500 text-white border-blue-500"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                      }`}
                   >
                     Month
                   </button>
@@ -255,11 +254,10 @@ export default function PaymentPage() {
                       setFilterType("quarter");
                       setSelectedMonth("");
                     }}
-                    className={`flex-1 px-2 py-2 text-sm border rounded-md transition-colors ${
-                      filterType === "quarter"
-                        ? "bg-blue-500 text-white border-blue-500"
-                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                    }`}
+                    className={`flex-1 px-2 py-2 text-sm border rounded-md transition-colors ${filterType === "quarter"
+                      ? "bg-blue-500 text-white border-blue-500"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                      }`}
                   >
                     Quarter
                   </button>
@@ -334,7 +332,7 @@ export default function PaymentPage() {
                 Total Payments
               </h3>
               <p className="text-3xl font-bold text-gray-800 mt-1">
-                {payments?.length || 0}
+                {stats?.count || 0}
               </p>
             </div>
           </div>

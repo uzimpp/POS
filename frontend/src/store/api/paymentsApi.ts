@@ -64,6 +64,34 @@ export const paymentsApi = baseApi.injectEndpoints({
         { type: "Payments", id: orderId },
       ],
     }),
+    getPaymentStats: builder.query<
+      { count: number; total_revenue: number },
+      PaymentFilters | void
+    >({
+      query: (params) => {
+        const searchParams = new URLSearchParams();
+        if (params) {
+          if (params.payment_method) {
+            searchParams.append("payment_method", params.payment_method);
+          }
+          if (params.year) {
+            searchParams.append("year", params.year.toString());
+          }
+          if (params.month) {
+            searchParams.append("month", params.month.toString());
+          }
+          if (params.quarter) {
+            searchParams.append("quarter", params.quarter.toString());
+          }
+          if (params.search) {
+            searchParams.append("search", params.search);
+          }
+        }
+        const queryString = searchParams.toString();
+        return `/payments/stats${queryString ? `?${queryString}` : ""}`;
+      },
+      providesTags: ["Payments"],
+    }),
     createPayment: builder.mutation<Payment, PaymentCreate>({
       query: (body) => ({
         url: "/payments",
@@ -93,6 +121,7 @@ export const paymentsApi = baseApi.injectEndpoints({
 export const {
   useGetPaymentsQuery,
   useGetPaymentQuery,
+  useGetPaymentStatsQuery,
   useCreatePaymentMutation,
   useUpdatePaymentMutation,
 } = paymentsApi;

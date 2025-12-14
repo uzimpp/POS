@@ -9,6 +9,60 @@ from .. import models, schemas
 router = APIRouter(prefix="/api/payments", tags=["payments"])
 
 
+@router.get("/stats")
+def get_payment_stats(
+    payment_method: Optional[str] = Query(
+        None, description="Filter by payment method"),
+    year: Optional[int] = Query(None, description="Filter by year"),
+    month: Optional[int] = Query(None, description="Filter by month"),
+    quarter: Optional[int] = Query(None, description="Filter by quarter"),
+    search: Optional[str] = Query(None, description="Search term"),
+    db: Session = Depends(get_db)
+):
+    query = db.query(
+        func.count(models.Payments.order_id).label("count"),
+        func.sum(models.Payments.paid_price).label("total_revenue")
+    )
+
+    if payment_method:
+        query = query.filter(models.Payments.payment_method == payment_method)
+
+    if year:
+        query = query.filter(
+            extract('year', models.Payments.paid_timestamp) == year)
+
+    if month:
+        query = query.filter(
+            extract('month', models.Payments.paid_timestamp) == month)
+
+    if quarter:
+        quarter_months = {
+            1: [1, 2, 3],
+            2: [4, 5, 6],
+            3: [7, 8, 9],
+            4: [10, 11, 12]
+        }
+        if quarter in quarter_months:
+            query = query.filter(
+                extract('month', models.Payments.paid_timestamp).in_(
+                    quarter_months[quarter])
+            )
+
+    if search:
+        try:
+            order_id = int(search)
+            query = query.filter(models.Payments.order_id == order_id)
+        except ValueError:
+            query = query.filter(
+                models.Payments.payment_ref.ilike(f"%{search}%"))
+
+    result = query.first()
+    return {
+        "count": result.count,
+        "total_revenue": float(result.total_revenue or 0)
+    }
+
+
 @router.get("/", response_model=List[schemas.Payment])
 def get_payments(
     skip: int = 0,
