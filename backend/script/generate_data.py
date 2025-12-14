@@ -76,7 +76,7 @@ def random_email(first_name, last_name):
     return f"{first_name.lower()}.{last_name.lower()}@{random.choice(domains)}"
 
 
-def generate_valid_csv(filename="data_valid.csv", num_branches=5, num_roles=4, num_tiers=4, 
+def generate_valid_csv(filename="data_valid.csv", num_branches=4, num_roles=5, num_tiers=4, 
                       num_employees=43, num_memberships=500, num_stock_per_branch=12,
                       num_menu_items=20, num_orders=3000, random_mode=False):
     """Generate valid CSV data that conforms to all schema constraints"""
@@ -161,8 +161,17 @@ def generate_valid_csv(filename="data_valid.csv", num_branches=5, num_roles=4, n
     for i in range(1, num_employees + 1):
         branch_id = random.randint(1, num_branches)
         role_id = random.randint(1, num_roles)
-        first_name = random.choice(all_first_names)
-        last_name = random.choice(all_last_names)
+        
+        # Ensure Employee 1 is Manager at Branch 1 (Critical for Stock Movements)
+        if i == 1:
+            branch_id = 1
+            role_id = 1
+            first_name = "Manager"
+            last_name = "One"
+
+        if i != 1:
+            first_name = random.choice(all_first_names)
+            last_name = random.choice(all_last_names)
         
         # Salary based on role
         if role_id in salary_ranges:
@@ -258,15 +267,59 @@ def generate_valid_csv(filename="data_valid.csv", num_branches=5, num_roles=4, n
 
     # Stock (per branch, linked to ingredients)
     stock_rows = ["stock_id,branch_id,ingredient_id,amount_remaining"]
+    stock_movement_rows = ["stock_id,employee_id,order_id,qty_change,reason,note,created_at"]
+    
     stock_id = 1
     stock_map = {} # stock_id -> amount
 
     for branch_id in range(1, num_branches + 1):
         # Give every branch all ingredients for simplicity
         for ingredient_id in range(1, num_ingredients + 1):
-            amount = random.randint(1000, 10000)
-            stock_rows.append(f"{stock_id},{branch_id},{ingredient_id},{amount}")
-            stock_map[stock_id] = amount
+            current_amount = 0
+            
+            # 1. Initial Restock (Large positive)
+            initial_qty = random.randint(5000, 20000)
+            current_amount += initial_qty
+            
+            created_at_base = datetime(2024, 1, 1, 9, 0, 0)
+            
+            # Stock Movement for Initial Restock
+            stock_movement_rows.append(f"{stock_id},{1},,{initial_qty},RESTOCK,Initial Stock,{created_at_base.strftime('%Y-%m-%d %H:%M:%S')}")
+            
+            # 2. Simulate random movements over time
+            num_movements = random.randint(3, 10)
+            for m_i in range(num_movements):
+                # Advance time
+                created_at_base += timedelta(days=random.randint(1, 30))
+                
+                # Determine movement type
+                m_type = random.choice(["RESTOCK", "USAGE", "WASTE", "ADJUST"])
+                
+                qty_change = 0
+                if m_type == "RESTOCK":
+                    qty_change = random.randint(1000, 5000)
+                elif m_type == "USAGE":
+                    qty_change = -random.randint(100, 1000)
+                elif m_type == "WASTE":
+                    qty_change = -random.randint(10, 100)
+                elif m_type == "ADJUST":
+                    qty_change = random.randint(-50, 50)
+                
+                # Check bounds (don't go below 0)
+                if current_amount + qty_change < 0:
+                    qty_change = -current_amount # Clear stock instead of negative
+                
+                current_amount += qty_change
+                
+                # Only record non-zero movements
+                if qty_change != 0:
+                    note = f"Routine {m_type.lower()}"
+                    stock_movement_rows.append(f"{stock_id},{1},,{qty_change},{m_type},{note},{created_at_base.strftime('%Y-%m-%d %H:%M:%S')}")
+
+            # Set initial amount to 0 for the Stock table row
+            # The actual amount will be built up by processing the stock_movements
+            stock_rows.append(f"{stock_id},{branch_id},{ingredient_id},0")
+            stock_map[stock_id] = current_amount # Keep track of logical amount for potential future use in script
             stock_id += 1
     
     data_sections.append(("#stock", stock_rows))
@@ -356,20 +409,7 @@ def generate_valid_csv(filename="data_valid.csv", num_branches=5, num_roles=4, n
         payment_rows.append(f"{i},100.00,0,CASH,,2024-01-01 12:00:00")
     data_sections.append(("#payments", payment_rows))
 
-    # Stock Movements (Strict Consistency)
-    stock_movement_rows = ["stock_id,employee_id,order_id,qty_change,reason,note,created_at"]
-    
-    # Generate Initial Restock for ALL stock items matching their current amount
-    for s_id in range(1, total_stock + 1):
-        current_amount = stock_map[s_id]
-        employee_id = 1 # Manager
-        order_id = "" # No order for restock
-        qty_change = current_amount
-        reason = "RESTOCK"
-        note = "Initial Stock"
-        created_at = "2024-01-01 00:00:00"
-        stock_movement_rows.append(f"{s_id},{employee_id},{order_id},{qty_change},{reason},{note},{created_at}")
-
+    # Stock Movements (Already generated in Stock section)
     data_sections.append(("#stock_movements", stock_movement_rows))
     
     # Write to file

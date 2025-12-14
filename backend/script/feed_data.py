@@ -643,8 +643,17 @@ def feed_stock_movements(db: Session, data: dict, stock_map: dict, employees_map
                     created_at=parse_datetime(row.get('created_at'))
                 )
                 db.add(movement)
+                
+                # Update Stock amount_remaining
+                stock_item = db.query(Stock).filter(Stock.stock_id == movement.stock_id).first()
+                if stock_item:
+                    stock_item.amount_remaining += movement.qty_change
+                    db.add(stock_item)
+                    print(f"  Added movement and updated Stock {stock_id}: {movement.qty_change} -> New Balance: {stock_item.amount_remaining}")
+                else:
+                    print(f"  Warning: Stock item {stock_id} not found for movement update")
+
                 db.commit()
-                print(f"  Added stock movement: Stock={stock_id}, Qty={movement.qty_change}")
             except IntegrityError as e:
                 db.rollback()
                 print(f"  Stock movement error (integrity), skipping: {e}")
