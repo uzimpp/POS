@@ -111,6 +111,10 @@ def get_payments(
                 extract('month', models.Payments.paid_timestamp).in_(
                     quarter_months[quarter])
             )
+    
+    count = query.count()
+    print(f"DEBUG: Found {count} payments")
+
 
     # Search functionality
     if search:

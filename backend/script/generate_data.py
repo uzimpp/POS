@@ -96,24 +96,24 @@ def generate_valid_csv(filename="data_valid.csv", num_branches=4, num_roles=5, n
         if i == 1:
             branch_name = "Main Branch"
             address = "123 Sukhumvit Road Bangkok"
-            phone = "02-123-4567"
+            phone = "021234567"
             is_active = True
         elif i == 2:
             branch_name = "Chiang Mai Branch"
             address = "456 Nimmanhemin Road Chiang Mai"
-            phone = "053-123-456"
+            phone = "053123456"
             is_active = True
         elif i == 3:
             branch_name = "Pattaya Branch"
             address = "789 Pattaya Road Chonburi"
-            phone = "038-123-456"
+            phone = "038123456"
             is_active = True
         else:
             city = random.choice(ADDITIONAL_CITIES)
             street_num = random.randint(1, 999)
             street = random.choice(STREET_NAMES)
             branch_name = f"{city} Branch"
-            address = f"{street_num} {street} Road, {city}"
+            address = f"{street_num} {street} Road {city}"
             phone = random_phone()
             if random_mode:
                 is_active = random.choice([True, True, True, True, True, False])
@@ -370,43 +370,56 @@ def generate_valid_csv(filename="data_valid.csv", num_branches=4, num_roles=5, n
     # ... (Keeping existing Order generation code effectively by not replacing it, 
     # BUT I AM REPLACING A HUGE CHUNK so I must include it)
     
+    # Generate Orders, Order Items, and Payments (linked by logic)
+    
+    # Storage for valid orders and payments
     order_rows = ["order_id,branch_id,membership_id,employee_id,order_type,status,total_price,created_at"]
-    # ... Re-implementing simplified order generation to fit replacement block ...
+    order_item_rows = ["order_id,menu_item_id,quantity,unit_price,line_total,status"]
+    payment_rows = ["order_id,paid_price,points_used,payment_method,payment_ref,paid_timestamp"]
+    
     order_date_start = datetime(2024, 3, 1)
     order_date_end = datetime(2025, 12, 31)
-    menu_prices = {i: 100.00 for i in range(1, num_menu_items + 1)} # Simplified
-    
-    # Full rewrite of the omitted sections to ensure validity of the replacement
-    
-    # Orders
+
     for i in range(1, num_orders + 1):
+        # 1. Generate Order Basics
         branch_id = random.randint(1, num_branches)
         membership_id = random.randint(1, num_memberships) if random.random() > 0.4 else ""
         employee_id = random.randint(1, num_employees)
         order_type = random.choice(VALID_ORDER_TYPES)
         status = random.choice(VALID_ORDER_STATUSES)
-        total_price = random.uniform(100, 1000)
-        created_at = random_datetime_in_range(order_date_start, order_date_end).strftime("%Y-%m-%d %H:%M:%S")
-        order_rows.append(f"{i},{branch_id},{membership_id},{employee_id},{order_type},{status},{total_price:.2f},{created_at}")
-    data_sections.append(("#orders", order_rows))
+        created_at_dt = random_datetime_in_range(order_date_start, order_date_end)
+        created_at = created_at_dt.strftime("%Y-%m-%d %H:%M:%S")
 
-    # Order Items
-    order_item_rows = ["order_id,menu_item_id,quantity,unit_price,line_total,status"]
-    for order_id in range(1, num_orders + 1):
+        # 2. Generate Order Items & Calculate Real Total
+        # Note: In a real scenario, unit_price should come from the Menu, but for valid data generation 
+        # as long as line_total = price * qty, it's consistent.
+        calculated_total = Decimal('0.00')
+        
+        # Generate 1-4 items per order
         for _ in range(random.randint(1, 4)):
-            mid = random.randint(1, num_menu_items)
-            qty = random.randint(1, 3)
-            price = 100.00
-            total = price * qty
-            order_item_rows.append(f"{order_id},{mid},{qty},{price},{total},DONE")
-    data_sections.append(("#order_items", order_item_rows))
+            menu_item_id = random.randint(1, num_menu_items)
+            quantity = random.randint(1, 3)
+            # Random price per item for variety (or could lookup if we had a map)
+            unit_price = round(random.uniform(50.00, 300.00), 2)
+            line_total = round(unit_price * quantity, 2)
+            calculated_total += Decimal(str(line_total))
+            
+            order_item_rows.append(f"{i},{menu_item_id},{quantity},{unit_price:.2f},{line_total:.2f},DONE")
 
-    # Payments
-    payment_rows = ["order_id,paid_price,points_used,payment_method,payment_ref,paid_timestamp"]
-    for i in range(1, num_orders + 1):
-        # check status from generated orders (simplified here since i aligned with order generation)
-        # assuming mostly paid for test data
-        payment_rows.append(f"{i},100.00,0,CASH,,2024-01-01 12:00:00")
+        # 3. Add Order Row with CORRECT Total
+        order_rows.append(f"{i},{branch_id},{membership_id},{employee_id},{order_type},{status},{calculated_total:.2f},{created_at}")
+
+        # 4. Generate Payment (if Paid)
+        # For simplicity in this valid generator, we'll generate a payment for EVERY order 
+        # unless it is Cancelled/Unpaid. But looking at previous logic, it filled for all.
+        # We will follow the loop range (1 to num_orders) => one payment per order.
+        if status == "PAID":
+            # Amount must match total_price
+            paid_timestamp = (created_at_dt + timedelta(minutes=random.randint(5, 60))).strftime("%Y-%m-%d %H:%M:%S")
+            payment_rows.append(f"{i},{calculated_total:.2f},0,CASH,,{paid_timestamp}")
+
+    data_sections.append(("#orders", order_rows))
+    data_sections.append(("#order_items", order_item_rows))
     data_sections.append(("#payments", payment_rows))
 
     # Stock Movements (Already generated in Stock section)
