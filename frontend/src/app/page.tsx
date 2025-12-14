@@ -206,11 +206,12 @@ function DashboardStats() {
 }
 
 import SalesChart from "@/components/dashboard/SalesChart";
+import TopBranchesChart from "@/components/dashboard/TopBranchesChart";
 
 export default function Home() {
   return (
     <Layout>
-      <div>
+      <div className="pb-8">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
           <p className="text-gray-600 mt-2">Overview of your POS system</p>
@@ -218,8 +219,13 @@ export default function Home() {
 
         <DashboardStats />
 
-        <div className="mb-8">
-          <SalesChart />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <div className="lg:col-span-2">
+            <SalesChart />
+          </div>
+          <div className="lg:col-span-2">
+            <TopBranchesChart />
+          </div>
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">

@@ -243,3 +243,57 @@ def get_sales_chart_data(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching sales chart data: {str(e)}")
+
+
+@router.get("/top-branches")
+def get_top_branches(
+    period: str = Query("today", regex="^(today|7days|30days|1year)$"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get top 5 branches by sales for the specified period.
+    """
+    try:
+        from datetime import datetime, timedelta, date, time
+        from sqlalchemy import func, desc
+
+        now = datetime.now()
+        
+        # Determine start date based on period
+        if period == "today":
+            start_date = datetime.combine(now.date(), time.min)
+        elif period == "7days":
+            start_date = datetime.combine(now.date() - timedelta(days=6), time.min)
+        elif period == "30days":
+            start_date = datetime.combine(now.date() - timedelta(days=29), time.min)
+        elif period == "1year":
+            # Last 12 months (start of month 11 months ago)
+            start_date = datetime.combine((now.replace(day=1) - timedelta(days=365)).replace(day=1), time.min)
+        
+        # Query: Sum total_price of PAID orders group by branch
+        # Join Orders -> Branches to get name
+        results = db.query(
+            models.Branches.name,
+            func.sum(models.Orders.total_price).label("total_sales")
+        ).join(
+            models.Orders, models.Branches.branch_id == models.Orders.branch_id
+        ).filter(
+            models.Orders.status == 'PAID',
+            models.Orders.created_at >= start_date
+        ).group_by(
+            models.Branches.branch_id, models.Branches.name
+        ).order_by(
+            desc("total_sales")
+        ).limit(5).all()
+
+        data = []
+        for name, total in results:
+            data.append({
+                "name": name,
+                "value": float(total) if total else 0.0
+            })
+            
+        return data
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching top branches: {str(e)}")
