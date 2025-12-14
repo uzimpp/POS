@@ -1,13 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Layout } from "../../components/Layout";
+import { Layout } from "@/components/layout";
 import {
   useGetMenuItemsQuery,
   useDeleteMenuItemMutation,
   useCreateMenuItemMutation,
   useUpdateMenuItemMutation,
-} from "../../store/api/menuItemsApi";
+  MenuItem,
+} from "@/store/api/menuItemsApi";
+import { ConfirmModal, MenuItemModal } from "@/components/modals";
 
 export default function MenuItemsPage() {
   const { data: menuItems, isLoading, error } = useGetMenuItemsQuery();
@@ -18,19 +20,10 @@ export default function MenuItemsPage() {
   const [filterAvailable, setFilterAvailable] = useState<string>("all");
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteItemId, setDeleteItemId] = useState<number | null>(null);
   const [deleteItemName, setDeleteItemName] = useState<string>("");
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [form, setForm] = useState({
-    name: "",
-    type: "",
-    description: "",
-    price: "",
-    category: "",
-    is_available: true,
-  });
+  const [editingMenuItem, setEditingMenuItem] = useState<MenuItem | null>(null);
 
   const handleDelete = (id: number, name: string) => {
     setDeleteItemId(id);
@@ -51,69 +44,22 @@ export default function MenuItemsPage() {
     }
   };
 
-  const handleEdit = (item: any) => {
-    setForm({
-      name: item.name,
-      type: item.type,
-      description: item.description || "",
-      price: item.price,
-      category: item.category,
-      is_available: item.is_available,
-    });
-    setEditingId(item.menu_item_id);
-    setShowEditModal(true);
+  const handleEdit = (item: MenuItem) => {
+    setEditingMenuItem(item);
+    setShowModal(true);
   };
 
-  const handleEditSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editingId !== null) {
+  const handleCreate = async (data: any) => {
+    await createMenuItem(data).unwrap();
+  };
+
+  const handleUpdate = async (data: any) => {
+    if (editingMenuItem) {
       await updateMenuItem({
-        id: editingId,
-        data: form,
-      });
-      setShowEditModal(false);
-      setEditingId(null);
-      setForm({
-        name: "",
-        type: "",
-        description: "",
-        price: "",
-        category: "",
-        is_available: true,
-      });
+        id: editingMenuItem.menu_item_id,
+        data,
+      }).unwrap();
     }
-  };
-
-  // Ensure price input stays within allowed range and at most 2 decimal places
-  const handlePriceChange = (value: string) => {
-    if (value === "") {
-      setForm((f) => ({ ...f, price: "" }));
-      return;
-    }
-
-    let v = value;
-    // If user types .5 -> convert to 0.5
-    if (v.startsWith(".")) v = "0" + v;
-    // Remove invalid characters (allow digits and dot only)
-    v = v.replace(/[^0-9.]/g, "");
-    const parts = v.split(".");
-    let intPart = parts[0] || "0";
-    let decPart = parts[1] || "";
-
-    // Limit integer digits to 6 (max 999999)
-    if (intPart.length > 6) {
-      intPart = intPart.slice(0, 6);
-    }
-    // Clamp numeric value
-    if (Number(intPart) > 999999) {
-      intPart = "999999";
-    }
-
-    // Limit decimals to 2 digits
-    decPart = decPart.slice(0, 2);
-
-    const newVal = decPart ? `${intPart}.${decPart}` : intPart;
-    setForm((f) => ({ ...f, price: newVal }));
   };
 
   const categories = Array.from(
@@ -140,16 +86,15 @@ export default function MenuItemsPage() {
   });
 
   const sortedItems = filteredItems
-  ? [...filteredItems].sort((a, b) => {
-      // First: Available (true) before Unavailable (false)
-      if (a.is_available !== b.is_available) {
-        return a.is_available ? -1 : 1;
-      }
-      // If both have same availability, sort by ID ascending
-      return a.menu_item_id - b.menu_item_id;
-    })
-  : [];
-
+    ? [...filteredItems].sort((a, b) => {
+        // First: Available (true) before Unavailable (false)
+        if (a.is_available !== b.is_available) {
+          return a.is_available ? -1 : 1;
+        }
+        // If both have same availability, sort by ID ascending
+        return a.menu_item_id - b.menu_item_id;
+      })
+    : [];
 
   if (isLoading) {
     return (
@@ -171,227 +116,25 @@ export default function MenuItemsPage() {
     );
   }
 
-
   return (
     <Layout>
-      {showDeleteModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white rounded-lg p-8 w-full max-w-md shadow-lg">
-            <h2 className="text-xl font-semibold mb-4 text-red-600">Delete Menu Item</h2>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to delete this menu item? This action cannot be undone.
-            </p>
-            <div className="bg-red-50 border border-red-200 rounded p-4 mb-6">
-              <p className="text-red-600">
-                <b>You will have to re-enter the information of this menu again if you wish to add it back.</b>
-              </p>
-            </div>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                className="px-4 py-2 border rounded hover:bg-gray-100"
-                onClick={() => setShowDeleteModal(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-                onClick={confirmDelete}
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {showModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white rounded-lg p-8 w-full max-w-md shadow-lg">
-            <h2 className="text-xl font-semibold mb-4">Add New Menu Item</h2>
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                await createMenuItem(form);
-                setShowModal(false);
-                setForm({
-                  name: "",
-                  type: "",
-                  description: "",
-                  price: "",
-                  category: "",
-                  is_available: true,
-                });
-              }}
-            >
-              <div className="mb-3">
-                <label className="block mb-1">Name</label>
-                <input className="w-full border rounded px-3 py-2" value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value.slice(0, 50)}))} required maxLength={50} />
-                <p className="text-gray-400 text-sm mt-1">{form.name.length}/50 characters</p>
-              </div>
-              <div className="mb-3">
-                <label className="block mb-1">Type</label>
-                <select className="w-full border rounded px-3 py-2" value={form.type} onChange={e => setForm(f => ({...f, type: e.target.value}))} required>
-                  <option value="" className="text-gray-400">Select Type</option>
-                  <option value="Dish">Dish</option>
-                  <option value="Addon">Addon</option>
-                  <option value="Set">Set</option>
-                </select>
-              </div>
-              <div className="mb-3">
-                <label className="block mb-1">Category</label>
-                <select className="w-full border rounded px-3 py-2" value={form.category} onChange={e => setForm(f => ({...f, category: e.target.value}))} required>
-                  <option value="" className="text-gray-400">Select Category</option>
-                  <option value="Main">Main</option>
-                  <option value="Topping">Topping</option>
-                  <option value="Drink">Drink</option>
-                  <option value="Appetizer">Appetizer</option>
-                </select>
-              </div>
-              <div className="mb-3">
-                <label className="block mb-1">
-                  Price
-                  <span className="ml-1 text-xs text-gray-500 font-normal">
-                    (0–999999, up to 2 decimals)
-                  </span>
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="999999"
-                  step="0.01"
-                  className="w-full border rounded px-3 py-2"
-                  value={form.price}
-                  onChange={e => handlePriceChange(e.target.value)}
-                  placeholder="e.g. 199.99"
-                  required
-                />
-                <p className="text-gray-400 text-xs mt-1">
-                  Price must be between <span className="font-bold">0</span> and{" "}
-                  <span className="font-bold">999999</span>, with at most{" "}
-                  <span className="font-bold">2 decimal places</span>.
-                </p>
-              </div>
-
-              <div className="mb-3">
-                <label className="block mb-1">Description</label>
-                <input
-                  className="w-full border rounded px-3 py-2"
-                  value={form.description}
-                  onChange={e =>
-                    setForm(f => ({
-                      ...f,
-                      description: e.target.value.slice(0, 300),
-                    }))
-                  }
-                  maxLength={300}
-                />
-                <p className="text-gray-400 text-sm mt-1">
-                  {form.description.length}/300 characters
-                </p>
-              </div>
-
-              <div className="mb-3">
-                <label className="block mb-1">Status</label>
-                <select className="w-full border rounded px-3 py-2" value={form.is_available ? "available" : "unavailable"} onChange={e => setForm(f => ({...f, is_available: e.target.value === "available"}))}>
-                  <option value="available">Available</option>
-                  <option value="unavailable">Unavailable</option>
-                </select>
-              </div>
-              <div className="flex justify-end gap-2 mt-4">
-                <button type="button" className="px-4 py-2 border rounded" onClick={() => setShowModal(false)}>Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Add Item</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-      {showEditModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white rounded-lg p-8 w-full max-w-md shadow-lg">
-            <h2 className="text-xl font-semibold mb-4">Edit Menu Item</h2>
-            <form onSubmit={handleEditSubmit}>
-              <div className="mb-3">
-                <label className="block mb-1">Name</label>
-                <input className="w-full border rounded px-3 py-2" value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value.slice(0, 50)}))} required maxLength={50} />
-                <p className="text-gray-400 text-sm mt-1">{form.name.length}/50 characters</p>
-              </div>
-              <div className="mb-3">
-                <label className="block mb-1">Type</label>
-                <select className="w-full border rounded px-3 py-2" value={form.type} onChange={e => setForm(f => ({...f, type: e.target.value}))} required>
-                  <option value="" className="text-gray-400">Select Type</option>
-                  <option value="Dish">Dish</option>
-                  <option value="Addon">Addon</option>
-                  <option value="Set">Set</option>
-                </select>
-              </div>
-              <div className="mb-3">
-                <label className="block mb-1">Category</label>
-                <select className="w-full border rounded px-3 py-2" value={form.category} onChange={e => setForm(f => ({...f, category: e.target.value}))} required>
-                  <option value="" className="text-gray-400">Select Category</option>
-                  <option value="Main">Main</option>
-                  <option value="Topping">Topping</option>
-                  <option value="Drink">Drink</option>
-                  <option value="Appetizer">Appetizer</option>
-                </select>
-              </div>
-              <div className="mb-3">
-                <label className="block mb-1">
-                  Price
-                  <span className="ml-1 text-xs text-gray-500 font-normal">
-                    (0–999999, up to 2 decimals)
-                  </span>
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="999999"
-                  step="0.01"
-                  className="w-full border rounded px-3 py-2"
-                  value={form.price}
-                  onChange={e => handlePriceChange(e.target.value)}
-                  placeholder="e.g. 199.99"
-                  required
-                />
-                <p className="text-gray-400 text-xs mt-1">
-                  Price must be between <span className="font-bold">0</span> and{" "}
-                  <span className="font-bold">999999</span>, with at most{" "}
-                  <span className="font-bold">2 decimal places</span>.
-                </p>
-              </div>
-              <div className="mb-3">
-                <label className="block mb-1">Description</label>
-                <input
-                  className="w-full border rounded px-3 py-2"
-                  value={form.description}
-                  onChange={e =>
-                    setForm(f => ({
-                      ...f,
-                      description: e.target.value.slice(0, 300),
-                    }))
-                  }
-                  maxLength={300}
-                />
-                <p className="text-gray-400 text-sm mt-1">
-                  {form.description.length}/300 characters
-                </p>
-              </div>
-
-              <div className="mb-3">
-                <label className="block mb-1">Status</label>
-                <select className="w-full border rounded px-3 py-2" value={form.is_available ? "available" : "unavailable"} onChange={e => setForm(f => ({...f, is_available: e.target.value === "available"}))}>
-                  <option value="available">Available</option>
-                  <option value="unavailable">Unavailable</option>
-                </select>
-              </div>
-              <div className="flex justify-end gap-2 mt-4">
-                <button type="button" className="px-4 py-2 border rounded" onClick={() => setShowEditModal(false)}>Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save Changes</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Delete Menu Item"
+        message={`Are you sure you want to delete "${deleteItemName}"? This action cannot be undone. You will have to re-enter the information of this menu again if you wish to add it back.`}
+        onConfirm={confirmDelete}
+        onCancel={() => setShowDeleteModal(false)}
+        isDestructive={true}
+      />
+      <MenuItemModal
+        isOpen={showModal}
+        onClose={() => {
+          setShowModal(false);
+          setEditingMenuItem(null);
+        }}
+        onSubmit={editingMenuItem ? handleUpdate : handleCreate}
+        menuItem={editingMenuItem}
+      />
       <div>
         <div className="mb-6 flex items-center justify-between">
           <div>
@@ -401,14 +144,7 @@ export default function MenuItemsPage() {
           <button
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             onClick={() => {
-              setForm({
-                name: "",
-                type: "",
-                description: "",
-                price: "",
-                category: "",
-                is_available: true,
-              });
+              setEditingMenuItem(null);
               setShowModal(true);
             }}
           >
@@ -504,7 +240,7 @@ export default function MenuItemsPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         ฿{parseFloat(item.price).toFixed(2)}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-500 max-w-xs whitespace-normal break-words">
+                      <td className="px-6 py-4 text-sm text-gray-500 max-w-xs whitespace-normal wrap-break-word">
                         {item.description || "N/A"}
                       </td>
 
@@ -513,7 +249,10 @@ export default function MenuItemsPage() {
                           onClick={() =>
                             updateMenuItem({
                               id: item.menu_item_id,
-                              data: { ...item, is_available: !item.is_available },
+                              data: {
+                                ...item,
+                                is_available: !item.is_available,
+                              },
                             })
                           }
                           className={`px-2 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors ${
@@ -534,7 +273,9 @@ export default function MenuItemsPage() {
                             Edit
                           </button>
                           <button
-                            onClick={() => handleDelete(item.menu_item_id, item.name)}
+                            onClick={() =>
+                              handleDelete(item.menu_item_id, item.name)
+                            }
                             className="text-red-600 hover:text-red-900"
                           >
                             Delete

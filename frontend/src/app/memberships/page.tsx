@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Layout } from "../../components/Layout";
+import { Layout } from "../../components/layout";
 import {
   useGetMembershipsQuery,
   useDeleteMembershipMutation,
@@ -15,7 +15,7 @@ import {
   useUpdateTierMutation,
   useDeleteTierMutation,
 } from "../../store/api/tiersApi";
-import { ConfirmModal } from "../../components/ConfirmModal";
+import { ConfirmModal } from "../../components/modals/ConfirmModal";
 
 export default function MembershipsPage() {
   const { data: memberships, isLoading, error } = useGetMembershipsQuery();
@@ -26,7 +26,7 @@ export default function MembershipsPage() {
   const [createTier] = useCreateTierMutation();
   const [updateTier] = useUpdateTierMutation();
   const [deleteTier] = useDeleteTierMutation();
-  
+
   const [searchTerm, setSearchTerm] = useState("");
   const [filterRank, setFilterRank] = useState<"all" | number>("all");
   const [showModal, setShowModal] = useState(false);
@@ -177,7 +177,7 @@ export default function MembershipsPage() {
         (t) => t.tier_name.toLowerCase() === nameTrimmed.toLowerCase() && t.tier_id !== (editingTierId ?? -1)
       );
       if (exists) {
-          setTierNameError("Tier name already exists");
+        setTierNameError("Tier name already exists");
         return;
       }
     }
@@ -675,37 +675,37 @@ export default function MembershipsPage() {
           </div>
         </div>
       )}
-        {showDeleteModal && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-            <div className="bg-white rounded-lg p-8 w-full max-w-md shadow-lg">
-              <h2 className="text-xl font-semibold mb-4 text-red-600">Delete Membership{deleteMemberName ? `: ${deleteMemberName}` : ""}</h2>
-              <p className="text-gray-600 mb-6">
-                Are you sure you want to delete this membership? This action cannot be undone.
+      {showDeleteModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white rounded-lg p-8 w-full max-w-md shadow-lg">
+            <h2 className="text-xl font-semibold mb-4 text-red-600">Delete Membership{deleteMemberName ? `: ${deleteMemberName}` : ""}</h2>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete this membership? This action cannot be undone.
+            </p>
+            <div className="bg-red-50 border border-red-200 rounded p-4 mb-6">
+              <p className="text-red-600">
+                <b>You will have to re-enter this member&#39;s information again if you wish to add it back.</b>
               </p>
-              <div className="bg-red-50 border border-red-200 rounded p-4 mb-6">
-                <p className="text-red-600">
-                  <b>You will have to re-enter this member&#39;s information again if you wish to add it back.</b>
-                </p>
-              </div>
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  className="px-4 py-2 border rounded hover:bg-gray-100"
-                  onClick={() => setShowDeleteModal(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-                  onClick={confirmDeleteMembership}
-                >
-                  Delete
-                </button>
-              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="px-4 py-2 border rounded hover:bg-gray-100"
+                onClick={() => setShowDeleteModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                onClick={confirmDeleteMembership}
+              >
+                Delete
+              </button>
             </div>
           </div>
-        )}
+        </div>
+      )}
       <ConfirmModal
         isOpen={showDeleteTierModal}
         title="Delete Tier"
