@@ -128,13 +128,12 @@ def generate_valid_csv(filename="data_valid.csv", num_branches=5, num_roles=4, n
     role_rows = ["role_id,role_name,tier"]
     for i in range(1, num_roles + 1):
         if random_mode and i > len(VALID_ROLE_NAMES):
-            # Generate additional roles
             role_name = random.choice(VALID_ROLE_NAMES) + f" {i}"
             tier = random.randint(0, 5)
         else:
             if i <= len(VALID_ROLE_NAMES):
                 role_name = VALID_ROLE_NAMES[i-1]
-                tier = 4 - i  # Decreasing tier
+                tier = max(0, 4 - i)
             else:
                 role_name = f"Role {i}"
                 tier = random.randint(0, 3)

@@ -18,6 +18,16 @@ def check_endpoint(url, name):
 
 if __name__ == "__main__":
     base_url = "http://localhost:8000/api"
+    
+    print("Checking API Endpoints...")
+    print("=" * 50)
+    
     check_endpoint(f"{base_url}/branches/", "Branches")
     check_endpoint(f"{base_url}/employees/", "Employees")
+    check_endpoint(f"{base_url}/roles/", "Roles")
+    check_endpoint(f"{base_url}/memberships/", "Memberships")
     check_endpoint(f"{base_url}/stock/", "Stock")
+    check_endpoint(f"{base_url}/orders/", "Orders")
+    check_endpoint(f"{base_url}/menu-items/", "Menu Items")
+    
+    print("=" * 50)
