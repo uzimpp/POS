@@ -297,3 +297,48 @@ def get_top_branches(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching top branches: {str(e)}")
+
+
+@router.get("/membership-ratio")
+def get_membership_ratio(
+    period: str = Query("today", regex="^(today|7days|30days|1year)$"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get ratio of orders by Members vs Guests.
+    """
+    try:
+        from datetime import datetime, timedelta, time
+        now = datetime.now()
+        
+        # Determine start date
+        if period == "today":
+            start_date = datetime.combine(now.date(), time.min)
+        elif period == "7days":
+            start_date = datetime.combine(now.date() - timedelta(days=6), time.min)
+        elif period == "30days":
+            start_date = datetime.combine(now.date() - timedelta(days=29), time.min)
+        elif period == "1year":
+            start_date = datetime.combine((now.replace(day=1) - timedelta(days=365)).replace(day=1), time.min)
+            
+        # Count Member orders (membership_id IS NOT NULL)
+        member_count = db.query(func.count(models.Orders.order_id)).filter(
+            models.Orders.status == 'PAID',
+            models.Orders.created_at >= start_date,
+            models.Orders.membership_id.isnot(None)
+        ).scalar() or 0
+        
+        # Count Guest orders (membership_id IS NULL)
+        guest_count = db.query(func.count(models.Orders.order_id)).filter(
+            models.Orders.status == 'PAID',
+            models.Orders.created_at >= start_date,
+            models.Orders.membership_id.is_(None)
+        ).scalar() or 0
+        
+        return [
+            {"name": "Member", "value": member_count},
+            {"name": "Guest", "value": guest_count}
+        ]
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching membership ratio: {str(e)}")

@@ -207,6 +207,7 @@ function DashboardStats() {
 
 import SalesChart from "@/components/dashboard/SalesChart";
 import TopBranchesChart from "@/components/dashboard/TopBranchesChart";
+import MembershipChart from "@/components/dashboard/MembershipChart";
 
 export default function Home() {
   return (
@@ -219,12 +220,18 @@ export default function Home() {
 
         <DashboardStats />
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <div className="lg:col-span-2">
-            <SalesChart />
-          </div>
-          <div className="lg:col-span-2">
+        {/* Sales Chart (Full Width) */}
+        <div className="mb-6">
+          <SalesChart />
+        </div>
+
+        {/* Row 2: Top Branches (Left) & Membership Ratio (Right) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          <div className="lg:col-span-2 h-full">
             <TopBranchesChart />
+          </div>
+          <div className="lg:col-span-1 h-full">
+            <MembershipChart />
           </div>
         </div>
 
