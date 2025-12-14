@@ -27,7 +27,6 @@ def get_employees(
 
     return query.offset(skip).limit(limit).all()
 
-
 @router.get("/{employee_id}", response_model=schemas.Employee)
 def get_employee(employee_id: int, db: Session = Depends(get_db)):
     employee = db.query(models.Employees).filter(

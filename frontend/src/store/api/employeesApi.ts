@@ -12,7 +12,7 @@ export interface Employee {
   role?: {
     role_id: number;
     role_name: string;
-    tier: number;
+    seniority: number;
   };
   branch?: {
     branch_id: number;

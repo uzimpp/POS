@@ -15,6 +15,7 @@ export const baseApi = createApi({
     "Roles",
     "Employees",
     "Memberships",
+    "Tiers",
     "Stock",
     "Menus",
     "Ingredients",

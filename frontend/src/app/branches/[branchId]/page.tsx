@@ -269,7 +269,7 @@ function EmployeeManager({ branchId }: { branchId: number }) {
                   {emp.first_name} {emp.last_name}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  Tier {emp.role?.tier || emp.role_id}
+                  {emp.role?.role_name || `Role #${emp.role_id}`}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {emp.salary.toLocaleString()}

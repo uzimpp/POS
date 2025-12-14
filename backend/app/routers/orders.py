@@ -367,9 +367,8 @@ def update_order(order_id: int, order: schemas.OrderCreate, db: Session = Depend
 def cancel_order(order_id: int, db: Session = Depends(get_db)):
     """
     Cancel an order. Only UNPAID orders can be cancelled.
-    - ORDERED items → CANCELLED
-    - PREPARING items → remain PREPARING (ingredients already used)
-    - DONE items → remain DONE
+    Cannot cancel if any item is PREPARING or DONE (chef already started/finished).
+    All ORDERED items will be set to CANCELLED.
     """
     db_order = db.query(models.Orders).filter(
         models.Orders.order_id == order_id).first()
@@ -388,22 +387,33 @@ def cancel_order(order_id: int, db: Session = Depends(get_db)):
             detail="Order is already cancelled. CANCELLED orders are final and cannot be modified."
         )
 
-    db_order.status = "CANCELLED"
-
-    # Cancel only ORDERED items (PREPARING and DONE items stay as-is)
+    # Check if any items are PREPARING or DONE - block cancellation
     order_items = db.query(models.OrderItems).filter(
         models.OrderItems.order_id == order_id
     ).all()
+
+    preparing_count = sum(
+        1 for item in order_items if item.status == "PREPARING")
+    done_count = sum(1 for item in order_items if item.status == "DONE")
+
+    if preparing_count > 0 or done_count > 0:
+        details = []
+        if preparing_count > 0:
+            details.append(f"{preparing_count} item(s) PREPARING")
+        if done_count > 0:
+            details.append(f"{done_count} item(s) DONE")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot cancel order: {', '.join(details)}. Chef has already started cooking."
+        )
+
+    # Cancel all ORDERED items
     for item in order_items:
         if item.status == "ORDERED":
             item.status = "CANCELLED"
 
-    # Recalculate order total (exclude cancelled items)
-    order_total = db.query(func.sum(models.OrderItems.line_total)).filter(
-        models.OrderItems.order_id == order_id,
-        models.OrderItems.status != "CANCELLED"
-    ).scalar() or Decimal("0")
-    db_order.total_price = order_total
+    db_order.status = "CANCELLED"
+    db_order.total_price = Decimal("0")  # All items cancelled = 0 total
 
     db.commit()
     db.refresh(db_order)

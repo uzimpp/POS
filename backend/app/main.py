@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .database import engine, get_db
 from .models import Base
 from .routers import (
-    roles, employees, memberships, stock, menu,
+    roles, employees, memberships, tiers, stock, menu,
     recipe, ingredients, orders, order_items, payments, branches, dashboard
 )
 
@@ -26,6 +26,7 @@ app.add_middleware(
 app.include_router(roles.router)
 app.include_router(employees.router)
 app.include_router(memberships.router)
+app.include_router(tiers.router)
 app.include_router(stock.router)
 app.include_router(menu.router)
 app.include_router(recipe.router)
