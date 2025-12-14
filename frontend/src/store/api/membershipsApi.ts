@@ -1,4 +1,5 @@
 import { baseApi } from "./baseApi";
+import { Tier } from "./tiersApi";
 
 export interface Membership {
   membership_id: number;
@@ -7,7 +8,8 @@ export interface Membership {
   email: string | null;
   joined_at: string;
   points_balance: number;
-  membership_tier: string;
+  tier_id: number;      // FK to tiers.tier_id
+  tier?: Tier | null;   // optional nested object if backend returns it
 }
 
 export interface MembershipCreate {
@@ -15,7 +17,7 @@ export interface MembershipCreate {
   phone: string;
   email?: string | null;
   points_balance?: number;
-  membership_tier?: string;
+  tier_id: number;
 }
 
 export const membershipsApi = baseApi.injectEndpoints({
