@@ -171,31 +171,34 @@ export default function StockMovementsPage() {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     ID
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Date
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Branch
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Ingredient
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                     Change
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Unit
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">
                     Reason
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Employee
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Order
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Note
                   </th>
                 </tr>
@@ -203,30 +206,32 @@ export default function StockMovementsPage() {
               <tbody className="divide-y divide-gray-200">
                 {filteredMovements.map((m) => (
                   <tr key={m.movement_id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       #{m.movement_id}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(m.created_at).toLocaleString()}
+                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(m.created_at).toLocaleDateString()}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                       {m.stock?.branch?.name || "-"}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                       {m.stock?.ingredient?.name || "Unknown"}
                     </td>
                     <td
-                      className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
+                      className={`px-4 py-4 whitespace-nowrap text-sm font-semibold text-right ${
                         Number(m.qty_change) >= 0
                           ? "text-green-600"
                           : "text-red-600"
                       }`}
                     >
                       {Number(m.qty_change) >= 0 ? "+" : ""}
-                      {Number(m.qty_change).toFixed(2)}{" "}
-                      {m.stock?.ingredient?.base_unit || ""}
+                      {Number(m.qty_change).toFixed(2)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {m.stock?.ingredient?.base_unit || "-"}
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap text-center">
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-medium ${getReasonBadgeColor(
                           m.reason
@@ -235,18 +240,15 @@ export default function StockMovementsPage() {
                         {m.reason}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                       {m.employee
                         ? `${m.employee.first_name} ${m.employee.last_name}`
                         : "-"}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                       {m.order_id ? `#${m.order_id}` : "-"}
                     </td>
-                    <td
-                      className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate"
-                      title={m.note || ""}
-                    >
+                    <td className="px-4 py-4 text-sm text-gray-500 max-w-xs truncate">
                       {m.note || "-"}
                     </td>
                   </tr>
