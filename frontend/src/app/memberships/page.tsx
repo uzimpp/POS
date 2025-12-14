@@ -58,6 +58,11 @@ export default function MembershipsPage() {
     return exists ? form.tier_id : String(tiers[0].tier_id);
   }, [tiers, form.tier_id]);
 
+  // Consistently sorted tiers (lowest rank to highest)
+  const sortedTiers = useMemo(() => {
+    return tiers ? [...tiers].sort((a, b) => a.tier - b.tier) : [];
+  }, [tiers]);
+
   // Tier Management State
   const [showTierModal, setShowTierModal] = useState(false);
   const [showTierFormModal, setShowTierFormModal] = useState(false);
@@ -223,11 +228,13 @@ export default function MembershipsPage() {
     }
   };
 
-  const filteredMemberships = memberships?.filter(
-    (membership) =>
-      membership.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      membership.phone.includes(searchTerm)
-  );
+  const filteredMemberships = useMemo(() => {
+    return memberships?.filter(
+      (membership) =>
+        membership.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        membership.phone.includes(searchTerm)
+    );
+  }, [memberships, searchTerm]);
 
   const filteredByRankMemberships = (() => {
     if (!filteredMemberships) return filteredMemberships;
@@ -360,7 +367,7 @@ export default function MembershipsPage() {
                   onChange={(e) => setForm((f) => ({ ...f, tier_id: e.target.value }))}
                   required
                 >
-                  {tiers?.map((tier) => (
+                  {sortedTiers.map((tier) => (
                     <option key={tier.tier_id} value={tier.tier_id}>
                       {tier.tier_name}
                     </option>
@@ -480,7 +487,7 @@ export default function MembershipsPage() {
                   onChange={(e) => setForm((f) => ({ ...f, tier_id: e.target.value }))}
                   required
                 >
-                  {tiers?.map((tier) => (
+                  {sortedTiers.map((tier) => (
                     <option key={tier.tier_id} value={tier.tier_id}>
                       {tier.tier_name}
                     </option>
@@ -743,20 +750,19 @@ export default function MembershipsPage() {
             placeholder="Search by name or phone..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full md:w-1/3 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full md:w-1/3 h-10 px-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          <div className="mt-2 md:mt-0">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Filter by rank</label>
+          <div className="flex items-center mt-2 md:mt-0">
             <select
               value={filterRank === "all" ? "all" : String(filterRank)}
               onChange={(e) => {
                 const v = e.target.value;
                 setFilterRank(v === "all" ? "all" : Number(v));
               }}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="h-10 px-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">All ranks</option>
-              {tiers && [...tiers].sort((a, b) => a.tier - b.tier).map((t) => (
+              {sortedTiers.map((t) => (
                 <option key={t.tier_id} value={t.tier}>
                   {t.tier} - {t.tier_name}
                 </option>
