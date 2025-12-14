@@ -92,6 +92,29 @@ def update_membership(membership_id: int, membership: schemas.MembershipCreate, 
 
     for key, value in membership.dict().items():
         setattr(db_membership, key, value)
+    # Auto-upgrade tier based on cumulative points vs tier minimums
+    try:
+        cumulative = getattr(db_membership, "cumulative_points", None)
+        if cumulative is not None:
+            # Fetch tiers sorted by minimum_point_required ascending, then by rank
+            tiers = (
+                db.query(models.Tiers)
+                .order_by(models.Tiers.minimum_point_required.asc(), models.Tiers.tier.asc())
+                .all()
+            )
+            # Pick the highest eligible tier where cumulative >= minimum_point_required
+            eligible_tier_id = None
+            eligible_rank = -1
+            for t in tiers:
+                min_req = t.minimum_point_required or 0
+                if cumulative >= min_req and t.tier > eligible_rank:
+                    eligible_tier_id = t.tier_id
+                    eligible_rank = t.tier
+            if eligible_tier_id is not None and eligible_tier_id != db_membership.tier_id:
+                db_membership.tier_id = eligible_tier_id
+    except Exception as e:
+        # Do not fail the update if auto-upgrade logic has issues
+        pass
     db.commit()
     db.refresh(db_membership)
     return db_membership
