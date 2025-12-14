@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import {
-    LineChart,
-    Line,
+    AreaChart,
+    Area,
     XAxis,
     YAxis,
     CartesianGrid,
@@ -15,6 +15,20 @@ interface SalesData {
     name: string;
     value: number;
 }
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+        return (
+            <div className="bg-white p-4 rounded-xl shadow-xl border border-slate-100 min-w-[150px]">
+                <p className="text-slate-500 text-sm mb-1">{label}</p>
+                <p className="text-indigo-600 text-2xl font-bold">
+                    ฿{payload[0].value.toLocaleString()}
+                </p>
+            </div>
+        );
+    }
+    return null;
+};
 
 export default function SalesChart() {
     const [data, setData] = useState<SalesData[]>([]);
@@ -39,93 +53,85 @@ export default function SalesChart() {
     }, [period]);
 
     return (
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+        <div className="bg-white p-6 rounded-3xl shadow-lg border border-slate-100/60 overflow-hidden relative">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
                 <div>
-                    <h3 className="text-lg font-semibold text-slate-800">Sales Overview</h3>
-                    <p className="text-sm text-slate-500">
+                    <h3 className="text-xl font-bold text-slate-800 tracking-tight">Sales Overview</h3>
+                    <p className="text-slate-500 text-sm mt-1">
                         {period === "today"
-                            ? "Hourly sales performance for today"
+                            ? "Hourly revenue performance"
                             : period === "7days"
-                                ? "Daily sales performance for the last 7 days"
-                                : "Daily sales performance for the last 30 days"}
+                                ? "Weekly revenue trends"
+                                : "Monthly revenue analysis"}
                     </p>
                 </div>
-                <div className="flex bg-slate-100 p-1 rounded-lg">
-                    <button
-                        onClick={() => setPeriod("today")}
-                        className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${period === "today"
-                                ? "bg-white text-indigo-600 shadow-sm"
-                                : "text-slate-600 hover:text-slate-900"
-                            }`}
-                    >
-                        Today
-                    </button>
-                    <button
-                        onClick={() => setPeriod("7days")}
-                        className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${period === "7days"
-                                ? "bg-white text-indigo-600 shadow-sm"
-                                : "text-slate-600 hover:text-slate-900"
-                            }`}
-                    >
-                        7 Days
-                    </button>
-                    <button
-                        onClick={() => setPeriod("30days")}
-                        className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${period === "30days"
-                                ? "bg-white text-indigo-600 shadow-sm"
-                                : "text-slate-600 hover:text-slate-900"
-                            }`}
-                    >
-                        30 Days
-                    </button>
+
+                {/* Segmented Control */}
+                <div className="flex bg-slate-100/80 p-1.5 rounded-xl backdrop-blur-sm">
+                    {(["today", "7days", "30days"] as const).map((p) => (
+                        <button
+                            key={p}
+                            onClick={() => setPeriod(p)}
+                            className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 ease-out ${period === p
+                                    ? "bg-white text-indigo-600 shadow-md ring-1 ring-black/5"
+                                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
+                                }`}
+                        >
+                            {p === "today" ? "Today" : p === "7days" ? "7 Days" : "30 Days"}
+                        </button>
+                    ))}
                 </div>
             </div>
 
-            <div className="h-[300px] w-full">
+            <div className="h-[350px] w-full -ml-2">
                 {loading ? (
-                    <div className="h-full w-full flex items-center justify-center text-slate-400">
-                        Loading chart data...
+                    <div className="h-full w-full flex flex-col items-center justify-center gap-3">
+                        <div className="w-8 h-8 border-4 border-indigo-100 border-t-indigo-500 rounded-full animate-spin" />
+                        <p className="text-slate-400 text-sm font-medium">Loading sales data...</p>
                     </div>
                 ) : (
                     <ResponsiveContainer width="100%" height="100%">
-                        <LineChart
+                        <AreaChart
                             data={data}
-                            margin={{ top: 5, right: 20, bottom: 5, left: 0 }}
+                            margin={{ top: 10, right: 10, bottom: 0, left: 0 }}
                         >
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                            <defs>
+                                <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid
+                                strokeDasharray="3 3"
+                                vertical={false}
+                                stroke="#f1f5f9"
+                            />
                             <XAxis
                                 dataKey="name"
                                 axisLine={false}
                                 tickLine={false}
-                                tick={{ fill: "#64748B", fontSize: 12 }}
-                                tickMargin={10}
+                                tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 500 }}
+                                tickMargin={15}
+                                dy={5}
                             />
                             <YAxis
                                 axisLine={false}
                                 tickLine={false}
-                                tick={{ fill: "#64748B", fontSize: 12 }}
-                                tickFormatter={(value) => `฿${value}`}
+                                tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 500 }}
+                                tickFormatter={(value) => `฿${value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}`}
+                                dx={-5}
                             />
-                            <Tooltip
-                                contentStyle={{
-                                    backgroundColor: "#fff",
-                                    border: "1px solid #e2e8f0",
-                                    borderRadius: "8px",
-                                    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                                }}
-                                itemStyle={{ color: "#4F46E5" }}
-                                formatter={(value: number) => [`฿${value.toFixed(2)}`, "Sales"]}
-                            />
-                            <Line
+                            <Tooltip content={<CustomTooltip />} />
+                            <Area
                                 type="monotone"
                                 dataKey="value"
-                                stroke="#4F46E5"
+                                stroke="#6366f1"
                                 strokeWidth={3}
-                                dot={{ r: 4, fill: "#4F46E5", strokeWidth: 2, stroke: "#fff" }}
-                                activeDot={{ r: 6, strokeWidth: 0 }}
+                                fillOpacity={1}
+                                fill="url(#colorValue)"
+                                animationDuration={1500}
                             />
-                        </LineChart>
+                        </AreaChart>
                     </ResponsiveContainer>
                 )}
             </div>
