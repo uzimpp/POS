@@ -54,7 +54,18 @@ def create_membership(membership: schemas.MembershipCreate, db: Session = Depend
             raise HTTPException(
                 status_code=400, detail="Email already exists")
 
-    db_membership = models.Memberships(**membership.dict())
+    # Ensure cumulative_points meets selected tier's minimum
+    payload = membership.dict()
+    tier_id = payload.get("tier_id")
+    cumulative = payload.get("cumulative_points")
+    if tier_id is not None:
+        tier = db.query(models.Tiers).filter(models.Tiers.tier_id == tier_id).first()
+        if tier:
+            min_req = tier.minimum_point_required or 0
+            if cumulative is None or cumulative < min_req:
+                payload["cumulative_points"] = int(min_req)
+
+    db_membership = models.Memberships(**payload)
     db.add(db_membership)
     db.commit()
     db.refresh(db_membership)
