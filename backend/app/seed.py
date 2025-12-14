@@ -46,7 +46,7 @@ def seed_database():
         # Seed Branches
         branches_data = [
             {"name": "Main Branch", "address": "123 Main St",
-                "phone": "021234567", "is_active": True},
+                "phone": "021234567", "is_deleted": False},
         ]
         branches = []
         for branch_data in branches_data:
@@ -76,13 +76,13 @@ def seed_database():
         # Seed Employees
         employees_data = [
             {"branch_id": main_branch.branch_id, "role_id": roles[0].role_id, "first_name": "Somsak",
-                "last_name": "Tan", "is_active": True, "salary": 50000},
+                "last_name": "Tan", "is_deleted": False, "salary": 50000},
             {"branch_id": main_branch.branch_id, "role_id": roles[1].role_id, "first_name": "Niran",
-                "last_name": "Wong", "is_active": True, "salary": 35000},
+                "last_name": "Wong", "is_deleted": False, "salary": 35000},
             {"branch_id": main_branch.branch_id, "role_id": roles[1].role_id, "first_name": "Pim",
-                "last_name": "Suk", "is_active": True, "salary": 35000},
+                "last_name": "Suk", "is_deleted": False, "salary": 35000},
             {"branch_id": main_branch.branch_id, "role_id": roles[2].role_id, "first_name": "Aom",
-                "last_name": "Lee", "is_active": True, "salary": 25000},
+                "last_name": "Lee", "is_deleted": False, "salary": 25000},
         ]
         employees = []
         for emp_data in employees_data:
@@ -95,18 +95,18 @@ def seed_database():
 
         # Seed Ingredients (master table)
         ingredients_data = [
-            {"name": "Rice", "base_unit": "g", "is_active": True},
-            {"name": "Curry Paste", "base_unit": "ml", "is_active": True},
-            {"name": "Chicken", "base_unit": "g", "is_active": True},
-            {"name": "Beef", "base_unit": "g", "is_active": True},
-            {"name": "Pork", "base_unit": "g", "is_active": True},
-            {"name": "Mixed Vegetables", "base_unit": "g", "is_active": True},
-            {"name": "Coconut Milk", "base_unit": "ml", "is_active": True},
-            {"name": "Onions", "base_unit": "piece", "is_active": True},
-            {"name": "Potatoes", "base_unit": "piece", "is_active": True},
-            {"name": "Eggs", "base_unit": "piece", "is_active": True},
-            {"name": "Pickled Vegetables", "base_unit": "g", "is_active": True},
-            {"name": "Soft Drink", "base_unit": "piece", "is_active": True},
+            {"name": "Rice", "base_unit": "g", "is_deleted": False},
+            {"name": "Curry Paste", "base_unit": "ml", "is_deleted": False},
+            {"name": "Chicken", "base_unit": "g", "is_deleted": False},
+            {"name": "Beef", "base_unit": "g", "is_deleted": False},
+            {"name": "Pork", "base_unit": "g", "is_deleted": False},
+            {"name": "Mixed Vegetables", "base_unit": "g", "is_deleted": False},
+            {"name": "Coconut Milk", "base_unit": "ml", "is_deleted": False},
+            {"name": "Onions", "base_unit": "piece", "is_deleted": False},
+            {"name": "Potatoes", "base_unit": "piece", "is_deleted": False},
+            {"name": "Eggs", "base_unit": "piece", "is_deleted": False},
+            {"name": "Pickled Vegetables", "base_unit": "g", "is_deleted": False},
+            {"name": "Soft Drink", "base_unit": "piece", "is_deleted": False},
         ]
         ingredients = []
         for ing_data in ingredients_data:

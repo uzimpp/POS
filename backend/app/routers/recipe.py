@@ -33,11 +33,25 @@ def get_recipes_by_menu_item(menu_item_id: int, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=schemas.Recipe)
 def create_recipe(recipe: schemas.RecipeCreate, db: Session = Depends(get_db)):
-    db_recipe = models.Recipe(**recipe.dict())
-    db.add(db_recipe)
-    db.commit()
-    db.refresh(db_recipe)
-    return db_recipe
+    # Check if recipe with same menu_item_id and ingredient_id already exists
+    existing_recipe = db.query(models.Recipe).filter(
+        models.Recipe.menu_item_id == recipe.menu_item_id,
+        models.Recipe.ingredient_id == recipe.ingredient_id
+    ).first()
+
+    if existing_recipe:
+        # Increment quantity instead of creating duplicate
+        existing_recipe.qty_per_unit += recipe.qty_per_unit
+        db.commit()
+        db.refresh(existing_recipe)
+        return existing_recipe
+    else:
+        # Create new recipe
+        db_recipe = models.Recipe(**recipe.dict())
+        db.add(db_recipe)
+        db.commit()
+        db.refresh(db_recipe)
+        return db_recipe
 
 
 @router.put("/{recipe_id}", response_model=schemas.Recipe)

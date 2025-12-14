@@ -3,32 +3,44 @@ import { baseApi } from "./baseApi";
 export interface Stock {
   stock_id: number;
   branch_id: number;
-  stk_name: string;
+  ingredient_id: number;
   amount_remaining: number;
-  unit: string;
   branch?: {
     branch_id: number;
     name: string;
+  };
+  ingredient?: {
+    ingredient_id: number;
+    name: string;
+    base_unit: string;
   };
 }
 
 export interface StockCreate {
   branch_id: number;
-  stk_name: string;
+  ingredient_id: number;
   amount_remaining: number;
-  unit: string;
 }
 
 export const stockApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getStock: builder.query<Stock[], { branch_ids?: number[] } | void>({
+    getStock: builder.query<
+      Stock[],
+      { branch_ids?: number[]; out_of_stock_only?: boolean } | void
+    >({
       query: (params) => {
         let url = "/stock";
+        const queryParams: string[] = [];
         if (params && params.branch_ids && params.branch_ids.length > 0) {
-          const queryString = params.branch_ids
-            .map((id) => `branch_ids=${id}`)
-            .join("&");
-          url += `?${queryString}`;
+          queryParams.push(
+            params.branch_ids.map((id) => `branch_ids=${id}`).join("&")
+          );
+        }
+        if (params && params.out_of_stock_only) {
+          queryParams.push("out_of_stock_only=true");
+        }
+        if (queryParams.length > 0) {
+          url += `?${queryParams.join("&")}`;
         }
         return url;
       },
@@ -61,6 +73,38 @@ export const stockApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ["Stock"],
     }),
+    getOutOfStockItems: builder.query<
+      Stock[],
+      { branch_ids?: number[] } | void
+    >({
+      query: (params) => {
+        let url = "/stock/out-of-stock";
+        if (params && params.branch_ids && params.branch_ids.length > 0) {
+          const queryString = params.branch_ids
+            .map((id) => `branch_ids=${id}`)
+            .join("&");
+          url += `?${queryString}`;
+        }
+        return url;
+      },
+      providesTags: ["Stock"],
+    }),
+    getOutOfStockCount: builder.query<
+      { count: number; out_of_stock_count: number },
+      { branch_ids?: number[] } | void
+    >({
+      query: (params) => {
+        let url = "/stock/out-of-stock/count";
+        if (params && params.branch_ids && params.branch_ids.length > 0) {
+          const queryString = params.branch_ids
+            .map((id) => `branch_ids=${id}`)
+            .join("&");
+          url += `?${queryString}`;
+        }
+        return url;
+      },
+      providesTags: ["Stock"],
+    }),
   }),
 });
 
@@ -70,4 +114,6 @@ export const {
   useCreateStockMutation,
   useUpdateStockMutation,
   useDeleteStockMutation,
+  useGetOutOfStockItemsQuery,
+  useGetOutOfStockCountQuery,
 } = stockApi;

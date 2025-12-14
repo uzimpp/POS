@@ -16,7 +16,14 @@ import { ErrorModal, ConfirmModal, BranchModal } from "@/components/modals";
 
 export default function BranchesPage() {
   const router = useRouter(); // Use useRouter for navigation
-  const { data: branches, isLoading, error } = useGetBranchesQuery();
+  const [showDeleted, setShowDeleted] = useState(false); // Toggle state
+  const {
+    data: branches,
+    isLoading,
+    error,
+  } = useGetBranchesQuery(
+    showDeleted ? { is_deleted: true } : { is_deleted: false }
+  );
   const [createBranch] = useCreateBranchMutation();
   const [updateBranch] = useUpdateBranchMutation();
   const [deleteBranch] = useDeleteBranchMutation();
@@ -24,7 +31,6 @@ export default function BranchesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [errorModal, setErrorModal] = useState({ isOpen: false, message: "" });
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
-  const [showDeleted, setShowDeleted] = useState(false); // Toggle state
 
   // Delete Confirmation State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -93,10 +99,8 @@ export default function BranchesPage() {
     }
   };
 
-  // Filter branches based on toggle
-  const displayBranches = branches
-    ? branches.filter((b) => showDeleted || b.is_active)
-    : [];
+  // Backend filters branches based on is_deleted parameter
+  const displayBranches = branches || [];
 
   if (isLoading) {
     return (
@@ -190,7 +194,7 @@ export default function BranchesPage() {
                     <tr
                       key={branch.branch_id}
                       className={`hover:bg-gray-50 ${
-                        !branch.is_active ? "opacity-60" : ""
+                        branch.is_deleted ? "opacity-60" : ""
                       }`}
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -208,12 +212,12 @@ export default function BranchesPage() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
                           className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            branch.is_active
+                            !branch.is_deleted
                               ? "bg-green-100 text-green-800"
                               : "bg-red-100 text-red-800"
                           }`}
                         >
-                          {branch.is_active ? "Active" : "Inactive"}
+                          {!branch.is_deleted ? "Active" : "Inactive"}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -224,7 +228,7 @@ export default function BranchesPage() {
                           >
                             Edit
                           </button>
-                          {branch.is_active && (
+                          {!branch.is_deleted && (
                             <button
                               onClick={() =>
                                 handleDeleteClick(branch.branch_id)

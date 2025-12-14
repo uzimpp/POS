@@ -25,7 +25,7 @@ class Branches(Base):
     address = Column(String(200), nullable=False)
     # Thai phone number: 9 digits (company) or 10 digits (mobile)
     phone = Column(String(10), nullable=False)
-    is_active = Column(Boolean, default=True, nullable=False)
+    is_deleted = Column(Boolean, default=False, nullable=False)
 
     employees = relationship("Employees", back_populates="branch")
     orders = relationship("Orders", back_populates="branch")
@@ -61,7 +61,7 @@ class Employees(Base):
     first_name = Column(String(50), nullable=False)
     last_name = Column(String(50), nullable=False)
     joined_date = Column(DateTime, server_default=func.now(), nullable=False)
-    is_active = Column(Boolean, default=True, nullable=False)
+    is_deleted = Column(Boolean, default=False, nullable=False)
     salary = Column(Integer, nullable=False)
 
     branch = relationship("Branches", back_populates="employees")
@@ -112,7 +112,7 @@ class Ingredients(Base):
     ingredient_id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)  # "Chicken", "Rice", "Oil"
     base_unit = Column(String(20), nullable=False)  # "g", "ml", "piece"
-    is_active = Column(Boolean, default=True, nullable=False)
+    is_deleted = Column(Boolean, default=False, nullable=False)
 
     recipes = relationship("Recipe", back_populates="ingredient")
     stock_items = relationship("Stock", back_populates="ingredient")

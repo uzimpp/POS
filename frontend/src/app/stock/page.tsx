@@ -7,6 +7,7 @@ import {
   useDeleteStockMutation,
   useCreateStockMutation,
   useUpdateStockMutation,
+  useGetOutOfStockCountQuery,
   Stock,
   StockCreate,
 } from "@/store/api/stockApi";
@@ -18,11 +19,28 @@ export default function StockPage() {
   const [selectedBranchIds, setSelectedBranchIds] = useState<
     (number | string)[]
   >([]);
+  const [filterOutOfStock, setFilterOutOfStock] = useState<boolean>(false);
   const {
     data: stock,
     isLoading,
     error,
-  } = useGetStockQuery({
+  } = useGetStockQuery(
+    filterOutOfStock
+      ? {
+          branch_ids:
+            selectedBranchIds.length > 0
+              ? (selectedBranchIds as number[])
+              : undefined,
+          out_of_stock_only: true,
+        }
+      : {
+          branch_ids:
+            selectedBranchIds.length > 0
+              ? (selectedBranchIds as number[])
+              : undefined,
+        }
+  );
+  const { data: outOfStockData } = useGetOutOfStockCountQuery({
     branch_ids:
       selectedBranchIds.length > 0
         ? (selectedBranchIds as number[])
@@ -32,7 +50,6 @@ export default function StockPage() {
   const [deleteStockItem] = useDeleteStockMutation();
   const [createStock] = useCreateStockMutation();
   const [updateStock] = useUpdateStockMutation();
-  const [filterLowStock, setFilterLowStock] = useState<boolean>(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStock, setEditingStock] = useState<Stock | undefined>(
     undefined
@@ -82,12 +99,7 @@ export default function StockPage() {
     }
   };
 
-  const filteredStock = filterLowStock
-    ? stock?.filter((item) => item.amount_remaining < 10)
-    : stock;
-
-  const lowStockCount =
-    stock?.filter((item) => item.amount_remaining < 10).length || 0;
+  const outOfStockCount = outOfStockData?.count || 0;
 
   if (isLoading) {
     return (
@@ -143,11 +155,11 @@ export default function StockPage() {
           </div>
         </div>
 
-        {lowStockCount > 0 && (
-          <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        {outOfStockCount > 0 && (
+          <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
             <div className="flex items-center">
               <svg
-                className="w-5 h-5 text-yellow-600 mr-2"
+                className="w-5 h-5 text-red-600 mr-2"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -159,8 +171,8 @@ export default function StockPage() {
                   d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
                 />
               </svg>
-              <span className="text-yellow-800 font-medium">
-                {lowStockCount} item(s) running low on stock
+              <span className="text-red-800 font-medium">
+                {outOfStockCount} item(s) out of stock
               </span>
             </div>
           </div>
@@ -170,11 +182,13 @@ export default function StockPage() {
           <label className="flex items-center">
             <input
               type="checkbox"
-              checked={filterLowStock}
-              onChange={(e) => setFilterLowStock(e.target.checked)}
+              checked={filterOutOfStock}
+              onChange={(e) => setFilterOutOfStock(e.target.checked)}
               className="mr-2"
             />
-            <span className="text-sm text-gray-700">Show low stock only</span>
+            <span className="text-sm text-gray-700">
+              Show out of stock only
+            </span>
           </label>
         </div>
 
@@ -187,16 +201,16 @@ export default function StockPage() {
                     ID
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Name
+                    Ingredient
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Amount Remaining
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Branch
+                    Unit
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Unit
+                    Branch
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
@@ -207,36 +221,36 @@ export default function StockPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredStock && filteredStock.length > 0 ? (
-                  filteredStock.map((item) => {
+                {stock && stock.length > 0 ? (
+                  stock.map((item) => {
                     const amount = item.amount_remaining;
-                    const isLowStock = amount < 10;
+                    const isOutOfStock = amount === 0;
                     return (
                       <tr key={item.stock_id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           #{item.stock_id}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {item.stk_name}
+                          {item.ingredient?.name || "Unknown"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {Number(amount).toFixed(2)}
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {item.ingredient?.base_unit || "N/A"}
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {item.branch?.name || "N/A"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {item.unit}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
                             className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              isLowStock
-                              ? "bg-red-100 text-red-800"
-                              : "bg-green-100 text-green-800"
-                              }`}
+                              isOutOfStock
+                                ? "bg-red-100 text-red-800"
+                                : "bg-green-100 text-green-800"
+                            }`}
                           >
-                            {isLowStock ? "Low Stock" : "In Stock"}
+                            {isOutOfStock ? "Out of Stock" : "In Stock"}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -261,7 +275,7 @@ export default function StockPage() {
                 ) : (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={7}
                       className="px-6 py-4 text-center text-sm text-gray-500"
                     >
                       No stock items found
@@ -278,7 +292,7 @@ export default function StockPage() {
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleSubmit}
         stockItem={editingStock}
-        branches={branches?.filter((b) => b.is_active) || []}
+        branches={branches?.filter((b) => !b.is_deleted) || []}
       />
       <ConfirmModal
         isOpen={isDeleteModalOpen}

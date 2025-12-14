@@ -1,5 +1,5 @@
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
@@ -15,8 +15,19 @@ router = APIRouter(
 
 
 @router.get("/", response_model=List[schemas.Branch])
-def read_branches(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    branches = db.query(models.Branches).offset(skip).limit(limit).all()
+def read_branches(
+    skip: int = 0,
+    limit: int = 100,
+    is_deleted: Optional[bool] = Query(
+        None, description="Filter by deletion status. None returns all, False returns active only, True returns deleted only"),
+    db: Session = Depends(get_db)
+):
+    query = db.query(models.Branches)
+
+    if is_deleted is not None:
+        query = query.filter(models.Branches.is_deleted == is_deleted)
+
+    branches = query.offset(skip).limit(limit).all()
     return branches
 
 
@@ -68,11 +79,11 @@ def delete_branch(branch_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Branch not found")
 
     # Soft delete implementation
-    db_branch.is_active = False
+    db_branch.is_deleted = True
 
     # Deactivate all employees in this branch
     for employee in db_branch.employees:
-        employee.is_active = False
+        employee.is_deleted = True
 
     # Hard delete all stock items in this branch
     for stock in db_branch.stock_items:

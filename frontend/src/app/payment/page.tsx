@@ -1,31 +1,104 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Layout } from "@/components/layout";
-import {
-  useGetPaymentsQuery,
-  useDeletePaymentMutation,
-} from "@/store/api/paymentsApi";
+import { useGetPaymentsQuery, PaymentFilters } from "@/store/api/paymentsApi";
 
 export default function PaymentPage() {
-  const { data: payments, isLoading, error } = useGetPaymentsQuery();
-  const [deletePayment] = useDeletePaymentMutation();
   const [filterMethod, setFilterMethod] = useState<string>("all");
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [selectedYear, setSelectedYear] = useState<number | "">("");
+  const [selectedMonth, setSelectedMonth] = useState<number | "">("");
+  const [selectedQuarter, setSelectedQuarter] = useState<number | "">("");
+  const [filterType, setFilterType] = useState<"month" | "quarter" | "none">(
+    "none"
+  );
 
-  const handleDelete = async (orderId: number) => {
-    if (confirm("Are you sure you want to delete this payment?")) {
-      try {
-        await deletePayment(orderId).unwrap();
-      } catch (err) {
-        alert("Failed to delete payment");
+  // Build filter object
+  const filters: PaymentFilters | undefined = useMemo(() => {
+    const filterObj: PaymentFilters = {};
+
+    if (filterMethod !== "all") {
+      filterObj.payment_method = filterMethod;
+    }
+
+    if (selectedYear) {
+      filterObj.year = Number(selectedYear);
+      if (filterType === "month" && selectedMonth) {
+        filterObj.month = Number(selectedMonth);
+      } else if (filterType === "quarter" && selectedQuarter) {
+        filterObj.quarter = Number(selectedQuarter);
       }
     }
+
+    if (searchTerm.trim()) {
+      filterObj.search = searchTerm.trim();
+    }
+
+    return Object.keys(filterObj).length > 0 ? filterObj : undefined;
+  }, [
+    filterMethod,
+    selectedYear,
+    selectedMonth,
+    selectedQuarter,
+    filterType,
+    searchTerm,
+  ]);
+
+  const { data: payments, isLoading, error } = useGetPaymentsQuery(filters);
+
+  // Backend filters payments, so no need for client-side filtering
+  const filteredPayments = payments || [];
+
+  // Calculate total revenue from filtered payments
+  const totalRevenue = useMemo(() => {
+    return filteredPayments.reduce((sum, payment) => {
+      return sum + parseFloat(payment.paid_price || "0");
+    }, 0);
+  }, [filteredPayments]);
+
+  // Generate year options (current year and 5 years back)
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({ length: 6 }, (_, i) => currentYear - i);
+
+  // Generate month options
+  const monthOptions = [
+    { value: 1, label: "January" },
+    { value: 2, label: "February" },
+    { value: 3, label: "March" },
+    { value: 4, label: "April" },
+    { value: 5, label: "May" },
+    { value: 6, label: "June" },
+    { value: 7, label: "July" },
+    { value: 8, label: "August" },
+    { value: 9, label: "September" },
+    { value: 10, label: "October" },
+    { value: 11, label: "November" },
+    { value: 12, label: "December" },
+  ];
+
+  // Generate quarter options
+  const quarterOptions = [
+    { value: 1, label: "Q1 (Jan-Mar)" },
+    { value: 2, label: "Q2 (Apr-Jun)" },
+    { value: 3, label: "Q3 (Jul-Sep)" },
+    { value: 4, label: "Q4 (Oct-Dec)" },
+  ];
+
+  const handleClearFilters = () => {
+    setFilterMethod("all");
+    setSearchTerm("");
+    setSelectedYear("");
+    setSelectedMonth("");
+    setSelectedQuarter("");
+    setFilterType("none");
   };
 
-  const filteredPayments =
-    filterMethod === "all"
-      ? payments
-      : payments?.filter((payment) => payment.payment_method === filterMethod);
+  const hasActiveFilters =
+    filterMethod !== "all" ||
+    searchTerm ||
+    selectedYear ||
+    filterType !== "none";
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "N/A";
@@ -37,9 +110,6 @@ export default function PaymentPage() {
       minute: "2-digit",
     });
   };
-
-  const totalRevenue =
-    payments?.reduce((sum, p) => sum + parseFloat(p.paid_price || "0"), 0) || 0;
 
   if (isLoading) {
     return (
@@ -64,24 +134,174 @@ export default function PaymentPage() {
   return (
     <Layout>
       <div>
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800">Payments</h1>
-            <p className="text-gray-600 mt-2">
-              View and manage payment records
-            </p>
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-800">Payments</h1>
+              <p className="text-gray-600 mt-2">
+                View and manage payment records
+              </p>
+            </div>
+            {hasActiveFilters && (
+              <button
+                onClick={handleClearFilters}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Clear Filters
+              </button>
+            )}
           </div>
-          <div className="flex gap-2">
-            <select
-              value={filterMethod}
-              onChange={(e) => setFilterMethod(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">All Methods</option>
-              <option value="CASH">Cash</option>
-              <option value="CARD">Card</option>
-              <option value="TRANSFER">Transfer</option>
-            </select>
+
+          {/* Filters Section */}
+          <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Search */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Search
+                </label>
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Order ID or Payment Ref"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              {/* Payment Method */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Payment Method
+                </label>
+                <select
+                  value={filterMethod}
+                  onChange={(e) => setFilterMethod(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">All Methods</option>
+                  <option value="CASH">Cash</option>
+                  <option value="CARD">Card</option>
+                  <option value="TRANSFER">Transfer</option>
+                </select>
+              </div>
+
+              {/* Year */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Year
+                </label>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => {
+                    setSelectedYear(
+                      e.target.value ? Number(e.target.value) : ""
+                    );
+                    if (!e.target.value) {
+                      setFilterType("none");
+                      setSelectedMonth("");
+                      setSelectedQuarter("");
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">All Years</option>
+                  {yearOptions.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Month/Quarter Selector */}
+              {selectedYear && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Filter By
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFilterType("month");
+                        setSelectedQuarter("");
+                      }}
+                      className={`flex-1 px-3 py-2 text-sm border rounded-md ${
+                        filterType === "month"
+                          ? "bg-blue-500 text-white border-blue-500"
+                          : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                      }`}
+                    >
+                      Month
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFilterType("quarter");
+                        setSelectedMonth("");
+                      }}
+                      className={`flex-1 px-3 py-2 text-sm border rounded-md ${
+                        filterType === "quarter"
+                          ? "bg-blue-500 text-white border-blue-500"
+                          : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                      }`}
+                    >
+                      Quarter
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Month/Quarter Selectors */}
+            {selectedYear && filterType === "month" && (
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Month
+                </label>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) =>
+                    setSelectedMonth(
+                      e.target.value ? Number(e.target.value) : ""
+                    )
+                  }
+                  className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">All Months</option>
+                  {monthOptions.map((month) => (
+                    <option key={month.value} value={month.value}>
+                      {month.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {selectedYear && filterType === "quarter" && (
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Quarter
+                </label>
+                <select
+                  value={selectedQuarter}
+                  onChange={(e) =>
+                    setSelectedQuarter(
+                      e.target.value ? Number(e.target.value) : ""
+                    )
+                  }
+                  className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">All Quarters</option>
+                  {quarterOptions.map((quarter) => (
+                    <option key={quarter.value} value={quarter.value}>
+                      {quarter.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         </div>
 
@@ -129,9 +349,6 @@ export default function PaymentPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Paid At
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -158,20 +375,12 @@ export default function PaymentPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {formatDate(payment.paid_timestamp)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button
-                          onClick={() => handleDelete(payment.order_id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          Delete
-                        </button>
-                      </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={6}
                       className="px-6 py-4 text-center text-sm text-gray-500"
                     >
                       No payments found

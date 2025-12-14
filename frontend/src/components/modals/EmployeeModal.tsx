@@ -27,7 +27,7 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
     role_id: 0,
     branch_id: 0,
     salary: 0,
-    is_active: true,
+    is_deleted: false,
   });
   const [salaryInput, setSalaryInput] = useState<string>("");
   const [errors, setErrors] = useState({
@@ -51,7 +51,7 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
         role_id: employee.role_id,
         branch_id: employee.branch_id || 0,
         salary: employee.salary,
-        is_active: employee.is_active,
+        is_deleted: employee.is_deleted,
       });
       setSalaryInput(employee.salary.toString());
       setErrors({ first_name: "", last_name: "", role_id: "", branch_id: "" });
@@ -68,7 +68,7 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
         role_id: roles.length > 0 ? roles[0].role_id : 0,
         branch_id: branches.length > 0 ? branches[0].branch_id : 0,
         salary: 0,
-        is_active: true,
+        is_deleted: false,
       });
       setSalaryInput("");
       setErrors({ first_name: "", last_name: "", role_id: "", branch_id: "" });
@@ -363,15 +363,15 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
         <div className="flex items-center">
           <input
             type="checkbox"
-            id="is_active"
-            checked={formData.is_active}
+            id="is_deleted"
+            checked={!formData.is_deleted}
             onChange={(e) =>
-              setFormData({ ...formData, is_active: e.target.checked })
+              setFormData({ ...formData, is_deleted: !e.target.checked })
             }
             className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
           />
           <label
-            htmlFor="is_active"
+            htmlFor="is_deleted"
             className="ml-2 block text-sm text-gray-900"
           >
             Active Employee

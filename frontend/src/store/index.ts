@@ -5,7 +5,7 @@ import { rolesApi } from "./api/rolesApi";
 import { employeesApi } from "./api/employeesApi";
 import { membershipsApi } from "./api/membershipsApi";
 import { stockApi } from "./api/stockApi";
-import { menuItemsApi } from "./api/menuItemsApi";
+import { menuApi } from "./api/menuApi";
 import { ordersApi } from "./api/ordersApi";
 import { paymentsApi } from "./api/paymentsApi";
 

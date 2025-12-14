@@ -19,6 +19,7 @@ export default function EmployeesPage() {
   const [selectedBranchIds, setSelectedBranchIds] = useState<
     (number | string)[]
   >([]);
+  const [filterActive, setFilterActive] = useState<string>("all");
   const {
     data: employees,
     isLoading,
@@ -28,13 +29,18 @@ export default function EmployeesPage() {
       selectedBranchIds.length > 0
         ? (selectedBranchIds as number[])
         : undefined,
+    is_deleted:
+      filterActive === "all"
+        ? undefined
+        : filterActive === "active"
+        ? false
+        : true,
   });
   const { data: roles } = useGetRolesQuery();
   const { data: branches } = useGetBranchesQuery();
   const [deleteEmployee] = useDeleteEmployeeMutation();
   const [createEmployee] = useCreateEmployeeMutation();
   const [updateEmployee] = useUpdateEmployeeMutation();
-  const [filterActive, setFilterActive] = useState<string>("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | undefined>(
     undefined
@@ -87,12 +93,8 @@ export default function EmployeesPage() {
     }
   };
 
-  const filteredEmployees =
-    filterActive === "all"
-      ? employees
-      : filterActive === "active"
-      ? employees?.filter((emp) => emp.is_active)
-      : employees?.filter((emp) => !emp.is_active);
+  // Backend filters employees based on is_deleted parameter
+  const filteredEmployees = employees || [];
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -221,12 +223,12 @@ export default function EmployeesPage() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
                           className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            employee.is_active
+                            !employee.is_deleted
                               ? "bg-green-100 text-green-800"
                               : "bg-gray-100 text-gray-800"
                           }`}
                         >
-                          {employee.is_active ? "Active" : "Inactive"}
+                          {!employee.is_deleted ? "Active" : "Inactive"}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -270,7 +272,7 @@ export default function EmployeesPage() {
         onSubmit={handleSubmit}
         employee={editingEmployee}
         roles={roles || []}
-        branches={branches?.filter((b) => b.is_active) || []}
+        branches={branches?.filter((b) => !b.is_deleted) || []}
       />
       <ConfirmModal
         isOpen={isDeleteModalOpen}

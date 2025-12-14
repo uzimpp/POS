@@ -19,7 +19,7 @@ export const BranchModal: React.FC<BranchModalProps> = ({
     name: "",
     address: "",
     phone: "",
-    is_active: true,
+    is_deleted: false,
   });
   const [errors, setErrors] = useState({
     name: "",
@@ -38,7 +38,7 @@ export const BranchModal: React.FC<BranchModalProps> = ({
         name: branch.name,
         address: branch.address,
         phone: branch.phone,
-        is_active: branch.is_active,
+        is_deleted: branch.is_deleted,
       });
       setErrors({ name: "", address: "", phone: "" });
       setTouched({ name: false, address: false, phone: false });
@@ -47,7 +47,7 @@ export const BranchModal: React.FC<BranchModalProps> = ({
         name: "",
         address: "",
         phone: "",
-        is_active: true,
+        is_deleted: false,
       });
       setErrors({ name: "", address: "", phone: "" });
       setTouched({ name: false, address: false, phone: false });
@@ -224,7 +224,7 @@ export const BranchModal: React.FC<BranchModalProps> = ({
             value={formData.phone}
             onChange={(e) => handlePhoneChange(e.target.value)}
             onBlur={handlePhoneBlur}
-            placeholder="e.g. 0855959519"
+            placeholder="e.g. 0987654321"
             className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
               errors.phone && touched.phone
                 ? "border-red-300 focus:border-red-500 focus:ring-red-500"

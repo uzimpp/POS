@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from ..database import get_db
 from .. import models, schemas
 
@@ -8,8 +8,19 @@ router = APIRouter(prefix="/api/ingredients", tags=["ingredients"])
 
 
 @router.get("/", response_model=List[schemas.Ingredient])
-def get_ingredients(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    ingredients = db.query(models.Ingredients).offset(skip).limit(limit).all()
+def get_ingredients(
+    skip: int = 0,
+    limit: int = 100,
+    is_deleted: Optional[bool] = Query(
+        None, description="Filter by deletion status. None returns all, False returns active only, True returns deleted only"),
+    db: Session = Depends(get_db)
+):
+    query = db.query(models.Ingredients)
+
+    if is_deleted is not None:
+        query = query.filter(models.Ingredients.is_deleted == is_deleted)
+
+    ingredients = query.offset(skip).limit(limit).all()
     return ingredients
 
 
@@ -51,6 +62,6 @@ def delete_ingredient(ingredient_id: int, db: Session = Depends(get_db)):
     if not db_ingredient:
         raise HTTPException(status_code=404, detail="Ingredient not found")
     # Soft delete
-    db_ingredient.is_active = False
+    db_ingredient.is_deleted = True
     db.commit()
     return {"message": "Ingredient deleted successfully"}

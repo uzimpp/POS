@@ -6,7 +6,7 @@ export interface Employee {
   first_name: string;
   last_name: string;
   joined_date: string;
-  is_active: boolean;
+  is_deleted: boolean;
   salary: number;
   branch_id?: number;
   role?: {
@@ -25,20 +25,29 @@ export interface EmployeeCreate {
   branch_id: number;
   first_name: string;
   last_name: string;
-  is_active: boolean;
+  is_deleted: boolean;
   salary: number;
 }
 
 export const employeesApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getEmployees: builder.query<Employee[], { branch_ids?: number[] } | void>({
+    getEmployees: builder.query<
+      Employee[],
+      { branch_ids?: number[]; is_deleted?: boolean } | void
+    >({
       query: (params) => {
         let url = "/employees";
+        const queryParams: string[] = [];
         if (params && params.branch_ids && params.branch_ids.length > 0) {
-          const queryString = params.branch_ids
-            .map((id) => `branch_ids=${id}`)
-            .join("&");
-          url += `?${queryString}`;
+          queryParams.push(
+            params.branch_ids.map((id) => `branch_ids=${id}`).join("&")
+          );
+        }
+        if (params && params.is_deleted !== undefined) {
+          queryParams.push(`is_deleted=${params.is_deleted}`);
+        }
+        if (queryParams.length > 0) {
+          url += `?${queryParams.join("&")}`;
         }
         return url;
       },

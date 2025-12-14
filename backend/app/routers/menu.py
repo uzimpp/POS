@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from ..database import get_db
 from .. import models, schemas
 
@@ -10,6 +10,8 @@ router = APIRouter(prefix="/api/menu", tags=["menu"])
 @router.get("/", response_model=List[schemas.Menu])
 def get_menu_items(
     available_only: bool = False,
+    category: Optional[str] = Query(
+        None, description="Filter by menu category (e.g., Main, Side, Drink)"),
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db)
@@ -17,6 +19,8 @@ def get_menu_items(
     query = db.query(models.Menu)
     if available_only:
         query = query.filter(models.Menu.is_available == True)
+    if category:
+        query = query.filter(models.Menu.category == category)
     menu_items = query.offset(skip).limit(limit).all()
     return menu_items
 

@@ -1,31 +1,12 @@
 "use client";
 
 import { Layout } from "@/components/layout";
-import { useGetOrdersQuery } from "@/store/api/ordersApi";
-import { useGetMenuItemsQuery } from "@/store/api/menuItemsApi";
-import { useGetEmployeesQuery } from "@/store/api/employeesApi";
-import { useGetMembershipsQuery } from "@/store/api/membershipsApi";
-import { useGetPaymentsQuery } from "@/store/api/paymentsApi";
-import { useGetStockQuery } from "@/store/api/stockApi";
+import { useGetDashboardStatsQuery } from "@/store/api/dashboardApi";
 
 function DashboardStats() {
-  const { data: orders, isLoading: ordersLoading } = useGetOrdersQuery();
-  const { data: menuItems, isLoading: menuLoading } = useGetMenuItemsQuery();
-  const { data: employees, isLoading: employeesLoading } =
-    useGetEmployeesQuery();
-  const { data: memberships, isLoading: membershipsLoading } =
-    useGetMembershipsQuery();
-  const { data: payments, isLoading: paymentsLoading } = useGetPaymentsQuery();
-  const { data: stock, isLoading: stockLoading } = useGetStockQuery();
+  const { data: stats, isLoading } = useGetDashboardStatsQuery();
 
-  if (
-    ordersLoading ||
-    menuLoading ||
-    employeesLoading ||
-    membershipsLoading ||
-    paymentsLoading ||
-    stockLoading
-  ) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-gray-500">Loading dashboard data...</div>
@@ -33,19 +14,15 @@ function DashboardStats() {
     );
   }
 
-  const totalOrders = orders?.length || 0;
-  const paidOrders = orders?.filter((o) => o.status === "PAID").length || 0;
-  const pendingOrders =
-    orders?.filter((o) => o.status === "PENDING").length || 0;
-  const totalRevenue =
-    payments?.reduce((sum, p) => sum + parseFloat(p.paid_price || "0"), 0) || 0;
-  const totalMenuItems = menuItems?.length || 0;
-  const availableMenuItems =
-    menuItems?.filter((m) => m.is_available).length || 0;
-  const totalEmployees = employees?.filter((e) => e.is_active).length || 0;
-  const totalMemberships = memberships?.length || 0;
-  const lowStockItems =
-    stock?.filter((s) => s.amount_remaining < 10).length || 0;
+  const totalOrders = stats?.total_orders || 0;
+  const paidOrders = stats?.paid_orders || 0;
+  const pendingOrders = stats?.pending_orders || 0;
+  const totalRevenue = stats?.total_revenue || 0;
+  const totalMenus = stats?.total_menus || 0;
+  const availableMenus = stats?.available_menus || 0;
+  const totalEmployees = stats?.total_employees || 0;
+  const totalMemberships = stats?.total_memberships || 0;
+  const outOfStockCount = stats?.out_of_stock_count || 0;
 
   return (
     <>
@@ -116,9 +93,7 @@ function DashboardStats() {
               <h3 className="text-gray-600 text-sm font-medium mb-2">
                 Menu Items
               </h3>
-              <p className="text-3xl font-bold text-purple-600">
-                {totalMenuItems}
-              </p>
+              <p className="text-3xl font-bold text-purple-600">{totalMenus}</p>
             </div>
             <div className="p-3 bg-purple-100 rounded-full">
               <svg
@@ -137,7 +112,7 @@ function DashboardStats() {
             </div>
           </div>
           <div className="mt-4 text-xs text-gray-500">
-            {availableMenuItems} available
+            {availableMenus} available
           </div>
         </div>
 
@@ -200,11 +175,13 @@ function DashboardStats() {
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-          <h3 className="text-lg font-semibold mb-4">Stock Alert</h3>
+          <h3 className="text-lg font-semibold mb-4">Out of Stock Alert</h3>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-2xl font-bold text-red-600">{lowStockItems}</p>
-              <p className="text-sm text-gray-500 mt-1">Items running low</p>
+              <p className="text-2xl font-bold text-red-600">
+                {outOfStockCount}
+              </p>
+              <p className="text-sm text-gray-500 mt-1">Items out of stock</p>
             </div>
             <div className="p-3 bg-red-100 rounded-full">
               <svg

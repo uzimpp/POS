@@ -3,27 +3,48 @@
 import { useState } from "react";
 import { Layout } from "@/components/layout";
 import {
-  useGetMenuItemsQuery,
-  useDeleteMenuItemMutation,
-  useCreateMenuItemMutation,
-  useUpdateMenuItemMutation,
-  MenuItem,
-} from "@/store/api/menuItemsApi";
-import { ConfirmModal, MenuItemModal } from "@/components/modals";
+  useGetMenusQuery,
+  useDeleteMenuMutation,
+  useCreateMenuMutation,
+  useUpdateMenuMutation,
+  Menu,
+} from "@/store/api/menuApi";
+import {
+  ConfirmModal,
+  MenuModal,
+  RecipeModal,
+  MenuCreateModal,
+} from "@/components/modals";
 
-export default function MenuItemsPage() {
-  const { data: menuItems, isLoading, error } = useGetMenuItemsQuery();
-  const [deleteMenuItem] = useDeleteMenuItemMutation();
-  const [createMenuItem] = useCreateMenuItemMutation();
-  const [updateMenuItem] = useUpdateMenuItemMutation();
+export default function MenuPage() {
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterAvailable, setFilterAvailable] = useState<string>("all");
-  const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const {
+    data: menus,
+    isLoading,
+    error,
+  } = useGetMenusQuery({
+    available_only:
+      filterAvailable === "available"
+        ? true
+        : filterAvailable === "unavailable"
+        ? false
+        : undefined,
+    category: filterCategory === "all" ? undefined : filterCategory,
+  });
+  const [deleteMenu] = useDeleteMenuMutation();
+  const [createMenu] = useCreateMenuMutation();
+  const [updateMenu] = useUpdateMenuMutation();
+  const [showModal, setShowModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteItemId, setDeleteItemId] = useState<number | null>(null);
   const [deleteItemName, setDeleteItemName] = useState<string>("");
-  const [editingMenuItem, setEditingMenuItem] = useState<MenuItem | null>(null);
+  const [editingMenu, setEditingMenu] = useState<Menu | null>(null);
+  const [showRecipeModal, setShowRecipeModal] = useState(false);
+  const [selectedMenuForRecipe, setSelectedMenuForRecipe] =
+    useState<Menu | null>(null);
 
   const handleDelete = (id: number, name: string) => {
     setDeleteItemId(id);
@@ -34,7 +55,7 @@ export default function MenuItemsPage() {
   const confirmDelete = async () => {
     if (deleteItemId !== null) {
       try {
-        await deleteMenuItem(deleteItemId).unwrap();
+        await deleteMenu(deleteItemId).unwrap();
         setShowDeleteModal(false);
         setDeleteItemId(null);
         setDeleteItemName("");
@@ -44,37 +65,36 @@ export default function MenuItemsPage() {
     }
   };
 
-  const handleEdit = (item: MenuItem) => {
-    setEditingMenuItem(item);
+  const handleEdit = (item: Menu) => {
+    setEditingMenu(item);
     setShowModal(true);
   };
 
   const handleCreate = async (data: any) => {
-    await createMenuItem(data).unwrap();
+    await createMenu(data).unwrap();
   };
 
   const handleUpdate = async (data: any) => {
-    if (editingMenuItem) {
-      await updateMenuItem({
-        id: editingMenuItem.menu_item_id,
+    if (editingMenu) {
+      await updateMenu({
+        id: editingMenu.menu_item_id,
         data,
       }).unwrap();
     }
   };
 
+  const handleManageRecipe = (item: Menu) => {
+    setSelectedMenuForRecipe(item);
+    setShowRecipeModal(true);
+  };
+
   const categories = Array.from(
-    new Set(menuItems?.map((item) => item.category) || [])
+    new Set(menus?.map((item) => item.category) || [])
   );
 
-  const filteredItems = menuItems?.filter((item) => {
-    const categoryMatch =
-      filterCategory === "all" || item.category === filterCategory;
-
-    const availableMatch =
-      filterAvailable === "all" ||
-      (filterAvailable === "available" && item.is_available) ||
-      (filterAvailable === "unavailable" && !item.is_available);
-
+  // Backend filters menus based on category and available_only parameters
+  // Only search filtering is done client-side
+  const filteredItems = menus?.filter((item) => {
     const query = searchTerm.trim().toLowerCase();
 
     const searchMatch =
@@ -82,7 +102,7 @@ export default function MenuItemsPage() {
       item.name.toLowerCase().includes(query) ||
       String(item.menu_item_id).includes(query);
 
-    return categoryMatch && availableMatch && searchMatch;
+    return searchMatch;
   });
 
   const sortedItems = filteredItems
@@ -126,15 +146,32 @@ export default function MenuItemsPage() {
         onCancel={() => setShowDeleteModal(false)}
         isDestructive={true}
       />
-      <MenuItemModal
+      <MenuModal
         isOpen={showModal}
         onClose={() => {
           setShowModal(false);
-          setEditingMenuItem(null);
+          setEditingMenu(null);
         }}
-        onSubmit={editingMenuItem ? handleUpdate : handleCreate}
-        menuItem={editingMenuItem}
+        onSubmit={editingMenu ? handleUpdate : handleCreate}
+        menu={editingMenu}
       />
+      <MenuCreateModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onComplete={() => {
+          // Menu and recipes have been created, modal will close automatically
+        }}
+      />
+      {selectedMenuForRecipe && (
+        <RecipeModal
+          isOpen={showRecipeModal}
+          onClose={() => {
+            setShowRecipeModal(false);
+            setSelectedMenuForRecipe(null);
+          }}
+          menu={selectedMenuForRecipe}
+        />
+      )}
       <div>
         <div className="mb-6 flex items-center justify-between">
           <div>
@@ -144,8 +181,7 @@ export default function MenuItemsPage() {
           <button
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             onClick={() => {
-              setEditingMenuItem(null);
-              setShowModal(true);
+              setShowCreateModal(true);
             }}
           >
             Add Menu Item
@@ -247,7 +283,7 @@ export default function MenuItemsPage() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button
                           onClick={() =>
-                            updateMenuItem({
+                            updateMenu({
                               id: item.menu_item_id,
                               data: {
                                 ...item,
@@ -266,6 +302,13 @@ export default function MenuItemsPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex gap-2">
+                          <button
+                            onClick={() => handleManageRecipe(item)}
+                            className="text-green-600 hover:text-green-900"
+                            title="Manage Recipe"
+                          >
+                            Recipe
+                          </button>
                           <button
                             onClick={() => handleEdit(item)}
                             className="text-blue-600 hover:text-blue-900"

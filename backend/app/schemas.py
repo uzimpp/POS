@@ -15,7 +15,7 @@ class BranchBase(BaseModel):
     address: str = Field(..., max_length=200)
     phone: str = Field(..., min_length=9, max_length=10,
                        pattern=r"^[0-9]+$", description="Thai phone number: 9 digits (company) or 10 digits (mobile)")
-    is_active: bool = True
+    is_deleted: bool = False
 
 
 class BranchCreate(BranchBase):
@@ -75,7 +75,7 @@ class EmployeeBase(BaseModel):
     role_id: int
     first_name: str
     last_name: str
-    is_active: bool = True
+    is_deleted: bool = False
     salary: int = Field(..., ge=0)  # Monthly salary in baht (integer)
 
 
@@ -147,7 +147,7 @@ class Stock(StockBase):
 class IngredientBase(BaseModel):
     name: str = Field(..., max_length=100)
     base_unit: str = Field(..., max_length=20)  # "g", "ml", "piece"
-    is_active: bool = True
+    is_deleted: bool = False
 
 
 class IngredientCreate(IngredientBase):
@@ -226,6 +226,10 @@ class OrderItemCreate(BaseModel):
     # unit_price is NOT included - it will always be copied from menu_item.price
 
 
+class OrderItemStatusUpdate(BaseModel):
+    status: str  # PREPARING, DONE, CANCELLED
+
+
 class OrderItem(OrderItemBase):
     order_item_id: int
     order_id: int
@@ -250,6 +254,12 @@ class OrderCreate(OrderBase):
     order_items: List[OrderItemCreate]
 
 
+class OrderCreateEmpty(BaseModel):
+    branch_id: int
+    employee_id: int
+    order_type: str = "DINE_IN"  # DINE_IN, TAKEAWAY, DELIVERY
+
+
 class Order(OrderBase):
     order_id: int
     created_at: datetime
@@ -260,8 +270,8 @@ class Order(OrderBase):
     branch: Optional[Branch] = None
 
     order_items: List[OrderItem] = []
-    payment: Optional["Payment"] = None
-    stock_movements: List["StockMovement"] = []
+    payment: Optional["PaymentInOrder"] = None
+    stock_movements: List["StockMovementInOrder"] = []
 
     class Config:
         from_attributes = True
@@ -278,13 +288,27 @@ class PaymentBase(BaseModel):
     paid_timestamp: Optional[datetime] = None
 
 
-class PaymentCreate(PaymentBase):
+class PaymentCreate(BaseModel):
     order_id: int
+    # Optional - backend will calculate from order.total_price and points_used
+    paid_price: Optional[Decimal] = None
+    points_used: int = 0
+    payment_method: str             # CASH, QR, CARD, POINTS, etc.
+    payment_ref: Optional[str] = None
+    paid_timestamp: Optional[datetime] = None
 
 
 class Payment(PaymentBase):
     order_id: int
     order: Optional[Order] = None
+
+    class Config:
+        from_attributes = True
+
+
+# Payment schema for nested use in Order (excludes circular order reference)
+class PaymentInOrder(PaymentBase):
+    order_id: int
 
     class Config:
         from_attributes = True
@@ -317,9 +341,22 @@ class StockMovement(StockMovementBase):
         from_attributes = True
 
 
+# StockMovement schema for nested use in Order (excludes circular order reference)
+class StockMovementInOrder(StockMovementBase):
+    movement_id: int
+    created_at: datetime
+    stock: Optional[Stock] = None
+    employee: Optional[Employee] = None
+
+    class Config:
+        from_attributes = True
+
+
 # For Pydantic v2 circular references
 Order.model_rebuild()
 Payment.model_rebuild()
+PaymentInOrder.model_rebuild()
 StockMovement.model_rebuild()
+StockMovementInOrder.model_rebuild()
 Recipe.model_rebuild()
 Stock.model_rebuild()
