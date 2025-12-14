@@ -19,6 +19,8 @@ def read_stock_items(
         False, description="Filter to only out of stock items (amount_remaining = 0)"),
     include_deleted_ingredients: Optional[bool] = Query(
         False, description="Include stock items for deleted ingredients"),
+    is_deleted: Optional[bool] = Query(
+        None, description="Filter by deletion status. None/False = active only, True = deleted only"),
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db)
@@ -33,6 +35,12 @@ def read_stock_items(
 
     if out_of_stock_only:
         query = query.filter(models.Stock.amount_remaining == 0)
+
+    # By default, show only active stock items
+    if is_deleted is True:
+        query = query.filter(models.Stock.is_deleted == True)
+    else:
+        query = query.filter(models.Stock.is_deleted == False)
 
     # By default, exclude stock items for deleted ingredients
     if not include_deleted_ingredients:
@@ -113,6 +121,13 @@ def update_stock_item(stock_id: int, stock_update: schemas.StockCreate, db: Sess
     if db_stock is None:
         raise HTTPException(status_code=404, detail="Stock item not found")
 
+    # Check if stock item is deleted
+    if db_stock.is_deleted:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot update a deleted stock item"
+        )
+
     # Check if ingredient is deleted
     if db_stock.ingredient.is_deleted:
         raise HTTPException(
@@ -146,13 +161,34 @@ def update_stock_item(stock_id: int, stock_update: schemas.StockCreate, db: Sess
     return db_stock
 
 
-@router.delete("/{stock_id}")
+@router.delete("/{stock_id}", response_model=schemas.Stock)
 def delete_stock_item(stock_id: int, db: Session = Depends(get_db)):
-    db_stock = db.query(models.Stock).filter(
-        models.Stock.stock_id == stock_id).first()
-    if db_stock is None:
-        raise HTTPException(status_code=404, detail="Stock item not found")
+    try:
+        db_stock = db.query(models.Stock).options(
+            joinedload(models.Stock.branch),
+            joinedload(models.Stock.ingredient)
+        ).filter(models.Stock.stock_id == stock_id).first()
+        if db_stock is None:
+            raise HTTPException(status_code=404, detail="Stock item not found")
 
-    db.delete(db_stock)
-    db.commit()
-    return {"message": "Stock item deleted successfully", "id": stock_id}
+        # Check if already deleted
+        if db_stock.is_deleted:
+            raise HTTPException(
+                status_code=400,
+                detail="Stock item is already deleted"
+            )
+
+        # Soft delete
+        db_stock.is_deleted = True
+        db.commit()
+        db.refresh(db_stock)
+        return db_stock
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred while deleting stock item: {str(e)}"
+        )

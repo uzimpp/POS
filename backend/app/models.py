@@ -148,6 +148,7 @@ class Stock(Base):
     ingredient_id = Column(Integer, ForeignKey(
         "ingredients.ingredient_id"), nullable=False)
     amount_remaining = Column(DECIMAL(10, 2), nullable=False)
+    is_deleted = Column(Boolean, default=False, nullable=False)
 
     branch = relationship("Branches", back_populates="stock_items")
     ingredient = relationship("Ingredients", back_populates="stock_items")

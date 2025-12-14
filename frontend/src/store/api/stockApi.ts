@@ -5,6 +5,7 @@ export interface Stock {
   branch_id: number;
   ingredient_id: number;
   amount_remaining: number;
+  is_deleted: boolean;
   branch?: {
     branch_id: number;
     name: string;
@@ -20,14 +21,18 @@ export interface StockCreate {
   branch_id: number;
   ingredient_id: number;
   amount_remaining: number;
+  is_deleted?: boolean;
+}
+
+export interface StockFilters {
+  branch_ids?: number[];
+  out_of_stock_only?: boolean;
+  is_deleted?: boolean;
 }
 
 export const stockApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getStock: builder.query<
-      Stock[],
-      { branch_ids?: number[]; out_of_stock_only?: boolean } | void
-    >({
+    getStock: builder.query<Stock[], StockFilters | void>({
       query: (params) => {
         let url = "/stock";
         const queryParams: string[] = [];
@@ -38,6 +43,9 @@ export const stockApi = baseApi.injectEndpoints({
         }
         if (params && params.out_of_stock_only) {
           queryParams.push("out_of_stock_only=true");
+        }
+        if (params && params.is_deleted !== undefined) {
+          queryParams.push(`is_deleted=${params.is_deleted}`);
         }
         if (queryParams.length > 0) {
           url += `?${queryParams.join("&")}`;
@@ -66,7 +74,7 @@ export const stockApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ["Stock"],
     }),
-    deleteStock: builder.mutation<{ message: string; id: number }, number>({
+    deleteStock: builder.mutation<Stock, number>({
       query: (id) => ({
         url: `/stock/${id}`,
         method: "DELETE",

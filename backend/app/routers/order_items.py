@@ -121,6 +121,18 @@ def update_order_item(order_item_id: int, order_item: schemas.OrderItemCreate, d
             detail="Cannot update items in a cancelled order"
         )
 
+    # Prevent updating order items that are already DONE or CANCELLED
+    if db_order_item.status == "DONE":
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot update an order item that is already DONE. DONE items are final and cannot be modified."
+        )
+    if db_order_item.status == "CANCELLED":
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot update a cancelled order item. CANCELLED items are final and cannot be modified."
+        )
+
     # Validate menu item exists and is available (if menu_item_id changed)
     menu_item = None
     if order_item.menu_item_id != db_order_item.menu_item_id:
@@ -211,17 +223,17 @@ def update_order_item_status(
     old_status = db_order_item.status
     new_status = status_update.status
 
-    # Validate status transition
-    if old_status == "DONE" and new_status == "CANCELLED":
+    # Prevent any status changes if order item is already DONE or CANCELLED
+    if old_status == "DONE":
         raise HTTPException(
             status_code=400,
-            detail="Cannot cancel an order item that is already DONE"
+            detail="Cannot change status of an order item that is already DONE. DONE items are final and cannot be modified."
         )
 
-    if old_status == "CANCELLED" and new_status != "CANCELLED":
+    if old_status == "CANCELLED":
         raise HTTPException(
             status_code=400,
-            detail="Cannot change status of a cancelled order item"
+            detail="Cannot change status of a cancelled order item. CANCELLED items are final and cannot be modified."
         )
 
     # If changing to DONE, subtract stock

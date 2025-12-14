@@ -229,16 +229,16 @@ def update_order(order_id: int, order: schemas.OrderCreate, db: Session = Depend
     if not db_order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    # Prevent updating paid or cancelled orders
+    # Prevent updating paid or cancelled orders - these are final states
     if db_order.status == "PAID":
         raise HTTPException(
             status_code=400,
-            detail="Cannot update a paid order"
+            detail="Cannot update a paid order. PAID orders are final and cannot be modified or reverted."
         )
     if db_order.status == "CANCELLED":
         raise HTTPException(
             status_code=400,
-            detail="Cannot update a cancelled order"
+            detail="Cannot update a cancelled order. CANCELLED orders are final and cannot be modified or reverted."
         )
 
     # Validate branch exists and is active
@@ -375,13 +375,13 @@ def cancel_order(order_id: int, db: Session = Depends(get_db)):
     if db_order.status == "PAID":
         raise HTTPException(
             status_code=400,
-            detail="Cannot cancel a paid order"
+            detail="Cannot cancel a paid order. PAID orders are final and cannot be reverted or cancelled."
         )
 
     if db_order.status == "CANCELLED":
         raise HTTPException(
             status_code=400,
-            detail="Order is already cancelled"
+            detail="Order is already cancelled. CANCELLED orders are final and cannot be modified."
         )
 
     db_order.status = "CANCELLED"

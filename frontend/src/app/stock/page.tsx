@@ -20,26 +20,19 @@ export default function StockPage() {
     (number | string)[]
   >([]);
   const [filterOutOfStock, setFilterOutOfStock] = useState<boolean>(false);
+  const [showDeleted, setShowDeleted] = useState<boolean>(false);
   const {
     data: stock,
     isLoading,
     error,
-  } = useGetStockQuery(
-    filterOutOfStock
-      ? {
-          branch_ids:
-            selectedBranchIds.length > 0
-              ? (selectedBranchIds as number[])
-              : undefined,
-          out_of_stock_only: true,
-        }
-      : {
-          branch_ids:
-            selectedBranchIds.length > 0
-              ? (selectedBranchIds as number[])
-              : undefined,
-        }
-  );
+  } = useGetStockQuery({
+    branch_ids:
+      selectedBranchIds.length > 0
+        ? (selectedBranchIds as number[])
+        : undefined,
+    out_of_stock_only: filterOutOfStock,
+    is_deleted: showDeleted,
+  });
   const { data: outOfStockData } = useGetOutOfStockCountQuery({
     branch_ids:
       selectedBranchIds.length > 0
@@ -91,8 +84,10 @@ export default function StockPage() {
         await deleteStockItem(stockToDelete).unwrap();
         setIsDeleteModalOpen(false);
         setStockToDelete(null);
-      } catch (err) {
-        alert("Failed to delete stock item");
+      } catch (err: any) {
+        const errorMessage =
+          err?.data?.detail || err?.message || "Failed to delete stock item";
+        alert(errorMessage);
         setIsDeleteModalOpen(false);
         setStockToDelete(null);
       }
@@ -178,7 +173,7 @@ export default function StockPage() {
           </div>
         )}
 
-        <div className="mb-4">
+        <div className="mb-4 flex gap-6">
           <label className="flex items-center">
             <input
               type="checkbox"
@@ -189,6 +184,25 @@ export default function StockPage() {
             <span className="text-sm text-gray-700">
               Show out of stock only
             </span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <span className="text-sm text-gray-700">Show Deleted</span>
+            <div
+              className="relative inline-block w-10 h-6"
+              onClick={() => setShowDeleted(!showDeleted)}
+            >
+              <div
+                className={`block w-10 h-6 rounded-full transition-colors ${
+                  showDeleted ? "bg-blue-500" : "bg-gray-300"
+                }`}
+              >
+                <div
+                  className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${
+                    showDeleted ? "transform translate-x-4" : ""
+                  }`}
+                ></div>
+              </div>
+            </div>
           </label>
         </div>
 

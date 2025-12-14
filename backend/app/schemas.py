@@ -126,6 +126,7 @@ class StockBase(BaseModel):
     branch_id: int
     ingredient_id: int
     amount_remaining: Decimal = Field(..., ge=0)
+    is_deleted: bool = False
 
 
 class StockCreate(StockBase):

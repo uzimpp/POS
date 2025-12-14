@@ -73,22 +73,41 @@ def update_branch(branch_id: int, branch_update: schemas.BranchCreate, db: Sessi
 
 @router.delete("/{branch_id}", response_model=schemas.Branch)
 def delete_branch(branch_id: int, db: Session = Depends(get_db)):
-    db_branch = db.query(models.Branches).filter(
-        models.Branches.branch_id == branch_id).first()
-    if db_branch is None:
-        raise HTTPException(status_code=404, detail="Branch not found")
+    try:
+        db_branch = db.query(models.Branches).filter(
+            models.Branches.branch_id == branch_id).first()
+        if db_branch is None:
+            raise HTTPException(status_code=404, detail="Branch not found")
 
-    # Soft delete implementation
-    db_branch.is_deleted = True
+        # Check if branch is already deleted
+        if db_branch.is_deleted:
+            raise HTTPException(
+                status_code=400,
+                detail="Branch is already deleted"
+            )
 
-    # Deactivate all employees in this branch
-    for employee in db_branch.employees:
-        employee.is_deleted = True
+        # Soft delete - branch remains in DB, orders/stock still reference it
+        db_branch.is_deleted = True
 
-    # Hard delete all stock items in this branch
-    for stock in db_branch.stock_items:
-        db.delete(stock)
+        # Soft delete all employees in this branch
+        for employee in db_branch.employees:
+            if not employee.is_deleted:
+                employee.is_deleted = True
 
-    db.commit()
-    db.refresh(db_branch)
-    return db_branch
+        # Soft delete all stock items in this branch
+        for stock_item in db_branch.stock_items:
+            if not stock_item.is_deleted:
+                stock_item.is_deleted = True
+
+        db.commit()
+        db.refresh(db_branch)
+        return db_branch
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred while deleting branch: {str(e)}"
+        )

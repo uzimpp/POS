@@ -55,12 +55,15 @@ export default function BranchesPage() {
     if (branchToDelete !== null) {
       try {
         await deleteBranch(branchToDelete).unwrap();
-        // alert("Branch deleted successfully");
         setIsDeleteModalOpen(false);
         setBranchToDelete(null);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Failed to delete branch:", err);
-        alert("Failed to delete branch");
+        const errorMessage =
+          err?.data?.detail || err?.message || "Failed to delete branch";
+        alert(errorMessage);
+        setIsDeleteModalOpen(false);
+        setBranchToDelete(null);
       }
     }
   };
