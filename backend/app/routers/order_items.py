@@ -33,6 +33,11 @@ def get_order_items_by_order(order_id: int, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=schemas.OrderItem)
 def create_order_item(order_item: schemas.OrderItemCreate, db: Session = Depends(get_db)):
+    """
+    Add menu item to order. 
+    - If same menu_id exists with status ORDERED, increment quantity
+    - Otherwise create new order item with status ORDERED
+    """
     # Verify order exists
     order = db.query(models.Orders).filter(
         models.Orders.order_id == order_item.order_id).first()
@@ -68,20 +73,35 @@ def create_order_item(order_item: schemas.OrderItemCreate, db: Session = Depends
             detail="Quantity must be greater than 0"
         )
 
-    # Always copy price from menu item (snapshot at time of ordering)
-    unit_price = menu_item.price
-    line_total = order_item.quantity * unit_price
+    # Check if same menu item exists with status ORDERED - if so, increment quantity
+    existing_order_item = db.query(models.OrderItems).filter(
+        models.OrderItems.order_id == order_item.order_id,
+        models.OrderItems.menu_item_id == order_item.menu_item_id,
+        models.OrderItems.status == "ORDERED"
+    ).first()
 
-    db_order_item = models.OrderItems(
-        order_id=order_item.order_id,
-        menu_item_id=order_item.menu_item_id,
-        status=order_item.status or "PREPARING",
-        quantity=order_item.quantity,
-        unit_price=unit_price,  # Store the price at time of ordering
-        line_total=line_total
-    )
-    db.add(db_order_item)
-    db.flush()  # Flush to ensure new item is visible in subsequent query
+    if existing_order_item:
+        # Increment quantity of existing ORDERED item
+        existing_order_item.quantity += order_item.quantity
+        existing_order_item.line_total = existing_order_item.quantity * \
+            existing_order_item.unit_price
+        db.flush()
+        db_order_item = existing_order_item
+    else:
+        # Create new order item with status ORDERED
+        unit_price = menu_item.price
+        line_total = order_item.quantity * unit_price
+
+        db_order_item = models.OrderItems(
+            order_id=order_item.order_id,
+            menu_item_id=order_item.menu_item_id,
+            status="ORDERED",  # Always start as ORDERED
+            quantity=order_item.quantity,
+            unit_price=unit_price,
+            line_total=line_total
+        )
+        db.add(db_order_item)
+        db.flush()
 
     # Recalculate order total (exclude cancelled items)
     order_total = db.query(func.sum(models.OrderItems.line_total)).filter(
@@ -98,6 +118,11 @@ def create_order_item(order_item: schemas.OrderItemCreate, db: Session = Depends
 
 @router.put("/{order_item_id}", response_model=schemas.OrderItem)
 def update_order_item(order_item_id: int, order_item: schemas.OrderItemCreate, db: Session = Depends(get_db)):
+    """
+    Update order item (quantity, menu_item).
+    - Quantity can only be adjusted when status = ORDERED
+    - Cannot update PREPARING, DONE, or CANCELLED items
+    """
     db_order_item = db.query(models.OrderItems).filter(
         models.OrderItems.order_item_id == order_item_id).first()
     if not db_order_item:
@@ -121,16 +146,11 @@ def update_order_item(order_item_id: int, order_item: schemas.OrderItemCreate, d
             detail="Cannot update items in a cancelled order"
         )
 
-    # Prevent updating order items that are already DONE or CANCELLED
-    if db_order_item.status == "DONE":
+    # Only allow updates when status is ORDERED
+    if db_order_item.status != "ORDERED":
         raise HTTPException(
             status_code=400,
-            detail="Cannot update an order item that is already DONE. DONE items are final and cannot be modified."
-        )
-    if db_order_item.status == "CANCELLED":
-        raise HTTPException(
-            status_code=400,
-            detail="Cannot update a cancelled order item. CANCELLED items are final and cannot be modified."
+            detail=f"Cannot update order item. Only ORDERED items can be modified. Current status: {db_order_item.status}"
         )
 
     # Validate menu item exists and is available (if menu_item_id changed)
@@ -155,10 +175,8 @@ def update_order_item(order_item_id: int, order_item: schemas.OrderItemCreate, d
 
     # Always get price from menu item (if menu_item_id changed, get new price; otherwise keep existing)
     if order_item.menu_item_id != db_order_item.menu_item_id:
-        # Menu item changed - use the new menu item's current price
         unit_price = menu_item.price
     else:
-        # Same menu item - keep the original price snapshot (don't update to current price)
         unit_price = db_order_item.unit_price
 
     # Recalculate line_total
@@ -167,10 +185,10 @@ def update_order_item(order_item_id: int, order_item: schemas.OrderItemCreate, d
     order_id = db_order_item.order_id
     db_order_item.menu_item_id = order_item.menu_item_id
     db_order_item.quantity = order_item.quantity
-    db_order_item.unit_price = unit_price  # Store the price at time of update
-    db_order_item.status = order_item.status or "PREPARING"
+    db_order_item.unit_price = unit_price
+    # Keep status as ORDERED (don't allow status change through this endpoint)
     db_order_item.line_total = line_total
-    db.flush()  # Flush to ensure changes are visible in subsequent query
+    db.flush()
 
     # Recalculate order total (exclude cancelled items)
     order = db.query(models.Orders).filter(
@@ -195,7 +213,14 @@ def update_order_item_status(
     status_update: schemas.OrderItemStatusUpdate,
     db: Session = Depends(get_db)
 ):
-    """Update order item status. When status changes to DONE, subtract stock. Use CANCELLED for soft delete."""
+    """
+    Update order item status with new flow:
+    - ORDERED → PREPARING: Chef accepts, check stock & deduct ingredients
+    - ORDERED → CANCELLED: Cancel before chef starts
+    - PREPARING → DONE: Chef finishes (no stock change, already deducted)
+    - PREPARING → CANCELLED: NOT allowed (ingredients already used)
+    - DONE/CANCELLED → anything: NOT allowed (final states)
+    """
     db_order_item = db.query(models.OrderItems).filter(
         models.OrderItems.order_item_id == order_item_id
     ).first()
@@ -223,31 +248,52 @@ def update_order_item_status(
     old_status = db_order_item.status
     new_status = status_update.status
 
-    # Prevent any status changes if order item is already DONE or CANCELLED
+    # === STATUS TRANSITION VALIDATION ===
+
+    # DONE is final - cannot change
     if old_status == "DONE":
         raise HTTPException(
             status_code=400,
-            detail="Cannot change status of an order item that is already DONE. DONE items are final and cannot be modified."
+            detail="Cannot change status of a DONE order item. DONE items are final."
         )
 
+    # CANCELLED is final - cannot change
     if old_status == "CANCELLED":
         raise HTTPException(
             status_code=400,
-            detail="Cannot change status of a cancelled order item. CANCELLED items are final and cannot be modified."
+            detail="Cannot change status of a CANCELLED order item. CANCELLED items are final."
         )
 
-    # If changing to DONE, subtract stock
-    if old_status != "DONE" and new_status == "DONE":
+    # PREPARING → CANCELLED not allowed (ingredients already used)
+    if old_status == "PREPARING" and new_status == "CANCELLED":
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot cancel an order item that is already PREPARING. Ingredients are already being used."
+        )
+
+    # Prevent backward transitions
+    if old_status == "PREPARING" and new_status == "ORDERED":
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot revert PREPARING to ORDERED."
+        )
+    if old_status == "DONE" and new_status in ["ORDERED", "PREPARING"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot revert DONE to earlier status."
+        )
+
+    # === ORDERED → PREPARING: Check stock & deduct ingredients ===
+    if old_status == "ORDERED" and new_status == "PREPARING":
         # Get all recipes for this menu item
         recipes = db.query(models.Recipe).filter(
             models.Recipe.menu_item_id == db_order_item.menu_item_id
         ).all()
 
-        if not recipes:
-            # Menu item has no ingredients (e.g., service items), skip stock subtraction
-            pass
-        else:
-            # For each ingredient in the recipe, subtract from stock
+        insufficient_ingredients = []
+
+        if recipes:
+            # First pass: Check all ingredients have sufficient stock
             for recipe in recipes:
                 # Check if ingredient is deleted
                 ingredient = db.query(models.Ingredients).filter(
@@ -256,32 +302,55 @@ def update_order_item_status(
                 if ingredient and ingredient.is_deleted:
                     raise HTTPException(
                         status_code=400,
-                        detail=f"Cannot complete order item. Ingredient '{ingredient.name}' (ID: {recipe.ingredient_id}) has been deleted and is no longer available."
+                        detail=f"Cannot prepare order item. Ingredient '{ingredient.name}' has been deleted."
                     )
 
                 # Find stock for this ingredient in the order's branch
                 stock = db.query(models.Stock).filter(
                     models.Stock.branch_id == order.branch_id,
-                    models.Stock.ingredient_id == recipe.ingredient_id
+                    models.Stock.ingredient_id == recipe.ingredient_id,
+                    models.Stock.is_deleted == False
                 ).first()
 
                 if not stock:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Stock not found for ingredient ID {recipe.ingredient_id} in branch {order.branch_id}"
-                    )
+                    insufficient_ingredients.append({
+                        "ingredient_id": recipe.ingredient_id,
+                        "ingredient_name": ingredient.name if ingredient else "Unknown",
+                        "available": 0,
+                        "needed": float(recipe.qty_per_unit * db_order_item.quantity)
+                    })
+                    continue
 
-                # Calculate quantity needed: recipe.qty_per_unit * order_item.quantity
                 qty_needed = recipe.qty_per_unit * db_order_item.quantity
 
-                # Check if enough stock available
                 if stock.amount_remaining < qty_needed:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Insufficient stock for ingredient '{stock.ingredient.name}'. Available: {stock.amount_remaining}, Needed: {qty_needed}"
-                    )
+                    insufficient_ingredients.append({
+                        "ingredient_id": recipe.ingredient_id,
+                        "ingredient_name": stock.ingredient.name,
+                        "available": float(stock.amount_remaining),
+                        "needed": float(qty_needed)
+                    })
 
-                # Subtract from stock
+            # If any ingredients are insufficient, return error with details
+            if insufficient_ingredients:
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "message": "Insufficient stock to prepare this order item",
+                        "insufficient_ingredients": insufficient_ingredients,
+                        "suggestion": "Decrease quantity, cancel the item, or restock ingredients"
+                    }
+                )
+
+            # Second pass: Deduct stock and create movements
+            for recipe in recipes:
+                stock = db.query(models.Stock).filter(
+                    models.Stock.branch_id == order.branch_id,
+                    models.Stock.ingredient_id == recipe.ingredient_id,
+                    models.Stock.is_deleted == False
+                ).first()
+
+                qty_needed = recipe.qty_per_unit * db_order_item.quantity
                 stock.amount_remaining -= qty_needed
 
                 # Create stock movement record
@@ -289,9 +358,9 @@ def update_order_item_status(
                     stock_id=stock.stock_id,
                     employee_id=order.employee_id,
                     order_id=order.order_id,
-                    qty_change=-qty_needed,  # Negative for subtraction
+                    qty_change=-qty_needed,
                     reason="SALE",
-                    note=f"Order item {db_order_item.order_item_id} - {db_order_item.quantity}x menu item"
+                    note=f"Order item {db_order_item.order_item_id} - {db_order_item.quantity}x {db_order_item.menu_item.name if db_order_item.menu_item else 'menu item'}"
                 )
                 db.add(stock_movement)
 
@@ -305,7 +374,6 @@ def update_order_item_status(
     db.expire(order)
 
     # Recalculate order total (exclude cancelled items)
-    # Query fresh from database to ensure we see the updated status
     order_total = db.query(func.sum(models.OrderItems.line_total)).filter(
         models.OrderItems.order_id == db_order_item.order_id,
         models.OrderItems.status != "CANCELLED"

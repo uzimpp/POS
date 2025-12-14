@@ -200,9 +200,9 @@ def create_order(order: schemas.OrderCreate, db: Session = Depends(get_db)):
         db_order_item = models.OrderItems(
             order_id=db_order.order_id,
             menu_item_id=item.menu_item_id,
-            status=item.status or "PREPARING",
+            status="ORDERED",  # Always start as ORDERED
             quantity=item.quantity,
-            unit_price=unit_price,  # Store the price at time of ordering
+            unit_price=unit_price,
             line_total=line_total
         )
         db.add(db_order_item)
@@ -335,16 +335,15 @@ def update_order(order_id: int, order: schemas.OrderCreate, db: Session = Depend
 
     for item in order.order_items:
         menu_item = menu_items_dict[item.menu_item_id]
-        # Always copy price from menu item (snapshot at time of ordering)
         unit_price = menu_item.price
         line_total = item.quantity * unit_price
 
         db_order_item = models.OrderItems(
             order_id=db_order.order_id,
             menu_item_id=item.menu_item_id,
-            status=item.status or "PREPARING",
+            status="ORDERED",  # Always start as ORDERED
             quantity=item.quantity,
-            unit_price=unit_price,  # Store the price at time of ordering
+            unit_price=unit_price,
             line_total=line_total
         )
         db.add(db_order_item)
@@ -366,7 +365,12 @@ def update_order(order_id: int, order: schemas.OrderCreate, db: Session = Depend
 
 @router.put("/{order_id}/cancel", response_model=schemas.Order)
 def cancel_order(order_id: int, db: Session = Depends(get_db)):
-    """Cancel an order. Only UNPAID orders can be cancelled."""
+    """
+    Cancel an order. Only UNPAID orders can be cancelled.
+    - ORDERED items → CANCELLED
+    - PREPARING items → remain PREPARING (ingredients already used)
+    - DONE items → remain DONE
+    """
     db_order = db.query(models.Orders).filter(
         models.Orders.order_id == order_id).first()
     if not db_order:
@@ -386,12 +390,12 @@ def cancel_order(order_id: int, db: Session = Depends(get_db)):
 
     db_order.status = "CANCELLED"
 
-    # Cancel all order items
+    # Cancel only ORDERED items (PREPARING and DONE items stay as-is)
     order_items = db.query(models.OrderItems).filter(
         models.OrderItems.order_id == order_id
     ).all()
     for item in order_items:
-        if item.status != "DONE":  # Don't change DONE items
+        if item.status == "ORDERED":
             item.status = "CANCELLED"
 
     # Recalculate order total (exclude cancelled items)

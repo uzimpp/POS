@@ -43,34 +43,39 @@ export default function OrderDetailPage() {
 
   const handleAddItem = async (menuItemId: number) => {
     try {
-      // Check if an order item with this menu_item_id already exists and is not cancelled
-      const existingItem = orderItems?.find(
-        (item) =>
-          item.menu_item_id === menuItemId && item.status !== "CANCELLED"
-      );
-
-      if (existingItem) {
-        // Increment quantity of existing item
-        await updateOrderItem({
-          id: existingItem.order_item_id,
-          data: {
-            order_id: orderId,
-            menu_item_id: menuItemId,
-            quantity: existingItem.quantity + 1,
-            status: existingItem.status, // Keep the current status
-          },
-        }).unwrap();
-      } else {
-        // Create new order item
-        await createOrderItem({
-          order_id: orderId,
-          menu_item_id: menuItemId,
-          quantity: 1,
-          status: "PREPARING",
-        }).unwrap();
-      }
+      // Backend handles incrementing quantity if same menu item with ORDERED status exists
+      await createOrderItem({
+        order_id: orderId,
+        menu_item_id: menuItemId,
+        quantity: 1,
+      }).unwrap();
     } catch (err: any) {
       alert(err?.data?.detail || "Failed to add item");
+    }
+  };
+
+  const handleQuantityChange = async (
+    itemId: number,
+    item: any,
+    delta: number
+  ) => {
+    const newQty = item.quantity + delta;
+    if (newQty <= 0) {
+      // Cancel the item instead of setting to 0
+      handleCancelItem(itemId);
+      return;
+    }
+    try {
+      await updateOrderItem({
+        id: itemId,
+        data: {
+          order_id: orderId,
+          menu_item_id: item.menu_item_id,
+          quantity: newQty,
+        },
+      }).unwrap();
+    } catch (err: any) {
+      alert(err?.data?.detail || "Failed to update quantity");
     }
   };
 
@@ -80,9 +85,20 @@ export default function OrderDetailPage() {
         id: itemId,
         status: newStatus,
       }).unwrap();
-      // The order should be automatically refetched due to invalidation
     } catch (err: any) {
-      alert(err?.data?.detail || "Failed to update status");
+      // Handle insufficient stock error with detailed message
+      const detail = err?.data?.detail;
+      if (typeof detail === "object" && detail?.insufficient_ingredients) {
+        const ingredients = detail.insufficient_ingredients
+          .map(
+            (ing: any) =>
+              `${ing.ingredient_name}: need ${ing.needed}, have ${ing.available}`
+          )
+          .join("\n");
+        alert(`${detail.message}\n\n${ingredients}\n\n${detail.suggestion}`);
+      } else {
+        alert(detail || "Failed to update status");
+      }
     }
   };
 
@@ -152,12 +168,20 @@ export default function OrderDetailPage() {
   // Backend filters menus based on category parameter
   const filteredMenus = menus || [];
 
+  // Can only process payment when all items are DONE or CANCELLED, and at least one is DONE
   const canProcessPayment =
     orderItems &&
     orderItems.length > 0 &&
     orderItems.every(
       (item) => item.status === "DONE" || item.status === "CANCELLED"
-    );
+    ) &&
+    orderItems.some((item) => item.status === "DONE");
+
+  // Check if there are items still in progress (ORDERED or PREPARING)
+  const hasOrderedItems =
+    orderItems?.some((item) => item.status === "ORDERED") || false;
+  const hasPreparingItems =
+    orderItems?.some((item) => item.status === "PREPARING") || false;
 
   if (orderLoading || itemsLoading || menuLoading) {
     return (
@@ -207,12 +231,30 @@ export default function OrderDetailPage() {
                 >
                   View Bill
                 </button>
-                {canProcessPayment && (
+                {canProcessPayment ? (
                   <button
                     onClick={() => setShowPayment(true)}
                     className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
                   >
                     Process Payment
+                  </button>
+                ) : (
+                  <button
+                    disabled
+                    className="px-4 py-2 bg-gray-300 text-gray-500 rounded-md cursor-not-allowed"
+                    title={
+                      hasOrderedItems
+                        ? "Some items are still waiting for chef"
+                        : hasPreparingItems
+                        ? "Some items are still being prepared"
+                        : "No items ready for payment"
+                    }
+                  >
+                    {hasOrderedItems
+                      ? "Waiting for Chef..."
+                      : hasPreparingItems
+                      ? "Preparing..."
+                      : "Process Payment"}
                   </button>
                 )}
                 <button
@@ -293,7 +335,15 @@ export default function OrderDetailPage() {
                   {orderItems.map((item) => (
                     <div
                       key={item.order_item_id}
-                      className="border border-gray-200 rounded-lg p-3"
+                      className={`border rounded-lg p-3 ${
+                        item.status === "CANCELLED"
+                          ? "border-gray-200 bg-gray-50 opacity-60"
+                          : item.status === "DONE"
+                          ? "border-green-200 bg-green-50"
+                          : item.status === "PREPARING"
+                          ? "border-yellow-200 bg-yellow-50"
+                          : "border-blue-200 bg-blue-50"
+                      }`}
                     >
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1">
@@ -301,36 +351,102 @@ export default function OrderDetailPage() {
                             {item.menu_item?.name || "Unknown"}
                           </h4>
                           <p className="text-sm text-gray-600">
-                            Qty: {item.quantity} × ฿
-                            {parseFloat(item.unit_price).toFixed(2)}
+                            ฿{parseFloat(item.unit_price).toFixed(2)} each
                           </p>
                           <p className="text-sm font-medium text-gray-800">
                             ฿{parseFloat(item.line_total).toFixed(2)}
                           </p>
                         </div>
+                        {/* Quantity controls - only for ORDERED items */}
+                        {item.status === "ORDERED" && (
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() =>
+                                handleQuantityChange(
+                                  item.order_item_id,
+                                  item,
+                                  -1
+                                )
+                              }
+                              className="w-8 h-8 flex items-center justify-center bg-gray-200 rounded-md hover:bg-gray-300 text-lg font-bold"
+                            >
+                              -
+                            </button>
+                            <span className="w-8 text-center font-semibold">
+                              {item.quantity}
+                            </span>
+                            <button
+                              onClick={() =>
+                                handleQuantityChange(
+                                  item.order_item_id,
+                                  item,
+                                  1
+                                )
+                              }
+                              className="w-8 h-8 flex items-center justify-center bg-gray-200 rounded-md hover:bg-gray-300 text-lg font-bold"
+                            >
+                              +
+                            </button>
+                          </div>
+                        )}
+                        {/* Just show quantity for non-ORDERED items */}
+                        {item.status !== "ORDERED" && (
+                          <div className="text-center">
+                            <span className="text-lg font-semibold">
+                              ×{item.quantity}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <select
-                          value={item.status}
-                          onChange={(e) =>
-                            handleStatusChange(
-                              item.order_item_id,
-                              e.target.value
-                            )
-                          }
-                          className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        {/* Status badge and actions */}
+                        <span
+                          className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            item.status === "ORDERED"
+                              ? "bg-blue-100 text-blue-700"
+                              : item.status === "PREPARING"
+                              ? "bg-yellow-100 text-yellow-700"
+                              : item.status === "DONE"
+                              ? "bg-green-100 text-green-700"
+                              : "bg-gray-100 text-gray-700"
+                          }`}
                         >
-                          <option value="PREPARING">Preparing</option>
-                          <option value="DONE">Done</option>
-                          <option value="CANCELLED">Cancelled</option>
-                        </select>
+                          {item.status}
+                        </span>
+
+                        {/* Status action buttons */}
+                        {item.status === "ORDERED" && (
+                          <>
+                            <button
+                              onClick={() =>
+                                handleStatusChange(
+                                  item.order_item_id,
+                                  "PREPARING"
+                                )
+                              }
+                              className="px-2 py-1 text-xs bg-yellow-500 text-white rounded-md hover:bg-yellow-600"
+                            >
+                              Start Preparing
+                            </button>
+                            <button
+                              onClick={() =>
+                                handleCancelItem(item.order_item_id)
+                              }
+                              className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded-md hover:bg-red-200"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        )}
                         {item.status === "PREPARING" && (
                           <button
-                            onClick={() => handleCancelItem(item.order_item_id)}
-                            className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded-md hover:bg-red-200"
+                            onClick={() =>
+                              handleStatusChange(item.order_item_id, "DONE")
+                            }
+                            className="px-2 py-1 text-xs bg-green-500 text-white rounded-md hover:bg-green-600"
                           >
-                            Cancel
+                            Mark Done
                           </button>
                         )}
                       </div>
@@ -360,36 +476,77 @@ export default function OrderDetailPage() {
           </div>
         </div>
 
-        {/* Bill Modal */}
+        {/* Billing Modal */}
         {showBill && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-              <h2 className="text-2xl font-bold text-gray-800 mb-4">Bill</h2>
-              <div className="space-y-2 mb-4">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+              <div className="text-center mb-4">
+                <h2 className="text-2xl font-bold text-gray-800">
+                  ORDER #{order.order_id}
+                </h2>
+                <p className="text-gray-500">{order.order_type}</p>
+              </div>
+
+              <div className="border-t border-b py-4 space-y-2">
                 {orderItems
                   ?.filter((item) => item.status !== "CANCELLED")
                   .map((item) => (
                     <div
                       key={item.order_item_id}
-                      className="flex justify-between text-sm"
+                      className="flex justify-between"
                     >
-                      <span>
-                        {item.menu_item?.name} × {item.quantity}
+                      <span className="flex-1">
+                        {item.quantity}× {item.menu_item?.name}
                       </span>
-                      <span>฿{parseFloat(item.line_total).toFixed(2)}</span>
+                      <span className="font-medium">
+                        ฿{parseFloat(item.line_total).toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                {/* Show cancelled items greyed out */}
+                {orderItems
+                  ?.filter((item) => item.status === "CANCELLED")
+                  .map((item) => (
+                    <div
+                      key={item.order_item_id}
+                      className="flex justify-between text-gray-400 line-through"
+                    >
+                      <span className="flex-1">
+                        {item.quantity}× {item.menu_item?.name}
+                      </span>
+                      <span>฿0.00</span>
                     </div>
                   ))}
               </div>
-              <div className="border-t pt-2 flex justify-between font-bold">
-                <span>Total:</span>
-                <span>฿{parseFloat(order.total_price).toFixed(2)}</span>
+
+              <div className="py-4">
+                <div className="flex justify-between text-xl font-bold">
+                  <span>TOTAL:</span>
+                  <span className="text-blue-600">
+                    ฿{parseFloat(order.total_price).toFixed(2)}
+                  </span>
+                </div>
               </div>
-              <button
-                onClick={() => setShowBill(false)}
-                className="mt-4 w-full px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
-              >
-                Close
-              </button>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowBill(false)}
+                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+                >
+                  Close
+                </button>
+                {canProcessPayment && (
+                  <button
+                    onClick={() => {
+                      setShowBill(false);
+                      setShowPayment(true);
+                    }}
+                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                  >
+                    Pay ฿{parseFloat(order.total_price).toFixed(2)}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}

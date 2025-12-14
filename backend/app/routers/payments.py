@@ -129,9 +129,17 @@ def create_payment(payment: schemas.PaymentCreate, db: Session = Depends(get_db)
             detail="Cannot process payment for an order with no items"
         )
 
-    # Check if any items are still PREPARING
+    # Check if any items are still ORDERED or PREPARING
+    ordered_items = [item for item in order_items if item.status == "ORDERED"]
     preparing_items = [
         item for item in order_items if item.status == "PREPARING"]
+
+    if ordered_items:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot process payment. {len(ordered_items)} order item(s) are still ORDERED (waiting for chef). All items must be DONE or CANCELLED before payment."
+        )
+
     if preparing_items:
         raise HTTPException(
             status_code=400,
@@ -139,12 +147,11 @@ def create_payment(payment: schemas.PaymentCreate, db: Session = Depends(get_db)
         )
 
     # Check if there are any non-cancelled items (at least one item must be DONE)
-    active_items = [
-        item for item in order_items if item.status != "CANCELLED"]
-    if not active_items:
+    done_items = [item for item in order_items if item.status == "DONE"]
+    if not done_items:
         raise HTTPException(
             status_code=400,
-            detail="Cannot process payment. All order items are cancelled. At least one item must be DONE."
+            detail="Cannot process payment. No DONE items found. At least one item must be DONE."
         )
 
     # Validate payment_ref is required for CARD and QR payment methods
