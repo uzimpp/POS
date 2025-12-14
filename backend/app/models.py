@@ -7,10 +7,6 @@ from sqlalchemy import (
     ForeignKey,
     DECIMAL,
 )
-<<<<<<< HEAD
-=======
-
->>>>>>> 095b97944a7e6eebf798849fafe9878095e764c0
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -22,19 +18,11 @@ from .database import Base
 # -------------------------------------------------
 class Branches(Base):
     __tablename__ = "branches"
-<<<<<<< HEAD
-=======
-
->>>>>>> 095b97944a7e6eebf798849fafe9878095e764c0
     branch_id = Column(Integer, primary_key=True, index=True)
     name = Column(String(50), nullable=False)
     address = Column(String(200), nullable=False)
     phone = Column(String(20), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
-<<<<<<< HEAD
-=======
-
->>>>>>> 095b97944a7e6eebf798849fafe9878095e764c0
     employees = relationship("Employees", back_populates="branch")
     orders = relationship("Orders", back_populates="branch")
     stock_items = relationship("Stock", back_populates="branch")
@@ -59,10 +47,6 @@ class Roles(Base):
 # -------------------------------------------------
 class Employees(Base):
     __tablename__ = "employees"
-<<<<<<< HEAD
-=======
-
->>>>>>> 095b97944a7e6eebf798849fafe9878095e764c0
     employee_id = Column(Integer, primary_key=True, index=True)
     branch_id = Column(Integer, ForeignKey(
         "branches.branch_id"), nullable=False)
@@ -85,10 +69,6 @@ class Employees(Base):
 # -------------------------------------------------
 class Tiers(Base):
     __tablename__ = "tiers"
-<<<<<<< HEAD
-=======
-
->>>>>>> 095b97944a7e6eebf798849fafe9878095e764c0
     tier_id = Column(Integer, primary_key=True, index=True)
     tier_name = Column(String(50), nullable=False)
     tier = Column(Integer, nullable=False)  # 0, 1, 2, 3...
@@ -101,10 +81,6 @@ class Tiers(Base):
 # -------------------------------------------------
 class Memberships(Base):
     __tablename__ = "memberships"
-<<<<<<< HEAD
-=======
-
->>>>>>> 095b97944a7e6eebf798849fafe9878095e764c0
     membership_id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
     phone = Column(String(20), unique=True, nullable=False, index=True)
@@ -123,10 +99,6 @@ class Memberships(Base):
 # -------------------------------------------------
 class MenuItems(Base):
     __tablename__ = "menu_items"
-<<<<<<< HEAD
-=======
-
->>>>>>> 095b97944a7e6eebf798849fafe9878095e764c0
     menu_item_id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
     type = Column(String(50), nullable=False)
@@ -145,10 +117,6 @@ class MenuItems(Base):
 # -------------------------------------------------
 class Stock(Base):
     __tablename__ = "stock"
-<<<<<<< HEAD
-=======
-
->>>>>>> 095b97944a7e6eebf798849fafe9878095e764c0
     stock_id = Column(Integer, primary_key=True, index=True)
     branch_id = Column(Integer, ForeignKey(
         "branches.branch_id"), nullable=False)
@@ -166,10 +134,6 @@ class Stock(Base):
 # -------------------------------------------------
 class MenuIngredients(Base):
     __tablename__ = "menu_ingredients"
-<<<<<<< HEAD
-=======
-
->>>>>>> 095b97944a7e6eebf798849fafe9878095e764c0
     id = Column(Integer, primary_key=True, index=True)
     menu_item_id = Column(Integer, ForeignKey(
         "menu_items.menu_item_id"), nullable=False)
@@ -186,10 +150,6 @@ class MenuIngredients(Base):
 # -------------------------------------------------
 class Orders(Base):
     __tablename__ = "orders"
-<<<<<<< HEAD
-=======
-
->>>>>>> 095b97944a7e6eebf798849fafe9878095e764c0
     order_id = Column(Integer, primary_key=True, index=True)
     branch_id = Column(Integer, ForeignKey(
         "branches.branch_id"), nullable=False)
@@ -216,10 +176,6 @@ class Orders(Base):
 # -------------------------------------------------
 class OrderItems(Base):
     __tablename__ = "order_items"
-<<<<<<< HEAD
-=======
-
->>>>>>> 095b97944a7e6eebf798849fafe9878095e764c0
     order_item_id = Column(Integer, primary_key=True, index=True)
     order_id = Column(Integer, ForeignKey("orders.order_id"), nullable=False)
     menu_item_id = Column(Integer, ForeignKey(
@@ -254,10 +210,6 @@ class Payments(Base):
 # -------------------------------------------------
 class StockMovements(Base):
     __tablename__ = "stock_movements"
-<<<<<<< HEAD
-=======
-
->>>>>>> 095b97944a7e6eebf798849fafe9878095e764c0
     movement_id = Column(Integer, primary_key=True, index=True)
     stock_id = Column(Integer, ForeignKey("stock.stock_id"), nullable=False)
     employee_id = Column(Integer, ForeignKey(

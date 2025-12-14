@@ -20,10 +20,6 @@ def get_employees(
         query = query.filter(models.Employees.branch_id.in_(branch_ids))
         
     return query.offset(skip).limit(limit).all()
-<<<<<<< HEAD
-=======
-
->>>>>>> 095b97944a7e6eebf798849fafe9878095e764c0
 
 @router.get("/{employee_id}", response_model=schemas.Employee)
 def get_employee(employee_id: int, db: Session = Depends(get_db)):
@@ -36,8 +32,6 @@ def get_employee(employee_id: int, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=schemas.Employee)
 def create_employee(employee: schemas.EmployeeCreate, db: Session = Depends(get_db)):
-<<<<<<< HEAD
-=======
     # Check if branch exists and is active
     branch = db.query(models.Branches).filter(models.Branches.branch_id == employee.branch_id).first()
     if not branch:
@@ -45,7 +39,6 @@ def create_employee(employee: schemas.EmployeeCreate, db: Session = Depends(get_
     if not branch.is_active:
         raise HTTPException(status_code=400, detail="Cannot add employee to an inactive branch")
 
->>>>>>> 095b97944a7e6eebf798849fafe9878095e764c0
     db_employee = models.Employees(**employee.dict())
     db.add(db_employee)
     db.commit()
