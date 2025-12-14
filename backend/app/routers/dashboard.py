@@ -80,3 +80,96 @@ def get_dashboard_stats(
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error calculating dashboard stats: {str(e)}")
+
+
+@router.get("/sales-chart")
+def get_sales_chart_data(
+    period: str = Query(..., regex="^(today|7days|30days)$"),
+    branch_ids: Optional[List[int]] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Get sales data for line chart.
+    Periods:
+    - today: Hourly data (00-23) for current day
+    - 7days: Daily data for last 7 days
+    - 30days: Daily data for last 30 days
+    """
+    try:
+        from datetime import datetime, timedelta, date, time
+        from sqlalchemy import extract, cast, Date
+
+        now = datetime.now()
+        data = []
+
+        # Base query: join Orders -> Payments to get paid_price
+        # We only care about PAID orders for sales chart? Or all orders? 
+        # Usually sales chart implies "Revenue", so use Payments or Orders with status PAID.
+        # Let's use Orders with total_price for simplicity but check status=PAID if needed.
+        # Better strictly use aggregated payments for "Sales".
+        # But for simplicity let's use Orders.created_at and total_price where status='PAID'
+        
+        query = db.query(
+            models.Orders.created_at,
+            models.Orders.total_price
+        ).filter(models.Orders.status == 'PAID')
+
+        if branch_ids:
+            query = query.filter(models.Orders.branch_id.in_(branch_ids))
+
+        if period == "today":
+            # Filter for today
+            start_of_day = datetime.combine(now.date(), time.min)
+            end_of_day = datetime.combine(now.date(), time.max)
+            
+            # Helper to generate all hours 0-23
+            sales_by_hour = {h: 0.0 for h in range(24)}
+            
+            # Fetch data for today
+            results = query.filter(
+                models.Orders.created_at >= start_of_day,
+                models.Orders.created_at <= end_of_day
+            ).all()
+
+            for t, amount in results:
+                # amount is Decimal, convert to float
+                sales_by_hour[t.hour] += float(amount)
+
+            # Format for frontend
+            for h in range(24):
+                data.append({
+                    "name": f"{h:02d}:00",
+                    "value": sales_by_hour[h]
+                })
+
+        elif period == "7days" or period == "30days":
+            days = 7 if period == "7days" else 30
+            start_date = (now - timedelta(days=days-1)).date() # Include today, so go back N-1 days
+            
+            # Generate all dates
+            sales_by_date = {}
+            for i in range(days):
+                d = start_date + timedelta(days=i)
+                sales_by_date[d] = 0.0
+            
+            # Query
+            results = query.filter(
+                func.date(models.Orders.created_at) >= start_date
+            ).all()
+
+            for t, amount in results:
+                d = t.date()
+                if d in sales_by_date:
+                    sales_by_date[d] += float(amount)
+            
+            # Format
+            for d in sorted(sales_by_date.keys()):
+                data.append({
+                    "name": d.strftime("%d/%m"), # DD/MM format
+                    "value": sales_by_date[d]
+                })
+
+        return data
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching sales chart data: {str(e)}")
