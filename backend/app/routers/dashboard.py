@@ -84,7 +84,8 @@ def get_dashboard_stats(
 
 @router.get("/sales-chart")
 def get_sales_chart_data(
-    period: str = Query(..., regex="^(today|7days|30days)$"),
+    period: str = Query(..., regex="^(today|7days|30days|1year)$"),
+    split_by_type: bool = Query(False),
     branch_ids: Optional[List[int]] = Query(None),
     db: Session = Depends(get_db)
 ):
@@ -94,80 +95,149 @@ def get_sales_chart_data(
     - today: Hourly data (00-23) for current day
     - 7days: Daily data for last 7 days
     - 30days: Daily data for last 30 days
+    - 1year: Monthly data for last 12 months
+    
+    If split_by_type is True, returns breakdown by order_type.
     """
     try:
         from datetime import datetime, timedelta, date, time
-        from sqlalchemy import extract, cast, Date
+        from sqlalchemy import extract, func, cast, Date
 
         now = datetime.now()
         data = []
 
-        # Base query: join Orders -> Payments to get paid_price
-        # We only care about PAID orders for sales chart? Or all orders? 
-        # Usually sales chart implies "Revenue", so use Payments or Orders with status PAID.
-        # Let's use Orders with total_price for simplicity but check status=PAID if needed.
-        # Better strictly use aggregated payments for "Sales".
-        # But for simplicity let's use Orders.created_at and total_price where status='PAID'
-        
+        # Base query
         query = db.query(
             models.Orders.created_at,
-            models.Orders.total_price
+            models.Orders.total_price,
+            models.Orders.order_type
         ).filter(models.Orders.status == 'PAID')
 
         if branch_ids:
             query = query.filter(models.Orders.branch_id.in_(branch_ids))
 
+        # Helper to process results into {label: {type: value}} or {label: value}
+        def aggregate_results(results, labels, label_key_func):
+            # params:
+            # results: list of (created_at, price, order_type)
+            # labels: list of label keys (e.g. hours, dates)
+            # label_key_func: function to get label key from result item
+            
+            # Initialize structure
+            agg_data = {}
+            for label in labels:
+                agg_data[label] = {} if split_by_type else 0.0
+
+            for t, amount, o_type in results:
+                key = label_key_func(t)
+                if key in agg_data:
+                    amt = float(amount)
+                    if split_by_type:
+                        # Ensure type key exists
+                        current_type_val = agg_data[key].get(o_type, 0.0)
+                        agg_data[key][o_type] = current_type_val + amt
+                    else:
+                        agg_data[key] += amt
+            
+            # Flatten for response
+            final_data = []
+            for label in labels:
+                item = {"name": str(label)} # customize name formatting later if needed
+                val = agg_data[label]
+                if split_by_type:
+                    # Merge dict: {name: "...", DINE_IN: 100, TAKEAWAY: 50}
+                    item.update(val)
+                else:
+                    item["value"] = val
+                final_data.append(item)
+            return final_data
+
         if period == "today":
-            # Filter for today
             start_of_day = datetime.combine(now.date(), time.min)
             end_of_day = datetime.combine(now.date(), time.max)
             
-            # Helper to generate all hours 0-23
-            sales_by_hour = {h: 0.0 for h in range(24)}
-            
-            # Fetch data for today
             results = query.filter(
                 models.Orders.created_at >= start_of_day,
                 models.Orders.created_at <= end_of_day
             ).all()
 
-            for t, amount in results:
-                # amount is Decimal, convert to float
-                sales_by_hour[t.hour] += float(amount)
+            # Labels: 0-23 integers
+            labels = list(range(24))
+            
+            def get_hour(t): return t.hour
 
-            # Format for frontend
-            for h in range(24):
-                data.append({
-                    "name": f"{h:02d}:00",
-                    "value": sales_by_hour[h]
-                })
+            final = aggregate_results(results, labels, get_hour)
+            # Format name
+            for item in final:
+                h = int(item["name"])
+                item["name"] = f"{h:02d}:00"
+            return final
 
         elif period == "7days" or period == "30days":
             days = 7 if period == "7days" else 30
-            start_date = (now - timedelta(days=days-1)).date() # Include today, so go back N-1 days
+            start_date = (now - timedelta(days=days-1)).date()
             
-            # Generate all dates
-            sales_by_date = {}
-            for i in range(days):
-                d = start_date + timedelta(days=i)
-                sales_by_date[d] = 0.0
-            
-            # Query
             results = query.filter(
                 func.date(models.Orders.created_at) >= start_date
             ).all()
 
-            for t, amount in results:
-                d = t.date()
-                if d in sales_by_date:
-                    sales_by_date[d] += float(amount)
+            # Labels: list of dates
+            labels = [start_date + timedelta(days=i) for i in range(days)]
             
-            # Format
-            for d in sorted(sales_by_date.keys()):
-                data.append({
-                    "name": d.strftime("%d/%m"), # DD/MM format
-                    "value": sales_by_date[d]
-                })
+            def get_date(t): return t.date()
+
+            final = aggregate_results(results, labels, get_date)
+            # Format name
+            for item in final:
+                # item["name"] is actually a date object string "YYYY-MM-DD" from str(label)
+                # Let's reformat from the label object if possible, but we casted to str.
+                # Re-parse or just rely on consistent ordering.
+                # Easy way: zip with formatted labels.
+                pass
+            
+            # Post-process names
+            for i, label in enumerate(labels):
+                final[i]["name"] = label.strftime("%d/%m")
+            
+            return final
+
+        elif period == "1year":
+            # Last 12 months including current month
+            # Logic: Get 1st day of current month last year? Or just last 12 months rolling?
+            # Usually "This Year" means Jan-Dec, "1 Year" means rolling.
+            # Let's do rolling 12 months (e.g. Dec 2024 back to Jan 2024)
+            start_date = (now.replace(day=1) - timedelta(days=365)).replace(day=1) # Approx 1 year ago start of month
+            
+            # Actually better to just take 1st day of month 11 months ago.
+            # e.g. Now is Dec. 11 months ago is Jan.
+            
+            months = []
+            # Generate expected month keys (YYYY-MM)
+            curr = now.replace(day=1)
+            for i in range(12):
+                # Go back i months
+                # Simple logic:
+                m = (curr.month - 1 - i) % 12 + 1
+                y = curr.year + ((curr.month - 1 - i) // 12)
+                months.append(date(y, m, 1)) # Use 1st of month as key
+            months.reverse() # Oldest first
+
+            min_date = months[0]
+            
+            results = query.filter(
+                models.Orders.created_at >= min_date
+            ).all()
+
+            def get_month_start(t):
+                return t.date().replace(day=1)
+
+            final = aggregate_results(results, months, get_month_start)
+            
+            # Format name
+            for i, d in enumerate(months):
+                final[i]["name"] = d.strftime("%b %Y") # Jan 2025
+            
+            return final
 
         return data
 
