@@ -5,13 +5,15 @@ import { Layout } from "@/components/layout";
 import { useGetPaymentsQuery, PaymentFilters } from "@/store/api/paymentsApi";
 
 export default function PaymentPage() {
+  const currentYear = new Date().getFullYear();
+
   const [filterMethod, setFilterMethod] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [selectedYear, setSelectedYear] = useState<number | "">("");
   const [selectedMonth, setSelectedMonth] = useState<number | "">("");
   const [selectedQuarter, setSelectedQuarter] = useState<number | "">("");
-  const [filterType, setFilterType] = useState<"month" | "quarter" | "none">(
-    "none"
+  const [filterType, setFilterType] = useState<"month" | "quarter" | "year">(
+    "year"
   );
 
   // Build filter object
@@ -22,13 +24,16 @@ export default function PaymentPage() {
       filterObj.payment_method = filterMethod;
     }
 
+    // Include year if selected
     if (selectedYear) {
       filterObj.year = Number(selectedYear);
-      if (filterType === "month" && selectedMonth) {
-        filterObj.month = Number(selectedMonth);
-      } else if (filterType === "quarter" && selectedQuarter) {
-        filterObj.quarter = Number(selectedQuarter);
-      }
+    }
+
+    // Month and quarter can work with or without year
+    if (filterType === "month" && selectedMonth) {
+      filterObj.month = Number(selectedMonth);
+    } else if (filterType === "quarter" && selectedQuarter) {
+      filterObj.quarter = Number(selectedQuarter);
     }
 
     if (searchTerm.trim()) {
@@ -58,7 +63,6 @@ export default function PaymentPage() {
   }, [filteredPayments]);
 
   // Generate year options (current year and 5 years back)
-  const currentYear = new Date().getFullYear();
   const yearOptions = Array.from({ length: 6 }, (_, i) => currentYear - i);
 
   // Generate month options
@@ -91,14 +95,15 @@ export default function PaymentPage() {
     setSelectedYear("");
     setSelectedMonth("");
     setSelectedQuarter("");
-    setFilterType("none");
+    setFilterType("year");
   };
 
   const hasActiveFilters =
     filterMethod !== "all" ||
     searchTerm ||
-    selectedYear ||
-    filterType !== "none";
+    selectedYear !== "" ||
+    selectedMonth !== "" ||
+    selectedQuarter !== "";
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "N/A";
@@ -154,7 +159,7 @@ export default function PaymentPage() {
 
           {/* Filters Section */}
           <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200 mb-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-end">
               {/* Search */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -182,7 +187,8 @@ export default function PaymentPage() {
                   <option value="all">All Methods</option>
                   <option value="CASH">Cash</option>
                   <option value="CARD">Card</option>
-                  <option value="TRANSFER">Transfer</option>
+                  <option value="QR">QR</option>
+                  <option value="POINTS">Points</option>
                 </select>
               </div>
 
@@ -194,14 +200,8 @@ export default function PaymentPage() {
                 <select
                   value={selectedYear}
                   onChange={(e) => {
-                    setSelectedYear(
-                      e.target.value ? Number(e.target.value) : ""
-                    );
-                    if (!e.target.value) {
-                      setFilterType("none");
-                      setSelectedMonth("");
-                      setSelectedQuarter("");
-                    }
+                    const val = e.target.value;
+                    setSelectedYear(val ? Number(val) : "");
                   }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 >
@@ -214,94 +214,108 @@ export default function PaymentPage() {
                 </select>
               </div>
 
-              {/* Month/Quarter Selector */}
-              {selectedYear && (
+              {/* Filter Type Toggle - always visible */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Filter By
+                </label>
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilterType("year");
+                      setSelectedMonth("");
+                      setSelectedQuarter("");
+                    }}
+                    className={`flex-1 px-2 py-2 text-sm border rounded-md transition-colors ${
+                      filterType === "year"
+                        ? "bg-blue-500 text-white border-blue-500"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    {selectedYear ? "Year" : "All"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilterType("month");
+                      setSelectedQuarter("");
+                    }}
+                    className={`flex-1 px-2 py-2 text-sm border rounded-md transition-colors ${
+                      filterType === "month"
+                        ? "bg-blue-500 text-white border-blue-500"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    Month
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilterType("quarter");
+                      setSelectedMonth("");
+                    }}
+                    className={`flex-1 px-2 py-2 text-sm border rounded-md transition-colors ${
+                      filterType === "quarter"
+                        ? "bg-blue-500 text-white border-blue-500"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    Quarter
+                  </button>
+                </div>
+              </div>
+
+              {/* Month Dropdown - show when filter type is month */}
+              {filterType === "month" && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Filter By
+                    Month {!selectedYear && "(All Years)"}
                   </label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFilterType("month");
-                        setSelectedQuarter("");
-                      }}
-                      className={`flex-1 px-3 py-2 text-sm border rounded-md ${
-                        filterType === "month"
-                          ? "bg-blue-500 text-white border-blue-500"
-                          : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                      }`}
-                    >
-                      Month
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFilterType("quarter");
-                        setSelectedMonth("");
-                      }}
-                      className={`flex-1 px-3 py-2 text-sm border rounded-md ${
-                        filterType === "quarter"
-                          ? "bg-blue-500 text-white border-blue-500"
-                          : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                      }`}
-                    >
-                      Quarter
-                    </button>
-                  </div>
+                  <select
+                    value={selectedMonth}
+                    onChange={(e) =>
+                      setSelectedMonth(
+                        e.target.value ? Number(e.target.value) : ""
+                      )
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">All Months</option>
+                    {monthOptions.map((month) => (
+                      <option key={month.value} value={month.value}>
+                        {month.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Quarter Dropdown - show when filter type is quarter */}
+              {filterType === "quarter" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Quarter {!selectedYear && "(All Years)"}
+                  </label>
+                  <select
+                    value={selectedQuarter}
+                    onChange={(e) =>
+                      setSelectedQuarter(
+                        e.target.value ? Number(e.target.value) : ""
+                      )
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">All Quarters</option>
+                    {quarterOptions.map((quarter) => (
+                      <option key={quarter.value} value={quarter.value}>
+                        {quarter.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               )}
             </div>
-
-            {/* Month/Quarter Selectors */}
-            {selectedYear && filterType === "month" && (
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Month
-                </label>
-                <select
-                  value={selectedMonth}
-                  onChange={(e) =>
-                    setSelectedMonth(
-                      e.target.value ? Number(e.target.value) : ""
-                    )
-                  }
-                  className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">All Months</option>
-                  {monthOptions.map((month) => (
-                    <option key={month.value} value={month.value}>
-                      {month.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {selectedYear && filterType === "quarter" && (
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Quarter
-                </label>
-                <select
-                  value={selectedQuarter}
-                  onChange={(e) =>
-                    setSelectedQuarter(
-                      e.target.value ? Number(e.target.value) : ""
-                    )
-                  }
-                  className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">All Quarters</option>
-                  {quarterOptions.map((quarter) => (
-                    <option key={quarter.value} value={quarter.value}>
-                      {quarter.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
           </div>
         </div>
 

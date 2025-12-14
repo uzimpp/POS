@@ -192,3 +192,110 @@ def delete_stock_item(stock_id: int, db: Session = Depends(get_db)):
             status_code=500,
             detail=f"An error occurred while deleting stock item: {str(e)}"
         )
+
+
+# =========================
+# Stock Movements Endpoints
+# =========================
+
+@router.get("/movements", response_model=List[schemas.StockMovement])
+def get_stock_movements(
+    branch_id: Optional[int] = Query(None, description="Filter by branch"),
+    stock_id: Optional[int] = Query(None, description="Filter by stock item"),
+    reason: Optional[str] = Query(
+        None, description="Filter by reason (RESTOCK, SALE, WASTE, ADJUST)"),
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    """Get stock movements with optional filters."""
+    query = db.query(models.StockMovements).options(
+        joinedload(models.StockMovements.stock).joinedload(
+            models.Stock.ingredient),
+        joinedload(models.StockMovements.stock).joinedload(
+            models.Stock.branch),
+        joinedload(models.StockMovements.employee),
+        joinedload(models.StockMovements.order)
+    )
+
+    if branch_id:
+        query = query.join(models.Stock).filter(
+            models.Stock.branch_id == branch_id)
+
+    if stock_id:
+        query = query.filter(models.StockMovements.stock_id == stock_id)
+
+    if reason:
+        query = query.filter(models.StockMovements.reason == reason)
+
+    # Order by most recent first
+    movements = query.order_by(models.StockMovements.created_at.desc()).offset(
+        skip).limit(limit).all()
+    return movements
+
+
+@router.get("/movements/{movement_id}", response_model=schemas.StockMovement)
+def get_stock_movement(movement_id: int, db: Session = Depends(get_db)):
+    """Get a single stock movement by ID."""
+    movement = db.query(models.StockMovements).options(
+        joinedload(models.StockMovements.stock).joinedload(
+            models.Stock.ingredient),
+        joinedload(models.StockMovements.stock).joinedload(
+            models.Stock.branch),
+        joinedload(models.StockMovements.employee),
+        joinedload(models.StockMovements.order)
+    ).filter(models.StockMovements.movement_id == movement_id).first()
+
+    if not movement:
+        raise HTTPException(status_code=404, detail="Stock movement not found")
+    return movement
+
+
+@router.post("/movements", response_model=schemas.StockMovement, status_code=status.HTTP_201_CREATED)
+def create_stock_movement(movement: schemas.StockMovementCreate, db: Session = Depends(get_db)):
+    """Create a stock movement (RESTOCK, WASTE, ADJUST). SALE movements are created automatically."""
+    # Validate stock exists
+    stock = db.query(models.Stock).filter(
+        models.Stock.stock_id == movement.stock_id).first()
+    if not stock:
+        raise HTTPException(status_code=404, detail="Stock item not found")
+
+    # Validate reason
+    valid_reasons = ["RESTOCK", "WASTE", "ADJUST", "SALE"]
+    if movement.reason not in valid_reasons:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid reason. Must be one of: {', '.join(valid_reasons)}"
+        )
+
+    # For RESTOCK, qty_change should be positive
+    # For WASTE/SALE, qty_change should be negative
+    # For ADJUST, can be positive or negative
+
+    # Update stock amount
+    new_amount = stock.amount_remaining + movement.qty_change
+    if new_amount < 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Insufficient stock. Available: {stock.amount_remaining}, Change: {movement.qty_change}"
+        )
+
+    stock.amount_remaining = new_amount
+
+    # Create movement record
+    db_movement = models.StockMovements(**movement.dict())
+    db.add(db_movement)
+    db.commit()
+    db.refresh(db_movement)
+
+    # Reload with relationships
+    db_movement = db.query(models.StockMovements).options(
+        joinedload(models.StockMovements.stock).joinedload(
+            models.Stock.ingredient),
+        joinedload(models.StockMovements.stock).joinedload(
+            models.Stock.branch),
+        joinedload(models.StockMovements.employee),
+        joinedload(models.StockMovements.order)
+    ).filter(models.StockMovements.movement_id == db_movement.movement_id).first()
+
+    return db_movement

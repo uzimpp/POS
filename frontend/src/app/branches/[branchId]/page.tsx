@@ -16,8 +16,12 @@ import {
   useCreateStockMutation,
   useUpdateStockMutation,
   useDeleteStockMutation,
+  useGetStockMovementsQuery,
+  useCreateStockMovementMutation,
   Stock,
   StockCreate,
+  StockMovement,
+  StockMovementCreate,
 } from "@/store/api/stockApi";
 import { useGetBranchesQuery } from "@/store/api/branchesApi";
 import { useGetIngredientsQuery } from "@/store/api/ingredientsApi";
@@ -33,9 +37,9 @@ export default function BranchDetailPage({
   const resolvedParams = use(params);
   const branchId = parseInt(resolvedParams.branchId);
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"employees" | "stock">(
-    "employees"
-  );
+  const [activeTab, setActiveTab] = useState<
+    "employees" | "stock" | "movements"
+  >("employees");
 
   // Fetch Branch Info (for title)
   const { data: branches } = useGetBranchesQuery();
@@ -45,7 +49,7 @@ export default function BranchDetailPage({
     <Layout>
       <div className="bg-white rounded-lg shadow min-h-screen pb-10">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50 rounded-t-lg">
+        <div className="px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-gray-50 rounded-t-lg">
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.back()}
@@ -53,9 +57,16 @@ export default function BranchDetailPage({
             >
               &larr; Back
             </button>
-            <h1 className="text-xl font-bold text-gray-800">
-              {branch ? `${branch.name} - Details` : `Branch #${branchId}`}
-            </h1>
+            <div>
+              <h1 className="text-xl font-bold text-gray-800">
+                {branch ? branch.name : `Branch #${branchId}`}
+              </h1>
+              {branch && (
+                <p className="text-sm text-gray-500">
+                  {branch.address} • {branch.phone}
+                </p>
+              )}
+            </div>
           </div>
           <div className="flex space-x-2">
             <button
@@ -78,6 +89,16 @@ export default function BranchDetailPage({
             >
               Stock
             </button>
+            <button
+              onClick={() => setActiveTab("movements")}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === "movements"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              }`}
+            >
+              Movements
+            </button>
           </div>
         </div>
 
@@ -85,8 +106,10 @@ export default function BranchDetailPage({
         <div className="p-6">
           {activeTab === "employees" ? (
             <EmployeeManager branchId={branchId} />
-          ) : (
+          ) : activeTab === "stock" ? (
             <StockManager branchId={branchId} />
+          ) : (
+            <StockMovementsManager branchId={branchId} />
           )}
         </div>
       </div>
@@ -630,6 +653,269 @@ function StockManager({ branchId }: { branchId: number }) {
         onCancel={() => setIsDeleteModalOpen(false)}
         isDestructive={true}
       />
+    </div>
+  );
+}
+
+function StockMovementsManager({ branchId }: { branchId: number }) {
+  const { data: movements, isLoading } = useGetStockMovementsQuery({
+    branch_id: branchId,
+  });
+  const { data: stockItems } = useGetStockByBranchQuery(branchId);
+  const [createMovement] = useCreateStockMovementMutation();
+  const [filterReason, setFilterReason] = useState<string>("all");
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [formData, setFormData] = useState<StockMovementCreate>({
+    stock_id: 0,
+    qty_change: 0,
+    reason: "RESTOCK",
+    note: "",
+  });
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    try {
+      // For WASTE, make qty_change negative
+      const adjustedData = {
+        ...formData,
+        qty_change:
+          formData.reason === "WASTE"
+            ? -Math.abs(formData.qty_change)
+            : formData.qty_change,
+      };
+      await createMovement(adjustedData).unwrap();
+      setIsModalOpen(false);
+      setFormData({ stock_id: 0, qty_change: 0, reason: "RESTOCK", note: "" });
+    } catch (err: any) {
+      alert(err?.data?.detail || "Failed to create movement");
+    }
+  };
+
+  const filteredMovements =
+    movements?.filter(
+      (m) => filterReason === "all" || m.reason === filterReason
+    ) || [];
+
+  const getReasonBadgeColor = (reason: string) => {
+    switch (reason) {
+      case "RESTOCK":
+        return "bg-green-100 text-green-800";
+      case "SALE":
+        return "bg-blue-100 text-blue-800";
+      case "WASTE":
+        return "bg-red-100 text-red-800";
+      case "ADJUST":
+        return "bg-yellow-100 text-yellow-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  if (isLoading) return <div>Loading stock movements...</div>;
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-lg font-semibold">Stock Movements</h2>
+        <div className="flex gap-4 items-center">
+          <select
+            value={filterReason}
+            onChange={(e) => setFilterReason(e.target.value)}
+            className="border border-gray-300 rounded-md px-3 py-1 text-sm"
+          >
+            <option value="all">All Types</option>
+            <option value="RESTOCK">Restock</option>
+            <option value="SALE">Sale</option>
+            <option value="WASTE">Waste</option>
+            <option value="ADJUST">Adjust</option>
+          </select>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
+          >
+            + Add Movement
+          </button>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                ID
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Date
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Ingredient
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Change
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Reason
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Employee
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Note
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {filteredMovements.map((m) => (
+              <tr key={m.movement_id}>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  #{m.movement_id}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {new Date(m.created_at).toLocaleString()}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {m.stock?.ingredient?.name || "Unknown"}
+                </td>
+                <td
+                  className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
+                    Number(m.qty_change) >= 0
+                      ? "text-green-600"
+                      : "text-red-600"
+                  }`}
+                >
+                  {Number(m.qty_change) >= 0 ? "+" : ""}
+                  {Number(m.qty_change).toFixed(2)}{" "}
+                  {m.stock?.ingredient?.base_unit || ""}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${getReasonBadgeColor(
+                      m.reason
+                    )}`}
+                  >
+                    {m.reason}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {m.employee
+                    ? `${m.employee.first_name} ${m.employee.last_name}`
+                    : "-"}
+                </td>
+                <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
+                  {m.note || "-"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {filteredMovements.length === 0 && (
+          <p className="text-center py-4 text-gray-500">
+            No stock movements found.
+          </p>
+        )}
+      </div>
+
+      {/* Movement Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-medium mb-4">Add Stock Movement</h3>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Stock Item *
+                </label>
+                <select
+                  required
+                  className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                  value={formData.stock_id}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      stock_id: Number(e.target.value),
+                    })
+                  }
+                >
+                  <option value={0}>Select Stock Item</option>
+                  {stockItems?.map((item) => (
+                    <option key={item.stock_id} value={item.stock_id}>
+                      {item.ingredient?.name || "Unknown"} (
+                      {Number(item.amount_remaining).toFixed(2)}{" "}
+                      {item.ingredient?.base_unit})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Reason *
+                </label>
+                <select
+                  required
+                  className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                  value={formData.reason}
+                  onChange={(e) =>
+                    setFormData({ ...formData, reason: e.target.value })
+                  }
+                >
+                  <option value="RESTOCK">Restock (Add)</option>
+                  <option value="WASTE">Waste (Remove)</option>
+                  <option value="ADJUST">Adjust (+/-)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Quantity *{" "}
+                  {formData.reason === "WASTE" && "(will be subtracted)"}
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                  value={formData.qty_change}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      qty_change: parseFloat(e.target.value) || 0,
+                    })
+                  }
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Note
+                </label>
+                <textarea
+                  className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                  value={formData.note || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, note: e.target.value })
+                  }
+                  rows={2}
+                />
+              </div>
+              <div className="flex justify-end gap-2 mt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 border rounded text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Create
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

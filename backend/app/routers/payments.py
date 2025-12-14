@@ -18,9 +18,9 @@ def get_payments(
     year: Optional[int] = Query(
         None, description="Filter by year (e.g., 2024)"),
     month: Optional[int] = Query(
-        None, description="Filter by month (1-12). Requires year parameter."),
+        None, description="Filter by month (1-12)"),
     quarter: Optional[int] = Query(
-        None, description="Filter by quarter (1-4). Requires year parameter."),
+        None, description="Filter by quarter (1-4)"),
     search: Optional[str] = Query(
         None, description="Search by order_id or payment_ref"),
     db: Session = Depends(get_db)
@@ -30,48 +30,32 @@ def get_payments(
     if payment_method:
         query = query.filter(models.Payments.payment_method == payment_method)
 
-    # Date filtering
+    # Date filtering - year, month, quarter can be combined independently
     if year:
-        if month:
-            # Filter by year and month
+        query = query.filter(
+            extract('year', models.Payments.paid_timestamp) == year
+        )
+
+    if month:
+        query = query.filter(
+            extract('month', models.Payments.paid_timestamp) == month
+        )
+
+    if quarter:
+        # Quarter 1: Jan-Mar (months 1-3)
+        # Quarter 2: Apr-Jun (months 4-6)
+        # Quarter 3: Jul-Sep (months 7-9)
+        # Quarter 4: Oct-Dec (months 10-12)
+        quarter_months = {
+            1: [1, 2, 3],
+            2: [4, 5, 6],
+            3: [7, 8, 9],
+            4: [10, 11, 12]
+        }
+        if quarter in quarter_months:
             query = query.filter(
-                extract('year', models.Payments.paid_timestamp) == year,
-                extract('month', models.Payments.paid_timestamp) == month
-            )
-        elif quarter:
-            # Filter by year and quarter
-            # Quarter 1: Jan-Mar (months 1-3)
-            # Quarter 2: Apr-Jun (months 4-6)
-            # Quarter 3: Jul-Sep (months 7-9)
-            # Quarter 4: Oct-Dec (months 10-12)
-            if quarter == 1:
-                query = query.filter(
-                    extract('year', models.Payments.paid_timestamp) == year,
-                    extract('month', models.Payments.paid_timestamp).in_(
-                        [1, 2, 3])
-                )
-            elif quarter == 2:
-                query = query.filter(
-                    extract('year', models.Payments.paid_timestamp) == year,
-                    extract('month', models.Payments.paid_timestamp).in_(
-                        [4, 5, 6])
-                )
-            elif quarter == 3:
-                query = query.filter(
-                    extract('year', models.Payments.paid_timestamp) == year,
-                    extract('month', models.Payments.paid_timestamp).in_(
-                        [7, 8, 9])
-                )
-            elif quarter == 4:
-                query = query.filter(
-                    extract('year', models.Payments.paid_timestamp) == year,
-                    extract('month', models.Payments.paid_timestamp).in_(
-                        [10, 11, 12])
-                )
-        else:
-            # Filter by year only
-            query = query.filter(
-                extract('year', models.Payments.paid_timestamp) == year
+                extract('month', models.Payments.paid_timestamp).in_(
+                    quarter_months[quarter])
             )
 
     # Search functionality

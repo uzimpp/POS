@@ -30,6 +30,41 @@ export interface StockFilters {
   is_deleted?: boolean;
 }
 
+export interface StockMovement {
+  movement_id: number;
+  stock_id: number;
+  qty_change: number;
+  reason: string;
+  employee_id?: number;
+  order_id?: number;
+  note?: string;
+  created_at: string;
+  stock?: Stock;
+  employee?: {
+    employee_id: number;
+    first_name: string;
+    last_name: string;
+  };
+  order?: {
+    order_id: number;
+  };
+}
+
+export interface StockMovementCreate {
+  stock_id: number;
+  qty_change: number;
+  reason: string;
+  employee_id?: number;
+  order_id?: number;
+  note?: string;
+}
+
+export interface StockMovementFilters {
+  branch_id?: number;
+  stock_id?: number;
+  reason?: string;
+}
+
 export const stockApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getStock: builder.query<Stock[], StockFilters | void>({
@@ -113,6 +148,38 @@ export const stockApi = baseApi.injectEndpoints({
       },
       providesTags: ["Stock"],
     }),
+    // Stock Movements
+    getStockMovements: builder.query<
+      StockMovement[],
+      StockMovementFilters | void
+    >({
+      query: (params) => {
+        let url = "/stock/movements";
+        const queryParams: string[] = [];
+        if (params?.branch_id) {
+          queryParams.push(`branch_id=${params.branch_id}`);
+        }
+        if (params?.stock_id) {
+          queryParams.push(`stock_id=${params.stock_id}`);
+        }
+        if (params?.reason) {
+          queryParams.push(`reason=${params.reason}`);
+        }
+        if (queryParams.length > 0) {
+          url += `?${queryParams.join("&")}`;
+        }
+        return url;
+      },
+      providesTags: ["Stock"],
+    }),
+    createStockMovement: builder.mutation<StockMovement, StockMovementCreate>({
+      query: (body) => ({
+        url: "/stock/movements",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Stock"],
+    }),
   }),
 });
 
@@ -124,4 +191,6 @@ export const {
   useDeleteStockMutation,
   useGetOutOfStockItemsQuery,
   useGetOutOfStockCountQuery,
+  useGetStockMovementsQuery,
+  useCreateStockMovementMutation,
 } = stockApi;
