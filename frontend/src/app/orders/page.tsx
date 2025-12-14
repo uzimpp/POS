@@ -241,7 +241,7 @@ export default function OrdersPage() {
                     Date
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Customer
+                    Membership
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Employee
@@ -271,7 +271,7 @@ export default function OrdersPage() {
                         {formatDate(order.created_at)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {order.membership?.name || "Walk-in"}
+                        {order.membership?.name || "N/A"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {order.employee

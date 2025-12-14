@@ -213,9 +213,6 @@ export default function StockPage() {
                     Branch
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -224,7 +221,6 @@ export default function StockPage() {
                 {stock && stock.length > 0 ? (
                   stock.map((item) => {
                     const amount = item.amount_remaining;
-                    const isOutOfStock = amount === 0;
                     return (
                       <tr key={item.stock_id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -241,17 +237,6 @@ export default function StockPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {item.branch?.name || "N/A"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              isOutOfStock
-                                ? "bg-red-100 text-red-800"
-                                : "bg-green-100 text-green-800"
-                            }`}
-                          >
-                            {isOutOfStock ? "Out of Stock" : "In Stock"}
-                          </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <div className="flex gap-2">

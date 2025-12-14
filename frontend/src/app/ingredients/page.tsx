@@ -203,17 +203,13 @@ const IngredientModal: React.FC<IngredientModalProps> = ({
 };
 
 export default function IngredientsPage() {
-  const [filterActive, setFilterActive] = useState<string>("all");
+  const [showDeleted, setShowDeleted] = useState(false);
   const {
     data: ingredients,
     isLoading,
     error,
   } = useGetIngredientsQuery(
-    filterActive === "all"
-      ? undefined
-      : filterActive === "active"
-      ? { is_deleted: false }
-      : { is_deleted: true }
+    showDeleted ? { is_deleted: true } : { is_deleted: false }
   );
   const [deleteIngredient] = useDeleteIngredientMutation();
   const [createIngredient] = useCreateIngredientMutation();
@@ -319,16 +315,29 @@ export default function IngredientsPage() {
             <h1 className="text-3xl font-bold text-gray-800">Ingredients</h1>
             <p className="text-gray-600 mt-2">Manage ingredient definitions</p>
           </div>
-          <div className="flex gap-2">
-            <select
-              value={filterActive}
-              onChange={(e) => setFilterActive(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">All</option>
-              <option value="active">Active Only</option>
-              <option value="inactive">Inactive Only</option>
-            </select>
+          <div className="flex gap-2 items-center">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <span className="text-sm text-gray-700">Show Deleted</span>
+              <div className="relative inline-block w-12 h-6">
+                <input
+                  type="checkbox"
+                  checked={showDeleted}
+                  onChange={(e) => setShowDeleted(e.target.checked)}
+                  className="sr-only"
+                />
+                <div
+                  className={`block w-12 h-6 rounded-full transition-colors duration-200 ${
+                    showDeleted ? "bg-blue-500" : "bg-gray-300"
+                  }`}
+                >
+                  <div
+                    className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 ${
+                      showDeleted ? "transform translate-x-6" : ""
+                    }`}
+                  ></div>
+                </div>
+              </div>
+            </label>
             <button
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               onClick={() => {
@@ -356,9 +365,6 @@ export default function IngredientsPage() {
                     Base Unit
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -380,17 +386,6 @@ export default function IngredientsPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {item.base_unit}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            !item.is_deleted
-                              ? "bg-green-100 text-green-800"
-                              : "bg-red-100 text-red-800"
-                          }`}
-                        >
-                          {!item.is_deleted ? "Active" : "Inactive"}
-                        </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex gap-2">

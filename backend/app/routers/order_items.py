@@ -237,6 +237,16 @@ def update_order_item_status(
         else:
             # For each ingredient in the recipe, subtract from stock
             for recipe in recipes:
+                # Check if ingredient is deleted
+                ingredient = db.query(models.Ingredients).filter(
+                    models.Ingredients.ingredient_id == recipe.ingredient_id
+                ).first()
+                if ingredient and ingredient.is_deleted:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Cannot complete order item. Ingredient '{ingredient.name}' (ID: {recipe.ingredient_id}) has been deleted and is no longer available."
+                    )
+
                 # Find stock for this ingredient in the order's branch
                 stock = db.query(models.Stock).filter(
                     models.Stock.branch_id == order.branch_id,

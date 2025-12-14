@@ -33,6 +33,18 @@ def get_recipes_by_menu_item(menu_item_id: int, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=schemas.Recipe)
 def create_recipe(recipe: schemas.RecipeCreate, db: Session = Depends(get_db)):
+    # Validate ingredient exists and is not deleted
+    ingredient = db.query(models.Ingredients).filter(
+        models.Ingredients.ingredient_id == recipe.ingredient_id
+    ).first()
+    if not ingredient:
+        raise HTTPException(status_code=404, detail="Ingredient not found")
+    if ingredient.is_deleted:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot add deleted ingredient '{ingredient.name}' to recipe. Ingredient must be active."
+        )
+
     # Check if recipe with same menu_item_id and ingredient_id already exists
     existing_recipe = db.query(models.Recipe).filter(
         models.Recipe.menu_item_id == recipe.menu_item_id,
@@ -61,6 +73,20 @@ def update_recipe(recipe_id: int, recipe: schemas.RecipeCreate, db: Session = De
     if not db_recipe:
         raise HTTPException(
             status_code=404, detail="Recipe not found")
+
+    # If ingredient_id is being changed, validate the new ingredient
+    if recipe.ingredient_id != db_recipe.ingredient_id:
+        ingredient = db.query(models.Ingredients).filter(
+            models.Ingredients.ingredient_id == recipe.ingredient_id
+        ).first()
+        if not ingredient:
+            raise HTTPException(status_code=404, detail="Ingredient not found")
+        if ingredient.is_deleted:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot change recipe to deleted ingredient '{ingredient.name}'. Ingredient must be active."
+            )
+
     for key, value in recipe.dict().items():
         setattr(db_recipe, key, value)
     db.commit()
