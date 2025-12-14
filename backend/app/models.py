@@ -6,6 +6,7 @@ from sqlalchemy import (
     Boolean,
     ForeignKey,
     DECIMAL,
+    CheckConstraint,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -81,6 +82,10 @@ class Tiers(Base):
 # -------------------------------------------------
 class Memberships(Base):
     __tablename__ = "memberships"
+    __table_args__ = (
+        CheckConstraint('LENGTH(phone) >= 9 AND LENGTH(phone) <= 10', name='phone_length_check'),
+    )
+
     membership_id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
     phone = Column(String(20), unique=True, nullable=False, index=True)

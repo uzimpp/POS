@@ -60,10 +60,10 @@ docker-compose.override.yml
 *.sqlite3
 *.db-journal
 
-# Python (general - specific ones in backend/.gitignore)
-# Matches __pycache__ directories at any level
+# Python
 __pycache__/
 **/__pycache__/
+*/__pycache__/
 *.py[cod]
 *$py.class
 *.so
