@@ -24,6 +24,7 @@ export default function OrderDetailPage() {
   const [showBill, setShowBill] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<string>("CASH");
+  const [paymentRef, setPaymentRef] = useState<string>("");
   const [pointsUsed, setPointsUsed] = useState<number>(0);
 
   const { data: order, isLoading: orderLoading } = useGetOrderQuery(orderId);
@@ -110,17 +111,32 @@ export default function OrderDetailPage() {
   const handlePayment = async () => {
     if (!order) return;
 
+    // Validate payment_ref is required for CARD and QR
+    if (
+      (paymentMethod === "CARD" || paymentMethod === "QR") &&
+      !paymentRef.trim()
+    ) {
+      alert("Payment reference is required for Card and QR Code payments");
+      return;
+    }
+
     // Backend will calculate paid_price from order.total_price and points_used
-    // We can pass null or omit paid_price, but for now we'll pass it for validation
-    // The backend will recalculate and validate it
     try {
       await createPayment({
         order_id: orderId,
         // paid_price is optional - backend will calculate from order.total_price and points_used
         points_used: pointsUsed,
         payment_method: paymentMethod,
-        payment_ref: null,
+        payment_ref:
+          paymentMethod === "CARD" || paymentMethod === "QR"
+            ? paymentRef.trim()
+            : null,
       }).unwrap();
+
+      // Reset payment form
+      setPaymentMethod("CASH");
+      setPaymentRef("");
+      setPointsUsed(0);
       setShowPayment(false);
       router.push("/orders");
     } catch (err: any) {
@@ -400,7 +416,16 @@ export default function OrderDetailPage() {
                   </label>
                   <select
                     value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    onChange={(e) => {
+                      setPaymentMethod(e.target.value);
+                      // Clear payment_ref when switching away from CARD/QR
+                      if (
+                        e.target.value !== "CARD" &&
+                        e.target.value !== "QR"
+                      ) {
+                        setPaymentRef("");
+                      }
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="CASH">Cash</option>
@@ -408,6 +433,21 @@ export default function OrderDetailPage() {
                     <option value="QR">QR Code</option>
                   </select>
                 </div>
+                {(paymentMethod === "CARD" || paymentMethod === "QR") && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Payment Reference <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={paymentRef}
+                      onChange={(e) => setPaymentRef(e.target.value)}
+                      placeholder="Enter transaction reference number"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                )}
                 {order.membership && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">

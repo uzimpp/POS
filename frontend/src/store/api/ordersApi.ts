@@ -73,15 +73,26 @@ export interface OrderCreateEmpty {
   order_type?: string; // DINE_IN, TAKEAWAY, DELIVERY
 }
 
+export interface OrderFilters {
+  status?: string;
+  order_type?: string;
+}
+
 export const ordersApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getOrders: builder.query<Order[], { status?: string } | void>({
+    getOrders: builder.query<Order[], OrderFilters | void>({
       query: (params) => {
-        let url = "/orders";
-        if (params && params.status) {
-          url += `?status=${params.status}`;
+        const searchParams = new URLSearchParams();
+        if (params) {
+          if (params.status) {
+            searchParams.append("status", params.status);
+          }
+          if (params.order_type) {
+            searchParams.append("order_type", params.order_type);
+          }
         }
-        return url;
+        const queryString = searchParams.toString();
+        return `/orders${queryString ? `?${queryString}` : ""}`;
       },
       providesTags: ["Orders"],
     }),

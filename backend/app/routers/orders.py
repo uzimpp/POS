@@ -16,6 +16,8 @@ def get_orders(
     limit: int = 100,
     status: Optional[str] = Query(
         None, description="Filter by order status (e.g., PAID, PENDING, UNPAID, CANCELLED)"),
+    order_type: Optional[str] = Query(
+        None, description="Filter by order type (e.g., DINE_IN, TAKEAWAY, DELIVERY)"),
     db: Session = Depends(get_db)
 ):
     query = db.query(models.Orders).options(
@@ -31,7 +33,12 @@ def get_orders(
     if status:
         query = query.filter(models.Orders.status == status)
 
-    orders = query.offset(skip).limit(limit).all()
+    if order_type:
+        query = query.filter(models.Orders.order_type == order_type)
+
+    # Sort by created_at descending (most recent first) by default
+    orders = query.order_by(models.Orders.created_at.desc()).offset(
+        skip).limit(limit).all()
     return orders
 
 

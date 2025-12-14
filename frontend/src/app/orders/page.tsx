@@ -6,6 +6,7 @@ import { Layout } from "@/components/layout";
 import {
   useGetOrdersQuery,
   useCreateEmptyOrderMutation,
+  OrderFilters,
 } from "@/store/api/ordersApi";
 import { useGetBranchesQuery } from "@/store/api/branchesApi";
 import { useGetEmployeesQuery } from "@/store/api/employeesApi";
@@ -13,13 +14,21 @@ import { useGetEmployeesQuery } from "@/store/api/employeesApi";
 export default function OrdersPage() {
   const router = useRouter();
   const [filterStatus, setFilterStatus] = useState<string>("all");
-  const {
-    data: orders,
-    isLoading,
-    error,
-  } = useGetOrdersQuery(
-    filterStatus === "all" ? undefined : { status: filterStatus }
-  );
+  const [filterOrderType, setFilterOrderType] = useState<string>("all");
+
+  // Build filters object
+  const filters: OrderFilters | undefined = (() => {
+    const filterObj: OrderFilters = {};
+    if (filterStatus !== "all") {
+      filterObj.status = filterStatus;
+    }
+    if (filterOrderType !== "all") {
+      filterObj.order_type = filterOrderType;
+    }
+    return Object.keys(filterObj).length > 0 ? filterObj : undefined;
+  })();
+
+  const { data: orders, isLoading, error } = useGetOrdersQuery(filters);
   const { data: branches } = useGetBranchesQuery();
   const { data: employees } = useGetEmployeesQuery();
   const [createEmptyOrder] = useCreateEmptyOrderMutation();
@@ -124,6 +133,16 @@ export default function OrdersPage() {
                 <option value="UNPAID">Unpaid</option>
                 <option value="PAID">Paid</option>
                 <option value="CANCELLED">Cancelled</option>
+              </select>
+              <select
+                value={filterOrderType}
+                onChange={(e) => setFilterOrderType(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Types</option>
+                <option value="DINE_IN">Dine In</option>
+                <option value="TAKEAWAY">Takeaway</option>
+                <option value="DELIVERY">Delivery</option>
               </select>
             </div>
           </div>

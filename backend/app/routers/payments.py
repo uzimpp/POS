@@ -138,6 +138,23 @@ def create_payment(payment: schemas.PaymentCreate, db: Session = Depends(get_db)
             detail=f"Cannot process payment. {len(preparing_items)} order item(s) are still PREPARING. All items must be DONE or CANCELLED before payment."
         )
 
+    # Check if there are any non-cancelled items (at least one item must be DONE)
+    active_items = [
+        item for item in order_items if item.status != "CANCELLED"]
+    if not active_items:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot process payment. All order items are cancelled. At least one item must be DONE."
+        )
+
+    # Validate payment_ref is required for CARD and QR payment methods
+    if payment.payment_method in ["CARD", "QR"]:
+        if not payment.payment_ref or not payment.payment_ref.strip():
+            raise HTTPException(
+                status_code=400,
+                detail=f"Payment reference (payment_ref) is required for {payment.payment_method} payments"
+            )
+
     # Calculate final price from order.total_price and points_used
     # Backend calculates this to prevent manipulation
     total_price = Decimal(str(order.total_price))
@@ -226,6 +243,19 @@ def update_payment(order_id: int, payment: schemas.PaymentBase, db: Session = De
         models.Payments.order_id == order_id).first()
     if not db_payment:
         raise HTTPException(status_code=404, detail="Payment not found")
+
+    # Validate payment_ref is required for CARD and QR payment methods
+    # Use the new payment_method from request, or fall back to existing one
+    payment_method = payment.payment_method
+    # Use the new payment_ref from request, or fall back to existing one
+    payment_ref = payment.payment_ref if payment.payment_ref is not None else db_payment.payment_ref
+
+    if payment_method in ["CARD", "QR"]:
+        if not payment_ref or not payment_ref.strip():
+            raise HTTPException(
+                status_code=400,
+                detail=f"Payment reference (payment_ref) is required for {payment_method} payments"
+            )
 
     for key, value in payment.dict().items():
         setattr(db_payment, key, value)
