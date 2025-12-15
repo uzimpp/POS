@@ -40,6 +40,7 @@ export default function MembershipsPage() {
     phone: "",
     email: "",
     points_balance: "0",
+    cumulative_points: "0",
     tier_id: "1",
   });
   const [phoneError, setPhoneError] = useState<string | null>(null);
@@ -73,9 +74,13 @@ export default function MembershipsPage() {
   const [tierForm, setTierForm] = useState({
     tier_name: "",
     tier: "0",
+    discount_percentage: "",
+    minimum_point_required: "",
   });
   const [tierNameError, setTierNameError] = useState<string | null>(null);
   const [tierRankError, setTierRankError] = useState<string | null>(null);
+  const [tierDiscountError, setTierDiscountError] = useState<string | null>(null);
+  const [tierMinPointsError, setTierMinPointsError] = useState<string | null>(null);
 
   const openDeleteModal = (id: number, name: string) => {
     setDeleteMemberId(id);
@@ -102,6 +107,7 @@ export default function MembershipsPage() {
       phone: membership.phone,
       email: membership.email || "",
       points_balance: String(membership.points_balance),
+      cumulative_points: String(membership.cumulative_points ?? 0),
       tier_id: String(membership.tier_id),
     });
     setPhoneError(null);
@@ -115,6 +121,7 @@ export default function MembershipsPage() {
       phone: "",
       email: "",
       points_balance: "0",
+      cumulative_points: "0",
       tier_id: "1",
     });
     setPhoneError(null);
@@ -124,9 +131,13 @@ export default function MembershipsPage() {
     setTierForm({
       tier_name: "",
       tier: "0",
+      discount_percentage: "",
+      minimum_point_required: "",
     });
     setTierNameError(null);
     setTierRankError(null);
+    setTierDiscountError(null);
+    setTierMinPointsError(null);
   };
 
   const handleOpenAddTier = () => {
@@ -137,14 +148,18 @@ export default function MembershipsPage() {
     setShowTierFormModal(true);
   };
 
-  const handleOpenEditTier = (tier: { tier_id: number; tier_name: string; tier: number }) => {
+  const handleOpenEditTier = (tier: { tier_id: number; tier_name: string; tier: number; discount_percentage?: number; minimum_point_required?: number }) => {
     setEditingTierId(tier.tier_id);
     setTierForm({
       tier_name: tier.tier_name,
       tier: String(tier.tier),
+      discount_percentage: String(tier.discount_percentage ?? 0),
+      minimum_point_required: String(tier.minimum_point_required ?? 0),
     });
     setTierNameError(null);
     setTierRankError(null);
+    setTierDiscountError(null);
+    setTierMinPointsError(null);
     setShowTierFormModal(true);
   };
 
@@ -183,6 +198,10 @@ export default function MembershipsPage() {
     }
     // Client-side duplicate rank guard
     const rankNum = Number(tierForm.tier);
+    if (!Number.isInteger(rankNum) || rankNum < 0) {
+      setTierRankError("Rank must be a non-negative integer");
+      return;
+    }
     if (tiers && !Number.isNaN(rankNum)) {
       const rankTaken = tiers.some(
         (t) => t.tier === rankNum && t.tier_id !== (editingTierId ?? -1)
@@ -192,6 +211,26 @@ export default function MembershipsPage() {
         return;
       }
     }
+
+    // Validate discount_percentage: 0 to 100, max 2 decimal places
+    const discountNum = Number(tierForm.discount_percentage);
+    const isValidDiscount =
+      !Number.isNaN(discountNum) && discountNum >= 0 && discountNum <= 100 &&
+      /^\d{1,3}(?:\.\d{1,2})?$/.test(String(tierForm.discount_percentage));
+    if (!isValidDiscount) {
+      setTierDiscountError("Discount must be between 0 and 100 with up to 2 decimals");
+      return;
+    }
+
+    // Validate minimum_point_required: >= 0, max 2 decimal places
+    const minPointsNum = Number(tierForm.minimum_point_required);
+    const isValidMinPoints =
+      !Number.isNaN(minPointsNum) && minPointsNum >= 0 &&
+      /^\d+(?:\.\d{1,2})?$/.test(String(tierForm.minimum_point_required));
+    if (!isValidMinPoints) {
+      setTierMinPointsError("Points required must be a positive number with up to 2 decimals");
+      return;
+    }
     try {
       if (editingTierId) {
         await updateTier({
@@ -199,12 +238,16 @@ export default function MembershipsPage() {
           data: {
             tier_name: tierForm.tier_name,
             tier: Number(tierForm.tier),
+            discount_percentage: Number(tierForm.discount_percentage),
+            minimum_point_required: Number(tierForm.minimum_point_required),
           },
         }).unwrap();
       } else {
         await createTier({
           tier_name: tierForm.tier_name,
           tier: Number(tierForm.tier),
+          discount_percentage: Number(tierForm.discount_percentage),
+          minimum_point_required: Number(tierForm.minimum_point_required),
         }).unwrap();
       }
       setShowTierFormModal(false);
@@ -286,7 +329,7 @@ export default function MembershipsPage() {
   return (
     <Layout>
       {showModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+        <div className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-50">
           <div className="bg-white rounded-lg p-8 w-full max-w-md shadow-lg">
             <h2 className="text-xl font-semibold mb-4">Add New Membership</h2>
             <form
@@ -306,6 +349,7 @@ export default function MembershipsPage() {
                     phone: form.phone,
                     email: form.email || null,
                     points_balance: Number(form.points_balance),
+                    cumulative_points: Number(form.cumulative_points),
                     tier_id: Number(validTierId),
                   }).unwrap();
                   setShowModal(false);
@@ -385,6 +429,19 @@ export default function MembershipsPage() {
                   required
                 />
               </div>
+              <div className="mb-3">
+                <label className="block mb-1">Cumulative Points</label>
+                <input
+                  type="number"
+                  min="0"
+                  className="w-full border rounded px-3 py-2"
+                  value={form.cumulative_points}
+                  onChange={(e) => setForm((f) => ({ ...f, cumulative_points: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="mb-3">
+              </div>
               <div className="flex justify-end gap-2 mt-4">
                 <button
                   type="button"
@@ -408,7 +465,7 @@ export default function MembershipsPage() {
         </div>
       )}
       {showEditModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+        <div className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-50">
           <div className="bg-white rounded-lg p-8 w-full max-w-md shadow-lg">
             <h2 className="text-xl font-semibold mb-4">Edit Membership</h2>
             <form
@@ -423,6 +480,7 @@ export default function MembershipsPage() {
                         phone: form.phone,
                         email: form.email || null,
                         points_balance: Number(form.points_balance),
+                        cumulative_points: Number(form.cumulative_points),
                         tier_id: Number(validTierId),
                       },
                     }).unwrap();
@@ -505,6 +563,19 @@ export default function MembershipsPage() {
                   required
                 />
               </div>
+              <div className="mb-3">
+                <label className="block mb-1">Cumulative Points</label>
+                <input
+                  type="number"
+                  min="0"
+                  className="w-full border rounded px-3 py-2"
+                  value={form.cumulative_points}
+                  onChange={(e) => setForm((f) => ({ ...f, cumulative_points: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="mb-3">
+              </div>
               <div className="flex justify-end gap-2 mt-4">
                 <button
                   type="button"
@@ -530,7 +601,7 @@ export default function MembershipsPage() {
       )}
       {/* Manage Tiers Modal */}
       {showTierModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+        <div className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-50">
           <div className="bg-white rounded-lg w-full max-w-3xl shadow-lg max-h-[90vh] overflow-y-auto">
             <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50 sticky top-0">
               <h2 className="text-xl font-bold text-gray-800">Manage Tiers</h2>
@@ -558,6 +629,8 @@ export default function MembershipsPage() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tier Name</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rank</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Discount %</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Points Required</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                   </tr>
                 </thead>
@@ -567,6 +640,8 @@ export default function MembershipsPage() {
                       <td className="px-6 py-4 text-sm font-medium text-gray-900">#{tier.tier_id}</td>
                       <td className="px-6 py-4 text-sm text-gray-900">{tier.tier_name}</td>
                       <td className="px-6 py-4 text-sm text-gray-500">{tier.tier}</td>
+                      <td className="px-6 py-4 text-sm text-gray-500">{tier.discount_percentage ?? 0}</td>
+                      <td className="px-6 py-4 text-sm text-gray-500">{tier.minimum_point_required ?? 0}</td>
                       <td className="px-6 py-4 text-sm font-medium">
                         <button
                           onClick={() => handleOpenEditTier(tier)}
@@ -585,8 +660,8 @@ export default function MembershipsPage() {
                   ))}
                   {(!tiers || tiers.length === 0) && (
                     <tr>
-                      <td colSpan={4} className="px-6 py-10 text-center text-gray-500">
-                        No tiers found. Add your first tier to get started.
+                      <td colSpan={6} className="px-0 py-8 text-center">
+                        <span className="text-sm text-gray-500">No tiers found. Add your first tier to get started.</span>
                       </td>
                     </tr>
                   )}
@@ -598,7 +673,7 @@ export default function MembershipsPage() {
       )}
       {/* Tier Form Modal */}
       {showTierFormModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+        <div className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
             <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
               <h3 className="text-lg font-medium text-gray-900">
@@ -641,6 +716,7 @@ export default function MembershipsPage() {
                   type="number"
                   required
                   min="0"
+                  step="1"
                   value={tierForm.tier}
                   onChange={(e) => {
                     setTierForm({ ...tierForm, tier: e.target.value });
@@ -650,6 +726,45 @@ export default function MembershipsPage() {
                 />
                 {tierRankError && (
                   <p className="mt-1 text-sm text-red-600">{tierRankError}</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Discount Percentage</label>
+                <input
+                  type="number"
+                  required
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={tierForm.discount_percentage}
+                  onChange={(e) => {
+                    setTierForm({ ...tierForm, discount_percentage: e.target.value });
+                    if (tierDiscountError) setTierDiscountError(null);
+                  }}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="e.g., 5, 10.5, 99.99"
+                />
+                {tierDiscountError && (
+                  <p className="mt-1 text-sm text-red-600">{tierDiscountError}</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Points Required to Upgrade</label>
+                <input
+                  type="number"
+                  required
+                  min="0"
+                  step="0.01"
+                  value={tierForm.minimum_point_required}
+                  onChange={(e) => {
+                    setTierForm({ ...tierForm, minimum_point_required: e.target.value });
+                    if (tierMinPointsError) setTierMinPointsError(null);
+                  }}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="e.g., 100, 250.5"
+                />
+                {tierMinPointsError && (
+                  <p className="mt-1 text-sm text-red-600">{tierMinPointsError}</p>
                 )}
               </div>
               <div className="pt-4 flex justify-end gap-3">
@@ -676,7 +791,7 @@ export default function MembershipsPage() {
         </div>
       )}
       {showDeleteModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+        <div className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-50">
           <div className="bg-white rounded-lg p-8 w-full max-w-md shadow-lg">
             <h2 className="text-xl font-semibold mb-4 text-red-600">Delete Membership{deleteMemberName ? `: ${deleteMemberName}` : ""}</h2>
             <p className="text-gray-600 mb-6">
@@ -764,7 +879,7 @@ export default function MembershipsPage() {
               <option value="all">All ranks</option>
               {sortedTiers.map((t) => (
                 <option key={t.tier_id} value={t.tier}>
-                  {t.tier} - {t.tier_name}
+                  {t.tier_name} - {t.tier}
                 </option>
               ))}
             </select>
@@ -793,6 +908,9 @@ export default function MembershipsPage() {
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Points
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Cumulative
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Joined
@@ -827,9 +945,13 @@ export default function MembershipsPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {membership.points_balance}
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {membership.cumulative_points ?? 0}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {formatDate(membership.joined_at)}
                       </td>
+                      
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex gap-2">
                           <button
@@ -850,11 +972,8 @@ export default function MembershipsPage() {
                   ))
                 ) : (
                   <tr>
-                    <td
-                      colSpan={8}
-                      className="px-6 py-4 text-center text-sm text-gray-500"
-                    >
-                      No memberships found
+                    <td colSpan={9} className="px-0 py-6 text-center">
+                      <span className="text-sm text-gray-500">No memberships found</span>
                     </td>
                   </tr>
                 )}
