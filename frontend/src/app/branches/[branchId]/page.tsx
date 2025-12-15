@@ -28,6 +28,7 @@ import { useGetIngredientsQuery } from "@/store/api/ingredientsApi";
 import { useGetRolesQuery } from "@/store/api/rolesApi";
 
 import { ConfirmModal } from "@/components/modals";
+import DashboardOverview from "@/components/dashboard/DashboardOverview";
 
 export default function BranchDetailPage({
   params,
@@ -38,8 +39,8 @@ export default function BranchDetailPage({
   const branchId = parseInt(resolvedParams.branchId);
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<
-    "employees" | "stock" | "movements"
-  >("employees");
+    "overview" | "employees" | "stock" | "movements"
+  >("overview");
 
   // Fetch Branch Info (for title)
   const { data: branches } = useGetBranchesQuery();
@@ -70,32 +71,38 @@ export default function BranchDetailPage({
           </div>
           <div className="flex space-x-2">
             <button
+              onClick={() => setActiveTab("overview")}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === "overview"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
+            >
+              Overview
+            </button>
+            <button
               onClick={() => setActiveTab("employees")}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeTab === "employees"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === "employees"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
             >
               Employees
             </button>
             <button
               onClick={() => setActiveTab("stock")}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeTab === "stock"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === "stock"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
             >
               Stock
             </button>
             <button
               onClick={() => setActiveTab("movements")}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeTab === "movements"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === "movements"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
             >
               Movements
             </button>
@@ -104,7 +111,9 @@ export default function BranchDetailPage({
 
         {/* Content */}
         <div className="p-6">
-          {activeTab === "employees" ? (
+          {activeTab === "overview" ? (
+            <DashboardOverview branchId={branchId} />
+          ) : activeTab === "employees" ? (
             <EmployeeManager branchId={branchId} />
           ) : activeTab === "stock" ? (
             <StockManager branchId={branchId} />
@@ -276,11 +285,10 @@ function EmployeeManager({ branchId }: { branchId: number }) {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                   <span
-                    className={`px-2 py-1 rounded-full text-xs ${
-                      !emp.is_deleted
-                        ? "bg-green-100 text-green-800"
-                        : "bg-red-100 text-red-800"
-                    }`}
+                    className={`px-2 py-1 rounded-full text-xs ${!emp.is_deleted
+                      ? "bg-green-100 text-green-800"
+                      : "bg-red-100 text-red-800"
+                      }`}
                   >
                     {!emp.is_deleted ? "Active" : "Inactive"}
                   </span>
@@ -785,11 +793,10 @@ function StockMovementsManager({ branchId }: { branchId: number }) {
                   {m.stock?.ingredient?.name || "Unknown"}
                 </td>
                 <td
-                  className={`px-4 py-4 whitespace-nowrap text-sm font-semibold text-right ${
-                    Number(m.qty_change) >= 0
-                      ? "text-green-600"
-                      : "text-red-600"
-                  }`}
+                  className={`px-4 py-4 whitespace-nowrap text-sm font-semibold text-right ${Number(m.qty_change) >= 0
+                    ? "text-green-600"
+                    : "text-red-600"
+                    }`}
                 >
                   {Number(m.qty_change) >= 0 ? "+" : ""}
                   {Number(m.qty_change).toFixed(2)}

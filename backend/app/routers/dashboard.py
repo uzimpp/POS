@@ -215,6 +215,7 @@ def get_sales_chart_data(
 def get_top_branches(
     period: str = Query("today", regex="^(today|7days|30days|1year)$"),
     split_by_category: bool = Query(False),
+    branch_ids: Optional[List[int]] = Query(None),
     db: Session = Depends(get_db)
 ):
     """
@@ -237,15 +238,18 @@ def get_top_branches(
             start_date = datetime.combine((now.replace(day=1) - timedelta(days=365)).replace(day=1), time.min)
         
         if split_by_category:
-            # We need to get total sales per branch to rank them, AND sales per category
-            # Strategy:
-            # 1. Find Top 5 Branch IDs first
+            # 1. Find Top 5 Branch IDs first (filtering by branch_ids if provided)
             top_branches_query = db.query(models.Branches.branch_id).join(
                 models.Orders, models.Branches.branch_id == models.Orders.branch_id
             ).filter(
                 models.Orders.status == 'PAID',
                 models.Orders.created_at >= start_date
-            ).group_by(models.Branches.branch_id).order_by(
+            )
+
+            if branch_ids:
+                top_branches_query = top_branches_query.filter(models.Branches.branch_id.in_(branch_ids))
+
+            top_branches_query = top_branches_query.group_by(models.Branches.branch_id).order_by(
                 desc(func.sum(models.Orders.total_price))
             ).limit(5)
             
@@ -255,8 +259,7 @@ def get_top_branches(
                 return []
 
             # 2. Query breakdown for these branches
-            # Join OrderItems -> Menu for category
-            results = db.query(
+            results_query = db.query(
                 models.Branches.name,
                 models.Menu.category,
                 func.sum(models.OrderItems.line_total)
@@ -270,27 +273,29 @@ def get_top_branches(
                 models.Orders.status == 'PAID',
                 models.Orders.created_at >= start_date,
                 models.Branches.branch_id.in_(top_branch_ids)
-            ).group_by(
+            )
+
+            if branch_ids:
+                results_query = results_query.filter(models.Branches.branch_id.in_(branch_ids))
+                
+            results = results_query.group_by(
                 models.Branches.name, models.Menu.category
             ).all()
             
-            # 3. Transform to [{name: "Branch", "Main Dish": 100, "Drink": 50}]
+            # 3. Transform
             data_map = {}
             for name, category, amount in results:
                 if name not in data_map:
-                    data_map[name] = {"name": name, "total": 0.0} # Track total for sorting if needed, or rely on frontend
+                    data_map[name] = {"name": name, "total": 0.0}
                 data_map[name][category] = float(amount)
                 data_map[name]["total"] += float(amount)
             
-            # Convert to list and sort by total descending
             data = sorted(data_map.values(), key=lambda x: x["total"], reverse=True)
-            # Remove "total" key if not needed by frontend, or keep it.
-            # Recharts is fine with extra keys.
             return data
 
         else:
             # Original logic
-            results = db.query(
+            query = db.query(
                 models.Branches.name,
                 func.sum(models.Orders.total_price).label("total_sales")
             ).join(
@@ -298,7 +303,12 @@ def get_top_branches(
             ).filter(
                 models.Orders.status == 'PAID',
                 models.Orders.created_at >= start_date
-            ).group_by(
+            )
+
+            if branch_ids:
+                query = query.filter(models.Branches.branch_id.in_(branch_ids))
+
+            results = query.group_by(
                 models.Branches.branch_id, models.Branches.name
             ).order_by(
                 desc("total_sales")
@@ -319,6 +329,7 @@ def get_top_branches(
 @router.get("/membership-ratio")
 def get_membership_ratio(
     period: str = Query("today", regex="^(today|7days|30days|1year)$"),
+    branch_ids: Optional[List[int]] = Query(None),
     db: Session = Depends(get_db)
 ):
     """
@@ -338,19 +349,20 @@ def get_membership_ratio(
         elif period == "1year":
             start_date = datetime.combine((now.replace(day=1) - timedelta(days=365)).replace(day=1), time.min)
             
-        # Count Member orders (membership_id IS NOT NULL)
-        member_count = db.query(func.count(models.Orders.order_id)).filter(
+        # Base query for counts
+        base_query = db.query(func.count(models.Orders.order_id)).filter(
             models.Orders.status == 'PAID',
-            models.Orders.created_at >= start_date,
-            models.Orders.membership_id.isnot(None)
-        ).scalar() or 0
+            models.Orders.created_at >= start_date
+        )
+
+        if branch_ids:
+            base_query = base_query.filter(models.Orders.branch_id.in_(branch_ids))
+
+        # Count Member orders (membership_id IS NOT NULL)
+        member_count = base_query.filter(models.Orders.membership_id.isnot(None)).scalar() or 0
         
         # Count Guest orders (membership_id IS NULL)
-        guest_count = db.query(func.count(models.Orders.order_id)).filter(
-            models.Orders.status == 'PAID',
-            models.Orders.created_at >= start_date,
-            models.Orders.membership_id.is_(None)
-        ).scalar() or 0
+        guest_count = base_query.filter(models.Orders.membership_id.is_(None)).scalar() or 0
         
         return [
             {"name": "Member", "value": member_count},

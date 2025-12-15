@@ -47,7 +47,7 @@ const CustomTooltip = ({ active, payload, label, splitBy }: any) => {
     return null;
 };
 
-export default function TopBranchesChart() {
+export default function TopBranchesChart({ branchId }: { branchId?: number }) {
     const [data, setData] = useState<BranchData[]>([]);
     const [period, setPeriod] = useState<"today" | "7days" | "30days" | "1year">("today");
     const [splitBy, setSplitBy] = useState<"none" | "category">("none");
@@ -73,6 +73,9 @@ export default function TopBranchesChart() {
                     period: period,
                     split_by_category: (splitBy === "category").toString()
                 });
+                if (branchId) {
+                    queryParams.append("branch_ids", branchId.toString());
+                }
                 const res = await fetch(`http://localhost:8000/api/dashboard/top-branches?${queryParams}`);
                 if (!res.ok) throw new Error("Failed to fetch data");
                 const json = await res.json();
@@ -84,7 +87,7 @@ export default function TopBranchesChart() {
             }
         }
         fetchData();
-    }, [period, splitBy]);
+    }, [period, splitBy, branchId]);
 
     return (
         <div className="bg-white p-6 rounded-3xl shadow-xl border border-slate-100/60 overflow-hidden relative transition-all hover:shadow-2xl duration-500 flex flex-col h-full">
@@ -131,8 +134,8 @@ export default function TopBranchesChart() {
                                 key={p}
                                 onClick={() => setPeriod(p)}
                                 className={`flex-1 sm:flex-none px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-300 ease-out whitespace-nowrap ${period === p
-                                        ? "bg-white text-emerald-600 shadow-sm ring-1 ring-black/5 scale-[1.02]"
-                                        : "text-slate-500 hover:text-slate-900 hover:bg-slate-200/50"
+                                    ? "bg-white text-emerald-600 shadow-sm ring-1 ring-black/5 scale-[1.02]"
+                                    : "text-slate-500 hover:text-slate-900 hover:bg-slate-200/50"
                                     }`}
                             >
                                 {p === "today" ? "Today" : p === "7days" ? "7D" : p === "30days" ? "30D" : "1Y"}

@@ -32,7 +32,7 @@ const CustomTooltip = ({ active, payload }: any) => {
     return null;
 };
 
-export default function MembershipChart() {
+export default function MembershipChart({ branchId }: { branchId?: number }) {
     const [data, setData] = useState<RatioData[]>([]);
     const [period, setPeriod] = useState<"today" | "7days" | "30days" | "1year">("today");
     const [loading, setLoading] = useState(true);
@@ -41,7 +41,11 @@ export default function MembershipChart() {
         async function fetchData() {
             setLoading(true);
             try {
-                const res = await fetch(`http://localhost:8000/api/dashboard/membership-ratio?period=${period}`);
+                const queryParams = new URLSearchParams({ period: period });
+                if (branchId) {
+                    queryParams.append("branch_ids", branchId.toString());
+                }
+                const res = await fetch(`http://localhost:8000/api/dashboard/membership-ratio?${queryParams}`);
                 if (!res.ok) throw new Error("Failed to fetch data");
                 const json = await res.json();
                 setData(json);
@@ -52,7 +56,7 @@ export default function MembershipChart() {
             }
         }
         fetchData();
-    }, [period]);
+    }, [period, branchId]);
 
     const total = data.reduce((acc, cur) => acc + cur.value, 0);
 

@@ -57,7 +57,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     return null;
 };
 
-export default function SalesChart() {
+export default function SalesChart({ branchId }: { branchId?: number }) {
     const [data, setData] = useState<SalesData[]>([]);
     const [period, setPeriod] = useState<"today" | "7days" | "30days" | "1year">("today");
     const [splitBy, setSplitBy] = useState<"none" | "type" | "category">("none");
@@ -86,6 +86,9 @@ export default function SalesChart() {
                     split_by_type: (splitBy === "type").toString(),
                     split_by_category: (splitBy === "category").toString()
                 });
+                if (branchId) {
+                    queryParams.append("branch_ids", branchId.toString());
+                }
                 const res = await fetch(`http://localhost:8000/api/dashboard/sales-chart?${queryParams}`);
                 if (!res.ok) throw new Error("Failed to fetch data");
                 const json = await res.json();
@@ -97,7 +100,7 @@ export default function SalesChart() {
             }
         }
         fetchData();
-    }, [period, splitBy]);
+    }, [period, splitBy, branchId]);
 
     return (
         <div className="bg-white p-6 rounded-3xl shadow-xl border border-slate-100/60 overflow-hidden relative transition-all hover:shadow-2xl duration-500">
