@@ -34,7 +34,7 @@ def get_menu_item(menu_item_id: int, db: Session = Depends(get_db)):
     return menu_item
 
 
-@router.post("/", response_model=schemas.Menu)
+@router.post("/", response_model=schemas.Menu, status_code=201)
 def create_menu_item(menu_item: schemas.MenuCreate, db: Session = Depends(get_db)):
     db_menu_item = models.Menu(**menu_item.dict())
     db.add(db_menu_item)

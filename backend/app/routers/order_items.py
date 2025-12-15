@@ -31,7 +31,7 @@ def get_order_items_by_order(order_id: int, db: Session = Depends(get_db)):
     return order_items
 
 
-@router.post("/", response_model=schemas.OrderItem)
+@router.post("/", response_model=schemas.OrderItem, status_code=201)
 def create_order_item(order_item: schemas.OrderItemCreate, db: Session = Depends(get_db)):
     """
     Add menu item to order. 

@@ -33,7 +33,7 @@ def get_ingredient(ingredient_id: int, db: Session = Depends(get_db)):
     return ingredient
 
 
-@router.post("/", response_model=schemas.Ingredient)
+@router.post("/", response_model=schemas.Ingredient, status_code=201)
 def create_ingredient(ingredient: schemas.IngredientCreate, db: Session = Depends(get_db)):
     db_ingredient = models.Ingredients(**ingredient.dict())
     db.add(db_ingredient)
@@ -86,6 +86,28 @@ def update_ingredient(ingredient_id: int, ingredient: schemas.IngredientCreate, 
             status_code=500,
             detail=f"An error occurred while updating ingredient: {str(e)}"
         )
+
+
+@router.put("/{ingredient_id}/restore", response_model=schemas.Ingredient)
+def restore_ingredient(ingredient_id: int, db: Session = Depends(get_db)):
+    """
+    Restore a soft-deleted ingredient.
+    Note: Menu items using this ingredient will NOT be automatically restored.
+    They must be manually set to available.
+    """
+    db_ingredient = db.query(models.Ingredients).filter(
+        models.Ingredients.ingredient_id == ingredient_id
+    ).first()
+    if not db_ingredient:
+        raise HTTPException(status_code=404, detail="Ingredient not found")
+    
+    if not db_ingredient.is_deleted:
+        return db_ingredient  # Already active, just return it
+    
+    db_ingredient.is_deleted = False
+    db.commit()
+    db.refresh(db_ingredient)
+    return db_ingredient
 
 
 @router.delete("/{ingredient_id}")
