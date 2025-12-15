@@ -282,7 +282,7 @@ export default function OrdersPage() {
                         {order.order_type}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        ฿{parseFloat(order.total_price).toFixed(2)}
+                        ฿{parseFloat(order.payment?.paid_price ?? order.total_price).toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {getStatusBadge(order.status)}

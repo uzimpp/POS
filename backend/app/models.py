@@ -76,6 +76,9 @@ class Tiers(Base):
     tier_id = Column(Integer, primary_key=True, index=True)
     tier_name = Column(String(50), nullable=False)
     tier = Column(Integer, nullable=False)  # 0, 1, 2, 3...
+    # New fields: discount percentage (0-100, 2 decimals) and minimum points required (>=0, 2 decimals)
+    discount_percentage = Column(DECIMAL(5, 2), nullable=False, default=0)
+    minimum_point_required = Column(DECIMAL(10, 2), nullable=False, default=0)
 
     memberships = relationship("Memberships", back_populates="tier")
 
@@ -96,9 +99,10 @@ class Memberships(Base):
     email = Column(String(100), unique=True, nullable=True, index=True)
     joined_at = Column(DateTime, server_default=func.now(), nullable=False)
     points_balance = Column(Integer, default=0, nullable=False)
+    # New fields for loyalty progression
+    cumulative_points = Column(Integer, default=0, nullable=False)
 
     tier_id = Column(Integer, ForeignKey("tiers.tier_id"), nullable=False)
-
     tier = relationship("Tiers", back_populates="memberships")
     orders = relationship("Orders", back_populates="membership")
 
