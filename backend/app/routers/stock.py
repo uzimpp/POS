@@ -156,6 +156,13 @@ def get_stock_movements(
     stock_id: Optional[int] = Query(None, description="Filter by stock item"),
     reason: Optional[str] = Query(
         None, description="Filter by reason (RESTOCK, SALE, WASTE, ADJUST)"),
+    ingredient_id: Optional[int] = Query(
+        None, description="Filter by ingredient"),
+    employee_id: Optional[int] = Query(None, description="Filter by employee"),
+    created_from: Optional[str] = Query(None, description="ISO datetime from"),
+    created_to: Optional[str] = Query(None, description="ISO datetime to"),
+    qty_min: Optional[float] = Query(None, description="Minimum qty_change"),
+    qty_max: Optional[float] = Query(None, description="Maximum qty_change"),
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db)
@@ -179,6 +186,25 @@ def get_stock_movements(
 
     if reason:
         query = query.filter(models.StockMovements.reason == reason)
+
+    if ingredient_id:
+        query = query.join(models.Stock).filter(
+            models.Stock.ingredient_id == ingredient_id)
+
+    if employee_id:
+        query = query.filter(models.StockMovements.employee_id == employee_id)
+
+    if created_from:
+        query = query.filter(models.StockMovements.created_at >= created_from)
+
+    if created_to:
+        query = query.filter(models.StockMovements.created_at <= created_to)
+
+    if qty_min is not None:
+        query = query.filter(models.StockMovements.qty_change >= qty_min)
+
+    if qty_max is not None:
+        query = query.filter(models.StockMovements.qty_change <= qty_max)
 
     # Order by most recent first
     movements = query.order_by(models.StockMovements.created_at.desc()).offset(

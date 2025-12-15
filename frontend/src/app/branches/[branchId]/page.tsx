@@ -687,12 +687,22 @@ function StockMovementsManager({
   branchId: number;
   readOnly: boolean;
 }) {
+  const [filterReason, setFilterReason] = useState<string>("all");
+  const [filterDateFrom, setFilterDateFrom] = useState<string>("");
+  const [filterDateTo, setFilterDateTo] = useState<string>("");
+  const [filterQtyMin, setFilterQtyMin] = useState<string>("");
+  const [filterQtyMax, setFilterQtyMax] = useState<string>("");
+
   const { data: movements, isLoading } = useGetStockMovementsQuery({
     branch_id: branchId,
+    reason: filterReason === "all" ? undefined : filterReason,
+    created_from: filterDateFrom || undefined,
+    created_to: filterDateTo || undefined,
+    qty_min: filterQtyMin ? Number(filterQtyMin) : undefined,
+    qty_max: filterQtyMax ? Number(filterQtyMax) : undefined,
   });
   const { data: stockItems } = useGetStockByBranchQuery(branchId);
   const [createMovement] = useCreateStockMovementMutation();
-  const [filterReason, setFilterReason] = useState<string>("all");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState<StockMovementCreate>({
@@ -732,9 +742,19 @@ function StockMovementsManager({
   };
 
   const filteredMovements =
-    movements?.filter(
-      (m) => filterReason === "all" || m.reason === filterReason
-    ) || [];
+    movements
+      ?.filter((m) => filterReason === "all" || m.reason === filterReason)
+      ?.filter((m) => {
+        if (filterDateFrom && new Date(m.created_at) < new Date(filterDateFrom))
+          return false;
+        if (filterDateTo && new Date(m.created_at) > new Date(filterDateTo))
+          return false;
+        if (filterQtyMin && Number(m.qty_change) < Number(filterQtyMin))
+          return false;
+        if (filterQtyMax && Number(m.qty_change) > Number(filterQtyMax))
+          return false;
+        return true;
+      }) || [];
 
   const getReasonBadgeColor = (reason: string) => {
     switch (reason) {
@@ -757,18 +777,50 @@ function StockMovementsManager({
     <div>
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-semibold">Stock Movements</h2>
-        <div className="flex gap-4 items-center">
-          <select
-            value={filterReason}
-            onChange={(e) => setFilterReason(e.target.value)}
-            className="border border-gray-300 rounded-md px-3 py-1 text-sm"
-          >
-            <option value="all">All Types</option>
-            <option value="RESTOCK">Restock</option>
-            <option value="SALE">Sale</option>
-            <option value="WASTE">Waste</option>
-            <option value="ADJUST">Adjust</option>
-          </select>
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
+          <div className="flex gap-2">
+            <select
+              value={filterReason}
+              onChange={(e) => setFilterReason(e.target.value)}
+              className="border border-gray-300 rounded-md px-3 py-1 text-sm"
+            >
+              <option value="all">All Types</option>
+              <option value="RESTOCK">Restock</option>
+              <option value="SALE">Sale</option>
+              <option value="WASTE">Waste</option>
+              <option value="ADJUST">Adjust</option>
+            </select>
+            <input
+              type="date"
+              value={filterDateFrom}
+              onChange={(e) => setFilterDateFrom(e.target.value)}
+              className="border border-gray-300 rounded-md px-3 py-1 text-sm"
+              placeholder="From"
+            />
+            <input
+              type="date"
+              value={filterDateTo}
+              onChange={(e) => setFilterDateTo(e.target.value)}
+              className="border border-gray-300 rounded-md px-3 py-1 text-sm"
+              placeholder="To"
+            />
+            <input
+              type="number"
+              step="0.01"
+              value={filterQtyMin}
+              onChange={(e) => setFilterQtyMin(e.target.value)}
+              className="border border-gray-300 rounded-md px-3 py-1 text-sm w-28"
+              placeholder="Qty min"
+            />
+            <input
+              type="number"
+              step="0.01"
+              value={filterQtyMax}
+              onChange={(e) => setFilterQtyMax(e.target.value)}
+              className="border border-gray-300 rounded-md px-3 py-1 text-sm w-28"
+              placeholder="Qty max"
+            />
+          </div>
           <button
             onClick={() => {
               setFormData({

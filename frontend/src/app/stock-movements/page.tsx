@@ -9,19 +9,38 @@ import {
   StockMovementCreate,
 } from "@/store/api/stockApi";
 import { useGetBranchesQuery } from "@/store/api/branchesApi";
+import { useGetEmployeesQuery } from "@/store/api/employeesApi";
 
 export default function StockMovementsPage() {
   const [filterBranchId, setFilterBranchId] = useState<number | undefined>(
     undefined
   );
   const [filterReason, setFilterReason] = useState<string>("all");
+  const [filterIngredientId, setFilterIngredientId] = useState<
+    number | undefined
+  >(undefined);
+  const [filterEmployeeId, setFilterEmployeeId] = useState<number | undefined>(
+    undefined
+  );
+  const [filterQtyMin, setFilterQtyMin] = useState<string>("");
+  const [filterQtyMax, setFilterQtyMax] = useState<string>("");
+  const [filterDateFrom, setFilterDateFrom] = useState<string>("");
+  const [filterDateTo, setFilterDateTo] = useState<string>("");
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const { data: movements, isLoading } = useGetStockMovementsQuery(
-    filterBranchId ? { branch_id: filterBranchId } : undefined
-  );
+  const { data: movements, isLoading } = useGetStockMovementsQuery({
+    branch_id: filterBranchId,
+    reason: filterReason === "all" ? undefined : filterReason,
+    ingredient_id: filterIngredientId,
+    employee_id: filterEmployeeId,
+    qty_min: filterQtyMin ? Number(filterQtyMin) : undefined,
+    qty_max: filterQtyMax ? Number(filterQtyMax) : undefined,
+    created_from: filterDateFrom || undefined,
+    created_to: filterDateTo || undefined,
+  });
   const { data: branches } = useGetBranchesQuery({ is_deleted: false });
   const { data: allStock } = useGetStockQuery({ is_deleted: false });
+  const { data: employees } = useGetEmployeesQuery();
   const [createMovement] = useCreateStockMovementMutation();
 
   const [formData, setFormData] = useState<StockMovementCreate>({
@@ -120,7 +139,8 @@ export default function StockMovementsPage() {
         </div>
 
         {/* Filters */}
-        <div className="mb-4 flex gap-4">
+        <div className="mb-2 text-sm text-gray-600 font-semibold">Filters</div>
+        <div className="mb-4 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
           <select
             value={filterBranchId || ""}
             onChange={(e) =>
@@ -148,6 +168,80 @@ export default function StockMovementsPage() {
             <option value="WASTE">Waste</option>
             <option value="ADJUST">Adjust</option>
           </select>
+          <select
+            value={filterIngredientId || ""}
+            onChange={(e) =>
+              setFilterIngredientId(
+                e.target.value ? Number(e.target.value) : undefined
+              )
+            }
+            className="border border-gray-300 rounded-md px-3 py-2"
+          >
+            <option value="">All Ingredients</option>
+            {Object.values(
+              (allStock || []).reduce<
+                Record<number, { id: number; name: string }>
+              >((acc, s) => {
+                if (s.ingredient) {
+                  const id = s.ingredient.ingredient_id;
+                  if (!acc[id]) {
+                    acc[id] = { id, name: s.ingredient.name };
+                  }
+                }
+                return acc;
+              }, {})
+            ).map((ing) => (
+              <option key={ing.id} value={ing.id}>
+                {ing.name}
+              </option>
+            ))}
+          </select>
+          <select
+            value={filterEmployeeId || ""}
+            onChange={(e) =>
+              setFilterEmployeeId(
+                e.target.value ? Number(e.target.value) : undefined
+              )
+            }
+            className="border border-gray-300 rounded-md px-3 py-2"
+          >
+            <option value="">All Employees</option>
+            {employees?.map((emp) => (
+              <option key={emp.employee_id} value={emp.employee_id}>
+                {emp.first_name} {emp.last_name}
+              </option>
+            ))}
+          </select>
+          <input
+            type="date"
+            value={filterDateFrom}
+            onChange={(e) => setFilterDateFrom(e.target.value)}
+            className="border border-gray-300 rounded-md px-3 py-2"
+            placeholder="From date"
+          />
+          <input
+            type="date"
+            value={filterDateTo}
+            onChange={(e) => setFilterDateTo(e.target.value)}
+            className="border border-gray-300 rounded-md px-3 py-2"
+            placeholder="To date"
+          />
+          <input
+            type="number"
+            step="0.01"
+            value={filterQtyMin}
+            onChange={(e) => setFilterQtyMin(e.target.value)}
+            className="border border-gray-300 rounded-md px-3 py-2"
+            placeholder="Qty min"
+          />
+          <input
+            type="number"
+            step="0.01"
+            value={filterQtyMax}
+            onChange={(e) => setFilterQtyMax(e.target.value)}
+            className="border border-gray-300 rounded-md px-3 py-2"
+            placeholder="Qty max"
+          />
         </div>
 
         {/* Summary Cards */}

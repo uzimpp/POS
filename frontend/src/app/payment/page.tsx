@@ -15,6 +15,12 @@ export default function PaymentPage() {
   const [filterType, setFilterType] = useState<"month" | "quarter" | "year">(
     "year"
   );
+  const [filterMinPaid, setFilterMinPaid] = useState<string>("");
+  const [filterMaxPaid, setFilterMaxPaid] = useState<string>("");
+  const [filterPaidFrom, setFilterPaidFrom] = useState<string>("");
+  const [filterPaidTo, setFilterPaidTo] = useState<string>("");
+  const [filterMembershipOnly, setFilterMembershipOnly] =
+    useState<string>("all");
 
   // Build filter object
   const filters: PaymentFilters | undefined = useMemo(() => {
@@ -40,6 +46,14 @@ export default function PaymentPage() {
       filterObj.search = searchTerm.trim();
     }
 
+    if (filterMinPaid) filterObj.min_paid = Number(filterMinPaid);
+    if (filterMaxPaid) filterObj.max_paid = Number(filterMaxPaid);
+    if (filterPaidFrom) filterObj.paid_from = `${filterPaidFrom}T00:00:00`;
+    if (filterPaidTo) filterObj.paid_to = `${filterPaidTo}T23:59:59`;
+    if (filterMembershipOnly !== "all") {
+      filterObj.membership_only = filterMembershipOnly === "yes";
+    }
+
     return Object.keys(filterObj).length > 0 ? filterObj : undefined;
   }, [
     filterMethod,
@@ -48,6 +62,11 @@ export default function PaymentPage() {
     selectedQuarter,
     filterType,
     searchTerm,
+    filterMinPaid,
+    filterMaxPaid,
+    filterPaidFrom,
+    filterPaidTo,
+    filterMembershipOnly,
   ]);
 
   const { data: payments, isLoading, error } = useGetPaymentsQuery(filters);
@@ -61,6 +80,13 @@ export default function PaymentPage() {
       return sum + parseFloat(payment.paid_price || "0");
     }, 0);
   }, [filteredPayments]);
+
+  // Membership proxy: payments using points are considered membership-related
+  const membershipPayments = filteredPayments.filter(
+    (p) => p.payment_method?.toUpperCase() === "POINTS"
+  );
+  const membershipCount = membershipPayments.length;
+  const totalPayments = filteredPayments.length;
 
   // Generate year options (current year and 5 years back)
   const yearOptions = Array.from({ length: 6 }, (_, i) => currentYear - i);
@@ -103,7 +129,12 @@ export default function PaymentPage() {
     searchTerm ||
     selectedYear !== "" ||
     selectedMonth !== "" ||
-    selectedQuarter !== "";
+    selectedQuarter !== "" ||
+    filterMinPaid ||
+    filterMaxPaid ||
+    filterPaidFrom ||
+    filterPaidTo ||
+    filterMembershipOnly !== "all";
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "N/A";
@@ -172,6 +203,80 @@ export default function PaymentPage() {
                   placeholder="Order ID or Payment Ref"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 />
+              </div>
+
+              {/* Min Paid */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Min Paid
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={filterMinPaid}
+                  onChange={(e) => setFilterMinPaid(e.target.value)}
+                  placeholder="e.g., 500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              {/* Max Paid */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Max Paid
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={filterMaxPaid}
+                  onChange={(e) => setFilterMaxPaid(e.target.value)}
+                  placeholder="e.g., 5000"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              {/* Paid From */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Paid From
+                </label>
+                <input
+                  type="date"
+                  value={filterPaidFrom}
+                  onChange={(e) => setFilterPaidFrom(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              {/* Paid To */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Paid To
+                </label>
+                <input
+                  type="date"
+                  value={filterPaidTo}
+                  onChange={(e) => setFilterPaidTo(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              {/* Membership Only */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Membership Payments
+                </label>
+                <select
+                  value={filterMembershipOnly}
+                  onChange={(e) => setFilterMembershipOnly(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">All</option>
+                  <option value="yes">Membership only</option>
+                  <option value="no">Non-membership only</option>
+                </select>
               </div>
 
               {/* Payment Method */}
@@ -319,23 +424,29 @@ export default function PaymentPage() {
           </div>
         </div>
 
-        <div className="mb-6 bg-white p-6 rounded-lg shadow-md border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium text-gray-600">
-                Total Revenue
-              </h3>
-              <p className="text-3xl font-bold text-green-600 mt-1">
-                ฿{totalRevenue.toFixed(2)}
-              </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="text-blue-700 text-sm font-medium">
+              Total Payments
             </div>
-            <div className="text-right">
-              <h3 className="text-sm font-medium text-gray-600">
-                Total Payments
-              </h3>
-              <p className="text-3xl font-bold text-gray-800 mt-1">
-                {payments?.length || 0}
-              </p>
+            <div className="text-2xl font-bold text-blue-800">
+              {totalPayments}
+            </div>
+          </div>
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="text-green-700 text-sm font-medium">
+              Total Revenue
+            </div>
+            <div className="text-2xl font-bold text-green-800">
+              {totalRevenue.toFixed(2)}
+            </div>
+          </div>
+          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+            <div className="text-purple-700 text-sm font-medium">
+              Membership (points) payments
+            </div>
+            <div className="text-2xl font-bold text-purple-800">
+              {membershipCount} / {totalPayments || 1}
             </div>
           </div>
         </div>

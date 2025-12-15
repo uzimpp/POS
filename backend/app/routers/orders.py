@@ -18,6 +18,18 @@ def get_orders(
         None, description="Filter by order status (e.g., PAID, PENDING, UNPAID, CANCELLED)"),
     order_type: Optional[str] = Query(
         None, description="Filter by order type (e.g., DINE_IN, TAKEAWAY, DELIVERY)"),
+    min_total: Optional[Decimal] = Query(
+        None, description="Filter by minimum total_price"),
+    created_from: Optional[datetime] = Query(
+        None, description="Filter orders created on/after this datetime"),
+    created_to: Optional[datetime] = Query(
+        None, description="Filter orders created on/before this datetime"),
+    branch_id: Optional[int] = Query(
+        None, description="Filter by branch"),
+    employee_id: Optional[int] = Query(
+        None, description="Filter by employee"),
+    membership_id: Optional[int] = Query(
+        None, description="Filter by membership"),
     db: Session = Depends(get_db)
 ):
     query = db.query(models.Orders).options(
@@ -35,6 +47,24 @@ def get_orders(
 
     if order_type:
         query = query.filter(models.Orders.order_type == order_type)
+
+    if min_total is not None:
+        query = query.filter(models.Orders.total_price >= min_total)
+
+    if created_from:
+        query = query.filter(models.Orders.created_at >= created_from)
+
+    if created_to:
+        query = query.filter(models.Orders.created_at <= created_to)
+
+    if branch_id:
+        query = query.filter(models.Orders.branch_id == branch_id)
+
+    if employee_id:
+        query = query.filter(models.Orders.employee_id == employee_id)
+
+    if membership_id:
+        query = query.filter(models.Orders.membership_id == membership_id)
 
     # Sort by created_at descending (most recent first) by default
     orders = query.order_by(models.Orders.created_at.desc()).offset(

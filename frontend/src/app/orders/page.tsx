@@ -15,6 +15,12 @@ export default function OrdersPage() {
   const router = useRouter();
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterOrderType, setFilterOrderType] = useState<string>("all");
+  const [filterMinTotal, setFilterMinTotal] = useState<string>("");
+  const [filterCreatedFrom, setFilterCreatedFrom] = useState<string>("");
+  const [filterCreatedTo, setFilterCreatedTo] = useState<string>("");
+  const [filterBranchId, setFilterBranchId] = useState<string>("");
+  const [filterEmployeeId, setFilterEmployeeId] = useState<string>("");
+  const [filterMembershipId, setFilterMembershipId] = useState<string>("");
 
   // Build filters object
   const filters: OrderFilters | undefined = (() => {
@@ -24,6 +30,24 @@ export default function OrdersPage() {
     }
     if (filterOrderType !== "all") {
       filterObj.order_type = filterOrderType;
+    }
+    if (filterMinTotal) {
+      filterObj.min_total = filterMinTotal;
+    }
+    if (filterCreatedFrom) {
+      filterObj.created_from = filterCreatedFrom;
+    }
+    if (filterCreatedTo) {
+      filterObj.created_to = filterCreatedTo;
+    }
+    if (filterBranchId) {
+      filterObj.branch_id = Number(filterBranchId);
+    }
+    if (filterEmployeeId) {
+      filterObj.employee_id = Number(filterEmployeeId);
+    }
+    if (filterMembershipId) {
+      filterObj.membership_id = Number(filterMembershipId);
     }
     return Object.keys(filterObj).length > 0 ? filterObj : undefined;
   })();
@@ -123,27 +147,123 @@ export default function OrdersPage() {
               <h1 className="text-3xl font-bold text-gray-800">Orders</h1>
               <p className="text-gray-600 mt-2">Manage and view all orders</p>
             </div>
-            <div className="flex gap-2">
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Status</option>
-                <option value="UNPAID">Unpaid</option>
-                <option value="PAID">Paid</option>
-                <option value="CANCELLED">Cancelled</option>
-              </select>
-              <select
-                value={filterOrderType}
-                onChange={(e) => setFilterOrderType(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Types</option>
-                <option value="DINE_IN">Dine In</option>
-                <option value="TAKEAWAY">Takeaway</option>
-                <option value="DELIVERY">Delivery</option>
-              </select>
+          </div>
+
+          {/* Filters */}
+          <div className="bg-white rounded-lg shadow-md border border-gray-200 p-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Status
+                </label>
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Status</option>
+                  <option value="UNPAID">Unpaid</option>
+                  <option value="PAID">Paid</option>
+                  <option value="CANCELLED">Cancelled</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Order Type
+                </label>
+                <select
+                  value={filterOrderType}
+                  onChange={(e) => setFilterOrderType(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Types</option>
+                  <option value="DINE_IN">Dine In</option>
+                  <option value="TAKEAWAY">Takeaway</option>
+                  <option value="DELIVERY">Delivery</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {"Min Total (>=)"}
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={filterMinTotal}
+                  onChange={(e) => setFilterMinTotal(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g. 1000"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Branch
+                </label>
+                <select
+                  value={filterBranchId}
+                  onChange={(e) => setFilterBranchId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">All Branches</option>
+                  {branches?.map((b) => (
+                    <option key={b.branch_id} value={b.branch_id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Employee
+                </label>
+                <select
+                  value={filterEmployeeId}
+                  onChange={(e) => setFilterEmployeeId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">All Employees</option>
+                  {employees?.map((emp) => (
+                    <option key={emp.employee_id} value={emp.employee_id}>
+                      {emp.first_name} {emp.last_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Membership ID
+                </label>
+                <input
+                  type="number"
+                  value={filterMembershipId}
+                  onChange={(e) => setFilterMembershipId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="optional"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Created From
+                </label>
+                <input
+                  type="date"
+                  value={filterCreatedFrom}
+                  onChange={(e) => setFilterCreatedFrom(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Created To
+                </label>
+                <input
+                  type="date"
+                  value={filterCreatedTo}
+                  onChange={(e) => setFilterCreatedTo(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
             </div>
           </div>
 

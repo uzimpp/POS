@@ -12,6 +12,16 @@ def get_employees(
     branch_ids: Optional[List[int]] = Query(None),
     is_deleted: Optional[bool] = Query(
         None, description="Filter by deletion status. None returns all, False returns active only, True returns deleted only"),
+    role_ids: Optional[List[int]] = Query(
+        None, description="Filter by role ids"),
+    salary_min: Optional[int] = Query(
+        None, description="Filter by minimum salary"),
+    salary_max: Optional[int] = Query(
+        None, description="Filter by maximum salary"),
+    joined_from: Optional[str] = Query(
+        None, description="Filter joined_date on/after (ISO datetime)"),
+    joined_to: Optional[str] = Query(
+        None, description="Filter joined_date on/before (ISO datetime)"),
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db)
@@ -25,7 +35,23 @@ def get_employees(
     if is_deleted is not None:
         query = query.filter(models.Employees.is_deleted == is_deleted)
 
+    if role_ids:
+        query = query.filter(models.Employees.role_id.in_(role_ids))
+
+    if salary_min is not None:
+        query = query.filter(models.Employees.salary >= salary_min)
+
+    if salary_max is not None:
+        query = query.filter(models.Employees.salary <= salary_max)
+
+    if joined_from:
+        query = query.filter(models.Employees.joined_date >= joined_from)
+
+    if joined_to:
+        query = query.filter(models.Employees.joined_date <= joined_to)
+
     return query.offset(skip).limit(limit).all()
+
 
 @router.get("/{employee_id}", response_model=schemas.Employee)
 def get_employee(employee_id: int, db: Session = Depends(get_db)):
