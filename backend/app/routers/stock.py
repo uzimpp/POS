@@ -113,54 +113,6 @@ def create_stock_item(stock: schemas.StockCreate, db: Session = Depends(get_db))
     return db_stock
 
 
-@router.put("/{stock_id}", response_model=schemas.Stock)
-def update_stock_item(stock_id: int, stock_update: schemas.StockCreate, db: Session = Depends(get_db)):
-    db_stock = db.query(models.Stock).options(
-        joinedload(models.Stock.ingredient)
-    ).filter(models.Stock.stock_id == stock_id).first()
-    if db_stock is None:
-        raise HTTPException(status_code=404, detail="Stock item not found")
-
-    # Check if stock item is deleted
-    if db_stock.is_deleted:
-        raise HTTPException(
-            status_code=400,
-            detail="Cannot update a deleted stock item"
-        )
-
-    # Check if ingredient is deleted
-    if db_stock.ingredient.is_deleted:
-        raise HTTPException(
-            status_code=400,
-            detail="Cannot update stock for a deleted ingredient. Only WASTE/ADJUST operations are allowed for cleanup."
-        )
-
-    # If ingredient_id is being changed, validate the new ingredient
-    if stock_update.ingredient_id != db_stock.ingredient_id:
-        new_ingredient = db.query(models.Ingredients).filter(
-            models.Ingredients.ingredient_id == stock_update.ingredient_id
-        ).first()
-        if not new_ingredient:
-            raise HTTPException(status_code=404, detail="Ingredient not found")
-        if new_ingredient.is_deleted:
-            raise HTTPException(
-                status_code=400,
-                detail="Cannot change stock to a deleted ingredient"
-            )
-
-    for key, value in stock_update.dict().items():
-        setattr(db_stock, key, value)
-
-    db.commit()
-    db.refresh(db_stock)
-    # Load relationships before returning
-    db_stock = db.query(models.Stock).options(
-        joinedload(models.Stock.branch),
-        joinedload(models.Stock.ingredient)
-    ).filter(models.Stock.stock_id == stock_id).first()
-    return db_stock
-
-
 @router.delete("/{stock_id}", response_model=schemas.Stock)
 def delete_stock_item(stock_id: int, db: Session = Depends(get_db)):
     try:
@@ -204,6 +156,13 @@ def get_stock_movements(
     stock_id: Optional[int] = Query(None, description="Filter by stock item"),
     reason: Optional[str] = Query(
         None, description="Filter by reason (RESTOCK, SALE, WASTE, ADJUST)"),
+    ingredient_id: Optional[int] = Query(
+        None, description="Filter by ingredient"),
+    employee_id: Optional[int] = Query(None, description="Filter by employee"),
+    created_from: Optional[str] = Query(None, description="ISO datetime from"),
+    created_to: Optional[str] = Query(None, description="ISO datetime to"),
+    qty_min: Optional[float] = Query(None, description="Minimum qty_change"),
+    qty_max: Optional[float] = Query(None, description="Maximum qty_change"),
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db)
@@ -227,6 +186,25 @@ def get_stock_movements(
 
     if reason:
         query = query.filter(models.StockMovements.reason == reason)
+
+    if ingredient_id:
+        query = query.join(models.Stock).filter(
+            models.Stock.ingredient_id == ingredient_id)
+
+    if employee_id:
+        query = query.filter(models.StockMovements.employee_id == employee_id)
+
+    if created_from:
+        query = query.filter(models.StockMovements.created_at >= created_from)
+
+    if created_to:
+        query = query.filter(models.StockMovements.created_at <= created_to)
+
+    if qty_min is not None:
+        query = query.filter(models.StockMovements.qty_change >= qty_min)
+
+    if qty_max is not None:
+        query = query.filter(models.StockMovements.qty_change <= qty_max)
 
     # Order by most recent first
     movements = query.order_by(models.StockMovements.created_at.desc()).offset(

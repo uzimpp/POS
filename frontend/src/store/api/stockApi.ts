@@ -63,6 +63,12 @@ export interface StockMovementFilters {
   branch_id?: number;
   stock_id?: number;
   reason?: string;
+  ingredient_id?: number;
+  employee_id?: number;
+  created_from?: string;
+  created_to?: string;
+  qty_min?: number;
+  qty_max?: number;
 }
 
 export const stockApi = baseApi.injectEndpoints({
@@ -98,14 +104,6 @@ export const stockApi = baseApi.injectEndpoints({
         url: "/stock",
         method: "POST",
         body,
-      }),
-      invalidatesTags: ["Stock"],
-    }),
-    updateStock: builder.mutation<Stock, { id: number; data: StockCreate }>({
-      query: ({ id, data }) => ({
-        url: `/stock/${id}`,
-        method: "PUT",
-        body: data,
       }),
       invalidatesTags: ["Stock"],
     }),
@@ -165,6 +163,24 @@ export const stockApi = baseApi.injectEndpoints({
         if (params?.reason) {
           queryParams.push(`reason=${params.reason}`);
         }
+        if (params?.ingredient_id) {
+          queryParams.push(`ingredient_id=${params.ingredient_id}`);
+        }
+        if (params?.employee_id) {
+          queryParams.push(`employee_id=${params.employee_id}`);
+        }
+        if (params?.created_from) {
+          queryParams.push(`created_from=${params.created_from}`);
+        }
+        if (params?.created_to) {
+          queryParams.push(`created_to=${params.created_to}`);
+        }
+        if (params?.qty_min !== undefined) {
+          queryParams.push(`qty_min=${params.qty_min}`);
+        }
+        if (params?.qty_max !== undefined) {
+          queryParams.push(`qty_max=${params.qty_max}`);
+        }
         if (queryParams.length > 0) {
           url += `?${queryParams.join("&")}`;
         }
@@ -187,7 +203,6 @@ export const {
   useGetStockQuery,
   useGetStockByBranchQuery,
   useCreateStockMutation,
-  useUpdateStockMutation,
   useDeleteStockMutation,
   useGetOutOfStockItemsQuery,
   useGetOutOfStockCountQuery,

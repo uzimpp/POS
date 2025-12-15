@@ -23,9 +23,20 @@ def get_payments(
         None, description="Filter by quarter (1-4)"),
     search: Optional[str] = Query(
         None, description="Search by order_id or payment_ref"),
+    min_paid: Optional[float] = Query(
+        None, description="Minimum paid amount"),
+    max_paid: Optional[float] = Query(
+        None, description="Maximum paid amount"),
+    paid_from: Optional[datetime] = Query(
+        None, description="Paid timestamp on/after"),
+    paid_to: Optional[datetime] = Query(
+        None, description="Paid timestamp on/before"),
+    membership_only: Optional[bool] = Query(
+        None, description="True to include only payments with membership; False for non-membership; None for all"),
     db: Session = Depends(get_db)
 ):
-    query = db.query(models.Payments)
+    query = db.query(models.Payments).join(
+        models.Orders, models.Payments.order_id == models.Orders.order_id)
 
     if payment_method:
         query = query.filter(models.Payments.payment_method == payment_method)
@@ -69,6 +80,24 @@ def get_payments(
             query = query.filter(
                 models.Payments.payment_ref.ilike(f"%{search}%")
             )
+
+    if min_paid is not None:
+        query = query.filter(models.Payments.paid_price >= min_paid)
+
+    if max_paid is not None:
+        query = query.filter(models.Payments.paid_price <= max_paid)
+
+    if paid_from:
+        query = query.filter(models.Payments.paid_timestamp >= paid_from)
+
+    if paid_to:
+        query = query.filter(models.Payments.paid_timestamp <= paid_to)
+
+    if membership_only is not None:
+        if membership_only:
+            query = query.filter(models.Orders.membership_id.isnot(None))
+        else:
+            query = query.filter(models.Orders.membership_id.is_(None))
 
     payments = query.order_by(models.Payments.paid_timestamp.desc()).offset(
         skip).limit(limit).all()

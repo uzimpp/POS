@@ -6,7 +6,6 @@ import {
   useGetStockQuery,
   useDeleteStockMutation,
   useCreateStockMutation,
-  useUpdateStockMutation,
   useGetOutOfStockCountQuery,
   Stock,
   StockCreate,
@@ -42,34 +41,20 @@ export default function StockPage() {
   const { data: branches } = useGetBranchesQuery();
   const [deleteStockItem] = useDeleteStockMutation();
   const [createStock] = useCreateStockMutation();
-  const [updateStock] = useUpdateStockMutation();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingStock, setEditingStock] = useState<Stock | undefined>(
-    undefined
-  );
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [stockToDelete, setStockToDelete] = useState<number | null>(null);
 
   const handleCreate = () => {
-    setEditingStock(undefined);
-    setIsModalOpen(true);
-  };
-
-  const handleEdit = (item: Stock) => {
-    setEditingStock(item);
     setIsModalOpen(true);
   };
 
   const handleSubmit = async (data: StockCreate) => {
     try {
-      if (editingStock) {
-        await updateStock({ id: editingStock.stock_id, data }).unwrap();
-      } else {
-        await createStock(data).unwrap();
-      }
+      await createStock(data).unwrap();
       setIsModalOpen(false);
     } catch (err) {
-      alert(`Failed to ${editingStock ? "update" : "create"} stock item`);
+      alert("Failed to create stock item");
     }
   };
 
@@ -125,6 +110,10 @@ export default function StockPage() {
               Stock Inventory
             </h1>
             <p className="text-gray-600 mt-2">Manage your inventory</p>
+            <p className="text-sm text-gray-500 mt-1">
+              Stock records are immutable. To change quantities, use stock
+              movements.
+            </p>
           </div>
           <div className="flex gap-2 items-center">
             <div className="z-50">
@@ -253,20 +242,12 @@ export default function StockPage() {
                           {item.branch?.name || "N/A"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleEdit(item)}
-                              className="text-blue-600 hover:text-blue-900"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleDeleteClick(item.stock_id)}
-                              className="text-red-600 hover:text-red-900"
-                            >
-                              Delete
-                            </button>
-                          </div>
+                          <button
+                            onClick={() => handleDeleteClick(item.stock_id)}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            Delete
+                          </button>
                         </td>
                       </tr>
                     );
@@ -290,7 +271,7 @@ export default function StockPage() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleSubmit}
-        stockItem={editingStock}
+        stockItem={undefined}
         branches={branches?.filter((b) => !b.is_deleted) || []}
       />
       <ConfirmModal

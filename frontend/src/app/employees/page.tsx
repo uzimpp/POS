@@ -20,6 +20,11 @@ export default function EmployeesPage() {
     (number | string)[]
   >([]);
   const [filterActive, setFilterActive] = useState<string>("all");
+  const [filterRoleIds, setFilterRoleIds] = useState<(number | string)[]>([]);
+  const [filterSalaryMin, setFilterSalaryMin] = useState<string>("");
+  const [filterSalaryMax, setFilterSalaryMax] = useState<string>("");
+  const [filterJoinedFrom, setFilterJoinedFrom] = useState<string>("");
+  const [filterJoinedTo, setFilterJoinedTo] = useState<string>("");
   const {
     data: employees,
     isLoading,
@@ -35,6 +40,14 @@ export default function EmployeesPage() {
         : filterActive === "active"
         ? false
         : true,
+    role_ids:
+      filterRoleIds.length > 0 ? (filterRoleIds as number[]) : undefined,
+    salary_min: filterSalaryMin ? Number(filterSalaryMin) : undefined,
+    salary_max: filterSalaryMax ? Number(filterSalaryMax) : undefined,
+    joined_from: filterJoinedFrom
+      ? `${filterJoinedFrom}T00:00:00`
+      : undefined,
+    joined_to: filterJoinedTo ? `${filterJoinedTo}T23:59:59` : undefined,
   });
   const { data: roles } = useGetRolesQuery();
   const { data: branches } = useGetBranchesQuery();
@@ -133,36 +146,113 @@ export default function EmployeesPage() {
             <p className="text-gray-600 mt-2">Manage your staff members</p>
           </div>
           <div className="flex gap-2">
-            <div className="flex gap-2 items-center">
-              <div className="z-50">
-                <MultiSelect
-                  options={
-                    branches?.map((b) => ({
-                      value: b.branch_id,
-                      label: b.name,
-                    })) || []
-                  }
-                  selectedValues={selectedBranchIds}
-                  onChange={setSelectedBranchIds}
-                  label=""
-                  placeholder="Filter by Branch"
-                />
-              </div>
+            <button
+              onClick={handleCreate}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors h-[42px]"
+            >
+              Add Employee
+            </button>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white rounded-lg shadow border border-gray-200 p-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="z-50">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Branches
+              </label>
+              <MultiSelect
+                options={
+                  branches?.map((b) => ({
+                    value: b.branch_id,
+                    label: b.name,
+                  })) || []
+                }
+                selectedValues={selectedBranchIds}
+                onChange={setSelectedBranchIds}
+                label=""
+                placeholder="Filter by Branch"
+              />
+            </div>
+            <div className="z-50">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Roles
+              </label>
+              <MultiSelect
+                options={
+                  roles?.map((r) => ({
+                    value: r.role_id,
+                    label: r.role_name,
+                  })) || []
+                }
+                selectedValues={filterRoleIds}
+                onChange={setFilterRoleIds}
+                label=""
+                placeholder="Filter by Role"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Status
+              </label>
               <select
                 value={filterActive}
                 onChange={(e) => setFilterActive(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 h-[42px]"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 h-[42px]"
               >
                 <option value="all">All Status</option>
                 <option value="active">Active Only</option>
                 <option value="inactive">Inactive Only</option>
               </select>
-              <button
-                onClick={handleCreate}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors h-[42px]"
-              >
-                Add Employee
-              </button>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Salary Min
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={filterSalaryMin}
+                onChange={(e) => setFilterSalaryMin(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., 10000"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Salary Max
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={filterSalaryMax}
+                onChange={(e) => setFilterSalaryMax(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., 50000"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Joined From
+              </label>
+              <input
+                type="date"
+                value={filterJoinedFrom}
+                onChange={(e) => setFilterJoinedFrom(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Joined To
+              </label>
+              <input
+                type="date"
+                value={filterJoinedTo}
+                onChange={(e) => setFilterJoinedTo(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
           </div>
         </div>

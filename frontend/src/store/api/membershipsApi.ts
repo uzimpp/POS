@@ -22,10 +22,26 @@ export interface MembershipCreate {
   tier_id: number;
 }
 
+export interface MembershipFilters {
+  min_points?: number;
+  name_contains?: string;
+  phone_contains?: string;
+}
+
 export const membershipsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getMemberships: builder.query<Membership[], void>({
-      query: () => "/memberships",
+    getMemberships: builder.query<Membership[], MembershipFilters | void>({
+      query: (params) => {
+        const searchParams = new URLSearchParams();
+        if (params?.min_points !== undefined)
+          searchParams.append("min_points", String(params.min_points));
+        if (params?.name_contains)
+          searchParams.append("name_contains", params.name_contains);
+        if (params?.phone_contains)
+          searchParams.append("phone_contains", params.phone_contains);
+        const qs = searchParams.toString();
+        return `/memberships${qs ? `?${qs}` : ""}`;
+      },
       providesTags: ["Memberships"],
     }),
     getMembership: builder.query<Membership, number>({

@@ -10,9 +10,28 @@ router = APIRouter(prefix="/api/memberships", tags=["memberships"])
 
 
 @router.get("/", response_model=List[schemas.Membership])
-def get_memberships(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    memberships = db.query(models.Memberships).offset(skip).limit(limit).all()
-    return memberships
+def get_memberships(
+    skip: int = 0,
+    limit: int = 100,
+    min_points: Optional[int] = None,
+    name_contains: Optional[str] = None,
+    phone_contains: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    query = db.query(models.Memberships)
+
+    if min_points is not None:
+        query = query.filter(models.Memberships.points >= min_points)
+
+    if name_contains:
+        query = query.filter(
+            models.Memberships.name.ilike(f"%{name_contains}%"))
+
+    if phone_contains:
+        query = query.filter(
+            models.Memberships.phone.ilike(f"%{phone_contains}%"))
+
+    return query.offset(skip).limit(limit).all()
 
 
 @router.get("/{membership_id}", response_model=schemas.Membership)

@@ -33,7 +33,15 @@ export const employeesApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getEmployees: builder.query<
       Employee[],
-      { branch_ids?: number[]; is_deleted?: boolean } | void
+      {
+        branch_ids?: number[];
+        is_deleted?: boolean;
+        role_ids?: number[];
+        salary_min?: number;
+        salary_max?: number;
+        joined_from?: string;
+        joined_to?: string;
+      } | void
     >({
       query: (params) => {
         let url = "/employees";
@@ -45,6 +53,23 @@ export const employeesApi = baseApi.injectEndpoints({
         }
         if (params && params.is_deleted !== undefined) {
           queryParams.push(`is_deleted=${params.is_deleted}`);
+        }
+        if (params && params.role_ids && params.role_ids.length > 0) {
+          queryParams.push(
+            params.role_ids.map((id) => `role_ids=${id}`).join("&")
+          );
+        }
+        if (params && params.salary_min !== undefined) {
+          queryParams.push(`salary_min=${params.salary_min}`);
+        }
+        if (params && params.salary_max !== undefined) {
+          queryParams.push(`salary_max=${params.salary_max}`);
+        }
+        if (params && params.joined_from) {
+          queryParams.push(`joined_from=${params.joined_from}`);
+        }
+        if (params && params.joined_to) {
+          queryParams.push(`joined_to=${params.joined_to}`);
         }
         if (queryParams.length > 0) {
           url += `?${queryParams.join("&")}`;
