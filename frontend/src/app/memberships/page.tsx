@@ -22,13 +22,15 @@ export default function MembershipsPage() {
   const [filterMinPoints, setFilterMinPoints] = useState<string>("");
   const [filterName, setFilterName] = useState<string>("");
   const [filterPhone, setFilterPhone] = useState<string>("");
+  const [showDeleted, setShowDeleted] = useState(false);
 
   const filters: MembershipFilters | undefined = (() => {
     const f: MembershipFilters = {};
     if (filterMinPoints) f.min_points = Number(filterMinPoints);
     if (filterName) f.name_contains = filterName;
     if (filterPhone) f.phone_contains = filterPhone;
-    return Object.keys(f).length ? f : undefined;
+    f.is_deleted = showDeleted;
+    return f;
   })();
 
   const {
@@ -381,10 +383,10 @@ export default function MembershipsPage() {
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
-                // Client-side duplicate phone guard
+                // Client-side duplicate phone guard (excluding deleted)
                 if (memberships && form.phone) {
                   const exists = memberships.some(
-                    (m: Membership) => m.phone === form.phone
+                    (m: Membership) => m.phone === form.phone && !m.is_deleted
                   );
                   if (exists) {
                     setPhoneError("This phone number has already been used");
@@ -971,14 +973,14 @@ export default function MembershipsPage() {
               Delete Membership{deleteMemberName ? `: ${deleteMemberName}` : ""}
             </h2>
             <p className="text-gray-600 mb-6">
-              Are you sure you want to delete this membership? This action
-              cannot be undone.
+              Are you sure you want to delete this membership? It will be marked
+              as inactive.
             </p>
-            <div className="bg-red-50 border border-red-200 rounded p-4 mb-6">
-              <p className="text-red-600">
+            <div className="bg-yellow-50 border border-yellow-200 rounded p-4 mb-6">
+              <p className="text-yellow-800">
                 <b>
-                  You will have to re-enter this member&#39;s information again
-                  if you wish to add it back.
+                  Note: The membership will be marked as inactive. Historical
+                  data and orders will be preserved.
                 </b>
               </p>
             </div>
@@ -1016,9 +1018,32 @@ export default function MembershipsPage() {
             <h1 className="text-3xl font-bold text-gray-800">Memberships</h1>
             <p className="text-gray-600 mt-2">Manage customer memberships</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            <label className="flex items-center cursor-pointer">
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  className="sr-only"
+                  checked={showDeleted}
+                  onChange={(e) => setShowDeleted(e.target.checked)}
+                />
+                <div
+                  className={`block w-10 h-6 rounded-full transition-colors ${
+                    showDeleted ? "bg-blue-500" : "bg-gray-300"
+                  }`}
+                ></div>
+                <div
+                  className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${
+                    showDeleted ? "transform translate-x-4" : ""
+                  }`}
+                ></div>
+              </div>
+              <div className="ml-3 text-sm font-medium text-gray-700">
+                Show Inactive
+              </div>
+            </label>
             <button
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors h-[42px]"
               onClick={() => {
                 resetForm();
                 // Default to first available tier when opening add modal
@@ -1031,7 +1056,7 @@ export default function MembershipsPage() {
               Add Membership
             </button>
             <button
-              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors h-[42px]"
               onClick={() => setShowTierModal(true)}
             >
               Manage Tiers
@@ -1139,6 +1164,9 @@ export default function MembershipsPage() {
                     Joined
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -1149,7 +1177,9 @@ export default function MembershipsPage() {
                   filteredByRankMemberships.map((membership) => (
                     <tr
                       key={membership.membership_id}
-                      className="hover:bg-gray-50"
+                      className={`hover:bg-gray-50 ${
+                        membership.is_deleted ? "opacity-60" : ""
+                      }`}
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         #{membership.membership_id}
@@ -1175,7 +1205,17 @@ export default function MembershipsPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {formatDate(membership.joined_at)}
                       </td>
-
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            !membership.is_deleted
+                              ? "bg-green-100 text-green-800"
+                              : "bg-red-100 text-red-800"
+                          }`}
+                        >
+                          {!membership.is_deleted ? "Active" : "Inactive"}
+                        </span>
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex gap-2">
                           <button
@@ -1184,24 +1224,26 @@ export default function MembershipsPage() {
                           >
                             Edit
                           </button>
-                          <button
-                            onClick={() =>
-                              openDeleteModal(
-                                membership.membership_id,
-                                membership.name
-                              )
-                            }
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            Delete
-                          </button>
+                          {!membership.is_deleted && (
+                            <button
+                              onClick={() =>
+                                openDeleteModal(
+                                  membership.membership_id,
+                                  membership.name
+                                )
+                              }
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              Delete
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={9} className="px-0 py-6 text-center">
+                    <td colSpan={10} className="px-0 py-6 text-center">
                       <span className="text-sm text-gray-500">
                         No memberships found
                       </span>

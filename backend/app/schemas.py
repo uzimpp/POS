@@ -116,6 +116,7 @@ class MembershipCreate(MembershipBase):
 class Membership(MembershipBase):
     membership_id: int
     joined_at: datetime
+    is_deleted: bool = False
     tier: Optional[Tier] = None
 
     class Config:

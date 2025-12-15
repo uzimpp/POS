@@ -45,9 +45,11 @@ def create_branch(branch: schemas.BranchCreate, db: Session = Depends(get_db)):
     # Validate phone number
     validate_thai_phone(branch.phone)
 
-    # Check if phone number exists in memberships (cross-table uniqueness)
+    # Check if phone number exists in memberships (cross-table uniqueness, excluding deleted)
     existing_membership = db.query(models.Memberships).filter(
-        models.Memberships.phone == branch.phone).first()
+        models.Memberships.phone == branch.phone,
+        models.Memberships.is_deleted == False
+    ).first()
     if existing_membership:
         raise HTTPException(
             status_code=400,
@@ -72,10 +74,12 @@ def update_branch(branch_id: int, branch_update: schemas.BranchCreate, db: Sessi
     # Validate phone number
     validate_thai_phone(branch_update.phone)
 
-    # Check if phone number is being changed and exists in memberships (cross-table uniqueness)
+    # Check if phone number is being changed and exists in memberships (cross-table uniqueness, excluding deleted)
     if branch_update.phone != db_branch.phone:
         existing_membership = db.query(models.Memberships).filter(
-            models.Memberships.phone == branch_update.phone).first()
+            models.Memberships.phone == branch_update.phone,
+            models.Memberships.is_deleted == False
+        ).first()
         if existing_membership:
             raise HTTPException(
                 status_code=400,
