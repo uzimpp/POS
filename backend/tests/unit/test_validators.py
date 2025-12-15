@@ -132,3 +132,4 @@ class TestEmailValidation:
             pytest.fail("Valid email with spaces raised an exception")
 
 
+

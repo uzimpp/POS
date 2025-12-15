@@ -47,7 +47,12 @@ class TestStockManagementFlow:
         order_data = order_response.json()
         item_id = order_data["order_items"][0]["order_item_id"]
         
-        # Step 3: Mark as DONE (triggers stock deduction)
+        # Step 3: Mark as PREPARING first (triggers stock deduction), then DONE
+        preparing_response = client.put(f"/api/order-items/{item_id}/status", json={
+            "status": "PREPARING"
+        })
+        assert preparing_response.status_code == 200
+        
         done_response = client.put(f"/api/order-items/{item_id}/status", json={
             "status": "DONE"
         })
@@ -164,7 +169,8 @@ class TestStockManagementFlow:
         })
         item_id = order_response.json()["order_items"][0]["order_item_id"]
         
-        # Step 3: Mark as DONE (depletes stock to 0)
+        # Step 3: Mark as PREPARING (depletes stock to 0), then DONE
+        client.put(f"/api/order-items/{item_id}/status", json={"status": "PREPARING"})
         client.put(f"/api/order-items/{item_id}/status", json={"status": "DONE"})
         
         # Step 4: Verify appears in out-of-stock list
@@ -213,19 +219,21 @@ class TestStockManagementFlow:
         })
         item_id = order_response.json()["order_items"][0]["order_item_id"]
         
-        # Step 3: Try to mark as DONE
-        done_response = client.put(f"/api/order-items/{item_id}/status", json={
-            "status": "DONE"
+        # Step 3: Try to mark as PREPARING (this triggers stock check)
+        preparing_response = client.put(f"/api/order-items/{item_id}/status", json={
+            "status": "PREPARING"
         })
         
-        # System should either:
-        # - Allow it (stock goes negative as warning)
-        # - Or reject it with error
-        # Current implementation allows negative stock
-        if done_response.status_code == 200:
-            test_db.refresh(setup["stock"])
-            # Stock should be negative
-            assert float(setup["stock"].amount_remaining) < 0
+        # System should reject due to insufficient stock
+        assert preparing_response.status_code == 400
+        error_detail = preparing_response.json()["detail"]
+        
+        # Verify error message indicates insufficient stock
+        if isinstance(error_detail, dict):
+            assert "insufficient" in error_detail.get("message", "").lower()
+            assert "insufficient_ingredients" in error_detail
+        else:
+            assert "insufficient" in error_detail.lower()
     
     def test_stock_adjustment_flow(self, client, test_db, sample_stock, sample_employee):
         """
@@ -296,5 +304,6 @@ class TestStockManagementFlow:
         recorded_types = {m["reason"] for m in history}
         for movement in movements_data:
             assert movement["reason"] in recorded_types
+
 
 

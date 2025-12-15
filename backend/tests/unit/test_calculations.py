@@ -100,3 +100,4 @@ class TestStockCalculation:
         assert -1.0 in out_of_stock
 
 
+

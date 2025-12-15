@@ -111,3 +111,36 @@ def delete_branch(branch_id: int, db: Session = Depends(get_db)):
             status_code=500,
             detail=f"An error occurred while deleting branch: {str(e)}"
         )
+
+
+@router.put("/{branch_id}/restore", response_model=schemas.Branch)
+def restore_branch(branch_id: int, db: Session = Depends(get_db)):
+    """Restore a soft-deleted branch."""
+    try:
+        db_branch = db.query(models.Branches).filter(
+            models.Branches.branch_id == branch_id).first()
+        if db_branch is None:
+            raise HTTPException(status_code=404, detail="Branch not found")
+
+        # Check if branch is already active
+        if not db_branch.is_deleted:
+            raise HTTPException(
+                status_code=400,
+                detail="Branch is already active"
+            )
+
+        # Restore branch
+        db_branch.is_deleted = False
+
+        db.commit()
+        db.refresh(db_branch)
+        return db_branch
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred while restoring branch: {str(e)}"
+        )

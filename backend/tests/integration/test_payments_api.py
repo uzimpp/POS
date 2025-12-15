@@ -237,3 +237,4 @@ class TestPaymentsAPI:
         assert all(payment["payment_method"] == "CASH" for payment in data)
 
 
+
