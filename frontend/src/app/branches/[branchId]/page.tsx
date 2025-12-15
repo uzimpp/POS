@@ -14,7 +14,6 @@ import {
 import {
   useGetStockByBranchQuery,
   useCreateStockMutation,
-  useUpdateStockMutation,
   useDeleteStockMutation,
   useGetStockMovementsQuery,
   useCreateStockMovementMutation,
@@ -45,6 +44,7 @@ export default function BranchDetailPage({
   // Fetch Branch Info (for title)
   const { data: branches } = useGetBranchesQuery();
   const branch = branches?.find((b) => b.branch_id === branchId);
+  const isBranchDeleted = !!branch?.is_deleted;
 
   return (
     <Layout>
@@ -72,37 +72,41 @@ export default function BranchDetailPage({
           <div className="flex space-x-2">
             <button
               onClick={() => setActiveTab("overview")}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === "overview"
-                ? "bg-blue-600 text-white"
-                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === "overview"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              }`}
             >
               Overview
             </button>
             <button
               onClick={() => setActiveTab("employees")}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === "employees"
-                ? "bg-blue-600 text-white"
-                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === "employees"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              }`}
             >
               Employees
             </button>
             <button
               onClick={() => setActiveTab("stock")}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === "stock"
-                ? "bg-blue-600 text-white"
-                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === "stock"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              }`}
             >
               Stock
             </button>
             <button
               onClick={() => setActiveTab("movements")}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === "movements"
-                ? "bg-blue-600 text-white"
-                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === "movements"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              }`}
             >
               Movements
             </button>
@@ -111,14 +115,22 @@ export default function BranchDetailPage({
 
         {/* Content */}
         <div className="p-6">
+          {isBranchDeleted && (
+            <div className="mb-4 rounded-md border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+              This branch is deleted. All actions are disabled.
+            </div>
+          )}
           {activeTab === "overview" ? (
             <DashboardOverview branchId={branchId} />
           ) : activeTab === "employees" ? (
-            <EmployeeManager branchId={branchId} />
+            <EmployeeManager branchId={branchId} readOnly={isBranchDeleted} />
           ) : activeTab === "stock" ? (
-            <StockManager branchId={branchId} />
+            <StockManager branchId={branchId} readOnly={isBranchDeleted} />
           ) : (
-            <StockMovementsManager branchId={branchId} />
+            <StockMovementsManager
+              branchId={branchId}
+              readOnly={isBranchDeleted}
+            />
           )}
         </div>
       </div>
@@ -126,7 +138,13 @@ export default function BranchDetailPage({
   );
 }
 
-function EmployeeManager({ branchId }: { branchId: number }) {
+function EmployeeManager({
+  branchId,
+  readOnly,
+}: {
+  branchId: number;
+  readOnly: boolean;
+}) {
   const { data: employees, isLoading } = useGetEmployeesByBranchQuery(branchId);
   const { data: roles } = useGetRolesQuery();
   const [createEmployee] = useCreateEmployeeMutation();
@@ -152,6 +170,7 @@ function EmployeeManager({ branchId }: { branchId: number }) {
   });
 
   const handleOpenAdd = () => {
+    if (readOnly) return;
     setEditingEmployee(null);
     setFormData({
       branch_id: branchId,
@@ -165,6 +184,7 @@ function EmployeeManager({ branchId }: { branchId: number }) {
   };
 
   const handleOpenEdit = (emp: Employee) => {
+    if (readOnly) return;
     setEditingEmployee(emp);
     setFormData({
       branch_id: emp.branch_id || branchId, // fallback if missing
@@ -178,11 +198,13 @@ function EmployeeManager({ branchId }: { branchId: number }) {
   };
 
   const handleDeleteClick = (id: number) => {
+    if (readOnly) return;
     setEmployeeToDelete(id);
     setIsDeleteModalOpen(true);
   };
 
   const handleConfirmDelete = async () => {
+    if (readOnly) return;
     if (employeeToDelete !== null) {
       try {
         await deleteEmployee(employeeToDelete).unwrap();
@@ -197,6 +219,10 @@ function EmployeeManager({ branchId }: { branchId: number }) {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (readOnly) {
+      alert("This branch is deleted. Actions are disabled.");
+      return;
+    }
     try {
       if (editingEmployee) {
         await updateEmployee({
@@ -234,7 +260,12 @@ function EmployeeManager({ branchId }: { branchId: number }) {
           </label>
           <button
             onClick={handleOpenAdd}
-            className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
+            className={`px-3 py-1 rounded ${
+              readOnly
+                ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                : "bg-green-600 text-white hover:bg-green-700"
+            }`}
+            disabled={readOnly}
           >
             + Add Employee
           </button>
@@ -285,10 +316,11 @@ function EmployeeManager({ branchId }: { branchId: number }) {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                   <span
-                    className={`px-2 py-1 rounded-full text-xs ${!emp.is_deleted
-                      ? "bg-green-100 text-green-800"
-                      : "bg-red-100 text-red-800"
-                      }`}
+                    className={`px-2 py-1 rounded-full text-xs ${
+                      !emp.is_deleted
+                        ? "bg-green-100 text-green-800"
+                        : "bg-red-100 text-red-800"
+                    }`}
                   >
                     {!emp.is_deleted ? "Active" : "Inactive"}
                   </span>
@@ -427,15 +459,19 @@ function EmployeeManager({ branchId }: { branchId: number }) {
   );
 }
 
-function StockManager({ branchId }: { branchId: number }) {
+function StockManager({
+  branchId,
+  readOnly,
+}: {
+  branchId: number;
+  readOnly: boolean;
+}) {
   const { data: stockItems, isLoading } = useGetStockByBranchQuery(branchId);
   const { data: ingredients } = useGetIngredientsQuery();
   const [createStock] = useCreateStockMutation();
-  const [updateStock] = useUpdateStockMutation();
   const [deleteStock] = useDeleteStockMutation();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingStock, setEditingStock] = useState<Stock | null>(null);
 
   // Delete Confirmation State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -448,7 +484,7 @@ function StockManager({ branchId }: { branchId: number }) {
   });
 
   const handleOpenAdd = () => {
-    setEditingStock(null);
+    if (readOnly) return;
     setFormData({
       branch_id: branchId,
       ingredient_id: 0,
@@ -457,22 +493,14 @@ function StockManager({ branchId }: { branchId: number }) {
     setIsModalOpen(true);
   };
 
-  const handleOpenEdit = (item: Stock) => {
-    setEditingStock(item);
-    setFormData({
-      branch_id: item.branch_id,
-      ingredient_id: item.ingredient_id,
-      amount_remaining: item.amount_remaining,
-    });
-    setIsModalOpen(true);
-  };
-
   const handleDeleteClick = (id: number) => {
+    if (readOnly) return;
     setStockToDelete(id);
     setIsDeleteModalOpen(true);
   };
 
   const handleConfirmDelete = async () => {
+    if (readOnly) return;
     if (stockToDelete !== null) {
       try {
         await deleteStock(stockToDelete).unwrap();
@@ -487,15 +515,12 @@ function StockManager({ branchId }: { branchId: number }) {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (readOnly) {
+      alert("This branch is deleted. Actions are disabled.");
+      return;
+    }
     try {
-      if (editingStock) {
-        await updateStock({
-          id: editingStock.stock_id,
-          data: formData,
-        }).unwrap();
-      } else {
-        await createStock(formData).unwrap();
-      }
+      await createStock(formData).unwrap();
       setIsModalOpen(false);
     } catch (err) {
       console.error(err);
@@ -508,10 +533,21 @@ function StockManager({ branchId }: { branchId: number }) {
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold">Stock Inventory</h2>
+        <div>
+          <h2 className="text-lg font-semibold">Stock Inventory</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Stock records are immutable. To change quantities, use the Movements
+            tab.
+          </p>
+        </div>
         <button
           onClick={handleOpenAdd}
-          className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
+          className={`px-3 py-1 rounded ${
+            readOnly
+              ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+              : "bg-green-600 text-white hover:bg-green-700"
+          }`}
+          disabled={readOnly}
         >
           + Add Stock
         </button>
@@ -555,12 +591,6 @@ function StockManager({ branchId }: { branchId: number }) {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   <button
-                    onClick={() => handleOpenEdit(item)}
-                    className="text-blue-600 hover:text-blue-900 mr-3"
-                  >
-                    Edit
-                  </button>
-                  <button
                     onClick={() => handleDeleteClick(item.stock_id)}
                     className="text-red-600 hover:text-red-900"
                   >
@@ -582,9 +612,7 @@ function StockManager({ branchId }: { branchId: number }) {
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-            <h3 className="text-lg font-medium mb-4">
-              {editingStock ? "Edit Stock Item" : "Add Stock Item"}
-            </h3>
+            <h3 className="text-lg font-medium mb-4">Add Stock Item</h3>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">
@@ -665,13 +693,29 @@ function StockManager({ branchId }: { branchId: number }) {
   );
 }
 
-function StockMovementsManager({ branchId }: { branchId: number }) {
+function StockMovementsManager({
+  branchId,
+  readOnly,
+}: {
+  branchId: number;
+  readOnly: boolean;
+}) {
+  const [filterReason, setFilterReason] = useState<string>("all");
+  const [filterDateFrom, setFilterDateFrom] = useState<string>("");
+  const [filterDateTo, setFilterDateTo] = useState<string>("");
+  const [filterQtyMin, setFilterQtyMin] = useState<string>("");
+  const [filterQtyMax, setFilterQtyMax] = useState<string>("");
+
   const { data: movements, isLoading } = useGetStockMovementsQuery({
     branch_id: branchId,
+    reason: filterReason === "all" ? undefined : filterReason,
+    created_from: filterDateFrom || undefined,
+    created_to: filterDateTo || undefined,
+    qty_min: filterQtyMin ? Number(filterQtyMin) : undefined,
+    qty_max: filterQtyMax ? Number(filterQtyMax) : undefined,
   });
   const { data: stockItems } = useGetStockByBranchQuery(branchId);
   const [createMovement] = useCreateStockMovementMutation();
-  const [filterReason, setFilterReason] = useState<string>("all");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState<StockMovementCreate>({
@@ -680,30 +724,50 @@ function StockMovementsManager({ branchId }: { branchId: number }) {
     reason: "RESTOCK",
     note: "",
   });
+  const [qtyInput, setQtyInput] = useState<string>("0");
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (readOnly) {
+      alert("This branch is deleted. Actions are disabled.");
+      return;
+    }
     try {
+      const parsedQty = parseFloat(qtyInput);
+      if (isNaN(parsedQty)) {
+        alert("Quantity is required and must be a number");
+        return;
+      }
+
       // For WASTE, make qty_change negative
       const adjustedData = {
         ...formData,
         qty_change:
-          formData.reason === "WASTE"
-            ? -Math.abs(formData.qty_change)
-            : formData.qty_change,
+          formData.reason === "WASTE" ? -Math.abs(parsedQty) : parsedQty,
       };
       await createMovement(adjustedData).unwrap();
       setIsModalOpen(false);
       setFormData({ stock_id: 0, qty_change: 0, reason: "RESTOCK", note: "" });
+      setQtyInput("0");
     } catch (err: any) {
       alert(err?.data?.detail || "Failed to create movement");
     }
   };
 
   const filteredMovements =
-    movements?.filter(
-      (m) => filterReason === "all" || m.reason === filterReason
-    ) || [];
+    movements
+      ?.filter((m) => filterReason === "all" || m.reason === filterReason)
+      ?.filter((m) => {
+        if (filterDateFrom && new Date(m.created_at) < new Date(filterDateFrom))
+          return false;
+        if (filterDateTo && new Date(m.created_at) > new Date(filterDateTo))
+          return false;
+        if (filterQtyMin && Number(m.qty_change) < Number(filterQtyMin))
+          return false;
+        if (filterQtyMax && Number(m.qty_change) > Number(filterQtyMax))
+          return false;
+        return true;
+      }) || [];
 
   const getReasonBadgeColor = (reason: string) => {
     switch (reason) {
@@ -726,21 +790,67 @@ function StockMovementsManager({ branchId }: { branchId: number }) {
     <div>
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-semibold">Stock Movements</h2>
-        <div className="flex gap-4 items-center">
-          <select
-            value={filterReason}
-            onChange={(e) => setFilterReason(e.target.value)}
-            className="border border-gray-300 rounded-md px-3 py-1 text-sm"
-          >
-            <option value="all">All Types</option>
-            <option value="RESTOCK">Restock</option>
-            <option value="SALE">Sale</option>
-            <option value="WASTE">Waste</option>
-            <option value="ADJUST">Adjust</option>
-          </select>
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
+          <div className="flex gap-2">
+            <select
+              value={filterReason}
+              onChange={(e) => setFilterReason(e.target.value)}
+              className="border border-gray-300 rounded-md px-3 py-1 text-sm"
+            >
+              <option value="all">All Types</option>
+              <option value="RESTOCK">Restock</option>
+              <option value="SALE">Sale</option>
+              <option value="WASTE">Waste</option>
+              <option value="ADJUST">Adjust</option>
+            </select>
+            <input
+              type="date"
+              value={filterDateFrom}
+              onChange={(e) => setFilterDateFrom(e.target.value)}
+              className="border border-gray-300 rounded-md px-3 py-1 text-sm"
+              placeholder="From"
+            />
+            <input
+              type="date"
+              value={filterDateTo}
+              onChange={(e) => setFilterDateTo(e.target.value)}
+              className="border border-gray-300 rounded-md px-3 py-1 text-sm"
+              placeholder="To"
+            />
+            <input
+              type="number"
+              step="0.01"
+              value={filterQtyMin}
+              onChange={(e) => setFilterQtyMin(e.target.value)}
+              className="border border-gray-300 rounded-md px-3 py-1 text-sm w-28"
+              placeholder="Qty min"
+            />
+            <input
+              type="number"
+              step="0.01"
+              value={filterQtyMax}
+              onChange={(e) => setFilterQtyMax(e.target.value)}
+              className="border border-gray-300 rounded-md px-3 py-1 text-sm w-28"
+              placeholder="Qty max"
+            />
+          </div>
           <button
-            onClick={() => setIsModalOpen(true)}
-            className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
+            onClick={() => {
+              setFormData({
+                stock_id: 0,
+                qty_change: 0,
+                reason: "RESTOCK",
+                note: "",
+              });
+              setQtyInput("0");
+              setIsModalOpen(true);
+            }}
+            className={`px-3 py-1 rounded ${
+              readOnly
+                ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                : "bg-green-600 text-white hover:bg-green-700"
+            }`}
+            disabled={readOnly}
           >
             + Add Movement
           </button>
@@ -793,10 +903,11 @@ function StockMovementsManager({ branchId }: { branchId: number }) {
                   {m.stock?.ingredient?.name || "Unknown"}
                 </td>
                 <td
-                  className={`px-4 py-4 whitespace-nowrap text-sm font-semibold text-right ${Number(m.qty_change) >= 0
-                    ? "text-green-600"
-                    : "text-red-600"
-                    }`}
+                  className={`px-4 py-4 whitespace-nowrap text-sm font-semibold text-right ${
+                    Number(m.qty_change) >= 0
+                      ? "text-green-600"
+                      : "text-red-600"
+                  }`}
                 >
                   {Number(m.qty_change) >= 0 ? "+" : ""}
                   {Number(m.qty_change).toFixed(2)}
@@ -887,20 +998,41 @@ function StockMovementsManager({ branchId }: { branchId: number }) {
                 <label className="block text-sm font-medium text-gray-700">
                   Quantity *{" "}
                   {formData.reason === "WASTE" && "(will be subtracted)"}
+                  {formData.reason === "ADJUST" &&
+                    "(positive to add, negative to subtract)"}
                 </label>
                 <input
                   type="number"
                   step="0.01"
                   required
                   className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-                  value={formData.qty_change}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      qty_change: parseFloat(e.target.value) || 0,
-                    })
+                  value={qtyInput}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setQtyInput(value);
+                    if (value === "" || value === "-") {
+                      setFormData({ ...formData, qty_change: 0 });
+                      return;
+                    }
+                    const numValue = parseFloat(value);
+                    if (!isNaN(numValue)) {
+                      setFormData({ ...formData, qty_change: numValue });
+                    }
+                  }}
+                  placeholder={
+                    formData.reason === "ADJUST"
+                      ? "e.g., -100 to subtract, 100 to add"
+                      : formData.reason === "WASTE"
+                      ? "Enter amount to remove"
+                      : "Enter amount"
                   }
                 />
+                {formData.reason === "ADJUST" && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Enter positive value to add stock, negative value to
+                    subtract (e.g., -50, +50)
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">

@@ -15,6 +15,8 @@ import {
 } from "@/store/api/orderItemsApi";
 import { useGetMenusQuery } from "@/store/api/menuApi";
 import { useCreatePaymentMutation } from "@/store/api/paymentsApi";
+import { useUpdateOrderMembershipMutation } from "@/store/api/ordersApi";
+import { useLazyGetMembershipByPhoneQuery, useLazyGetMembershipByEmailQuery, type Membership } from "@/store/api/membershipsApi";
 
 export default function OrderDetailPage() {
   const params = useParams();
@@ -25,7 +27,9 @@ export default function OrderDetailPage() {
   const [showPayment, setShowPayment] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<string>("CASH");
   const [paymentRef, setPaymentRef] = useState<string>("");
-  const [pointsUsed, setPointsUsed] = useState<number>(0);
+  const [newTotalPrice, setNewTotalPrice] = useState<number | null>(null);
+  const [pointsInput, setPointsInput] = useState<string>("");
+  // Preview total after points is not used currently; show order total directly
 
   const { data: order, isLoading: orderLoading } = useGetOrderQuery(orderId);
   const { data: orderItems, isLoading: itemsLoading } =
@@ -40,6 +44,13 @@ export default function OrderDetailPage() {
   const [updateOrderItemStatus] = useUpdateOrderItemStatusMutation();
   const [cancelOrder] = useCancelOrderMutation();
   const [createPayment] = useCreatePaymentMutation();
+  const [updateOrderMembership] = useUpdateOrderMembershipMutation();
+  const [triggerGetByPhone] = useLazyGetMembershipByPhoneQuery();
+  const [triggerGetByEmail] = useLazyGetMembershipByEmailQuery();
+  const [memberLookupMode, setMemberLookupMode] = useState<"phone" | "email">("phone");
+  const [memberInput, setMemberInput] = useState<string>("");
+  const [memberLookupResult, setMemberLookupResult] = useState<Membership | null>(null);
+  const [memberError, setMemberError] = useState<string | null>(null);
 
   const handleAddItem = async (menuItemId: number) => {
     try {
@@ -49,14 +60,15 @@ export default function OrderDetailPage() {
         menu_item_id: menuItemId,
         quantity: 1,
       }).unwrap();
-    } catch (err: any) {
-      alert(err?.data?.detail || "Failed to add item");
+    } catch (err: unknown) {
+      const anyErr = err as { data?: { detail?: unknown } };
+      alert(anyErr?.data?.detail || "Failed to add item");
     }
   };
 
   const handleQuantityChange = async (
     itemId: number,
-    item: any,
+    item: { quantity: number; menu_item_id: number },
     delta: number
   ) => {
     const newQty = item.quantity + delta;
@@ -74,8 +86,9 @@ export default function OrderDetailPage() {
           quantity: newQty,
         },
       }).unwrap();
-    } catch (err: any) {
-      alert(err?.data?.detail || "Failed to update quantity");
+    } catch (err: unknown) {
+      const anyErr = err as { data?: { detail?: string } };
+      alert(anyErr?.data?.detail || "Failed to update quantity");
     }
   };
 
@@ -85,19 +98,25 @@ export default function OrderDetailPage() {
         id: itemId,
         status: newStatus,
       }).unwrap();
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Handle insufficient stock error with detailed message
-      const detail = err?.data?.detail;
-      if (typeof detail === "object" && detail?.insufficient_ingredients) {
+      const anyErr = err as { data?: { detail?: unknown } };
+      type StockErrorDetail = {
+        insufficient_ingredients?: Array<{ ingredient_name: string; needed: number; available: number }>;
+        message?: string;
+        suggestion?: string;
+      };
+      const detail = anyErr?.data?.detail as StockErrorDetail | string | undefined;
+      if (detail && typeof detail === "object" && detail.insufficient_ingredients) {
         const ingredients = detail.insufficient_ingredients
           .map(
-            (ing: any) =>
+            (ing: { ingredient_name: string; needed: number; available: number }) =>
               `${ing.ingredient_name}: need ${ing.needed}, have ${ing.available}`
           )
           .join("\n");
-        alert(`${detail.message}\n\n${ingredients}\n\n${detail.suggestion}`);
+        alert(`${detail.message ?? "Insufficient stock"}\n\n${ingredients}\n\n${detail.suggestion ?? "Please adjust quantities or stock."}`);
       } else {
-        alert(detail || "Failed to update status");
+        alert(typeof detail === "string" ? detail : "Failed to update status");
       }
     }
   };
@@ -109,8 +128,9 @@ export default function OrderDetailPage() {
         id: itemId,
         status: "CANCELLED",
       }).unwrap();
-    } catch (err: any) {
-      alert(err?.data?.detail || "Failed to cancel item");
+    } catch (err: unknown) {
+      const anyErr = err as { data?: { detail?: string } };
+      alert(anyErr?.data?.detail || "Failed to cancel item");
     }
   };
 
@@ -119,8 +139,9 @@ export default function OrderDetailPage() {
     try {
       await cancelOrder(orderId).unwrap();
       router.push("/orders");
-    } catch (err: any) {
-      alert(err?.data?.detail || "Failed to cancel order");
+    } catch (err: unknown) {
+      const anyErr = err as { data?: { detail?: string } };
+      alert(anyErr?.data?.detail || "Failed to cancel order");
     }
   };
 
@@ -141,7 +162,7 @@ export default function OrderDetailPage() {
       await createPayment({
         order_id: orderId,
         // paid_price is optional - backend will calculate from order.total_price and points_used
-        points_used: pointsUsed,
+        points_used: pointsInput ? Number(pointsInput) : 0,
         payment_method: paymentMethod,
         payment_ref:
           paymentMethod === "CARD" || paymentMethod === "QR"
@@ -152,13 +173,35 @@ export default function OrderDetailPage() {
       // Reset payment form
       setPaymentMethod("CASH");
       setPaymentRef("");
-      setPointsUsed(0);
+      setPointsInput("");
       setShowPayment(false);
+      setNewTotalPrice(null);
       router.push("/orders");
-    } catch (err: any) {
-      alert(err?.data?.detail || "Failed to process payment");
+    } catch (err: unknown) {
+      const anyErr = err as { data?: { detail?: string } };
+      alert(anyErr?.data?.detail || "Failed to process payment");
     }
   };
+
+  const handleApplyPoints = () => {
+    if (!order || !order.membership) {
+      setNewTotalPrice(null);
+      return;
+    }
+    const total = parseFloat(order.total_price);
+    const discountPct = Number(order.membership.tier?.discount_percentage ?? 0);
+    const maxPointsByTotal = Math.floor(total * 100);
+    const maxUsablePoints = Math.min(2000, order.membership.points_balance, maxPointsByTotal);
+    const requested = pointsInput ? Number(pointsInput) : 0;
+    const clamped = Math.max(0, Math.min(requested, maxUsablePoints));
+    setPointsInput(clamped ? String(clamped) : "");
+    const bahtFromPoints = clamped / 100;
+    const subtotal = Math.max(0, total - bahtFromPoints);
+    const final = subtotal * (1 - discountPct / 100);
+    setNewTotalPrice(Number(final.toFixed(2)));
+  };
+
+
 
   const categories = [
     "all",
@@ -564,7 +607,7 @@ export default function OrderDetailPage() {
                     Total Amount
                   </label>
                   <div className="text-2xl font-bold text-blue-600">
-                    ฿{parseFloat(order.total_price).toFixed(2)}
+                    ฿{(newTotalPrice ?? parseFloat(order.total_price)).toFixed(2)}
                   </div>
                 </div>
                 <div>
@@ -590,6 +633,140 @@ export default function OrderDetailPage() {
                     <option value="QR">QR Code</option>
                   </select>
                 </div>
+                {/* Membership attachment box */}
+                <div className="border border-gray-200 rounded-md p-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Membership</label>
+                  <div className="flex gap-3 items-center mb-2">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="radio"
+                        checked={memberLookupMode === "phone"}
+                        onChange={() => setMemberLookupMode("phone")}
+                      />
+                      Phone
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="radio"
+                        checked={memberLookupMode === "email"}
+                        onChange={() => setMemberLookupMode("email")}
+                      />
+                      Email
+                    </label>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type={memberLookupMode === "phone" ? "tel" : "email"}
+                      placeholder={memberLookupMode === "phone" ? "Enter phone number" : "Enter email"}
+                      value={memberInput}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (memberLookupMode === "phone") {
+                          // Allow only digits and max 10 characters
+                          const digitsOnly = val.replace(/\D/g, "").slice(0, 10);
+                          setMemberInput(digitsOnly);
+                        } else {
+                          setMemberInput(val);
+                        }
+                      }}
+                      maxLength={memberLookupMode === "phone" ? 10 : undefined}
+                      inputMode={memberLookupMode === "phone" ? "numeric" : undefined}
+                      pattern={memberLookupMode === "phone" ? "^[0-9]{9,10}$" : undefined}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                      type="button"
+                      className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                      onClick={async () => {
+                        setMemberError(null);
+                        setMemberLookupResult(null);
+                        try {
+                          const trimmed = memberInput.trim();
+                          if (!trimmed) {
+                            setMemberError("Please enter a value");
+                            return;
+                          }
+                          if (memberLookupMode === "phone") {
+                            // Enforce 9-10 digits for Thai numbers
+                            if (!/^[0-9]{9,10}$/.test(trimmed)) {
+                              setMemberError("Phone must be 9 to 10 digits");
+                              return;
+                            }
+                          }
+                          const res = memberLookupMode === "phone"
+                            ? await triggerGetByPhone(trimmed).unwrap()
+                            : await triggerGetByEmail(trimmed).unwrap();
+                          if (res) {
+                            setMemberLookupResult(res);
+                          } else {
+                            setMemberError("No membership found");
+                          }
+                        } catch (err: unknown) {
+                          const anyErr = err as { data?: { detail?: string } };
+                          setMemberError(anyErr?.data?.detail || "Lookup failed");
+                        }
+                      }}
+                    >
+                      Find
+                    </button>
+                  </div>
+                  {memberError && (
+                    <p className="mt-2 text-sm text-red-600">{memberError}</p>
+                  )}
+                  {memberLookupResult && (
+                    <div className="mt-3 flex items-center justify-between">
+                      <div className="text-sm text-gray-700">
+                        <div className="font-medium">{memberLookupResult.name}</div>
+                        <div className="text-gray-500">Phone: {memberLookupResult.phone || "N/A"}</div>
+                        <div className="text-gray-500">Points: {memberLookupResult.points_balance ?? 0}</div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          className="px-3 py-1 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+                          onClick={() => setMemberLookupResult(null)}
+                        >
+                          Clear
+                        </button>
+                        <button
+                          type="button"
+                          className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                          onClick={async () => {
+                            if (!memberLookupResult) return;
+                            try {
+                              await updateOrderMembership({ id: orderId, membership_id: memberLookupResult.membership_id }).unwrap();
+                              setMemberLookupResult(null);
+                            } catch (err: unknown) {
+                              const anyErr = err as { data?: { detail?: string } };
+                              alert(anyErr?.data?.detail || "Failed to attach membership");
+                            }
+                          }}
+                        >
+                          Attach to Order
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {order.membership && (
+                    <div className="mt-3">
+                      <button
+                        type="button"
+                        className="px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700"
+                        onClick={async () => {
+                          try {
+                            await updateOrderMembership({ id: orderId, membership_id: null }).unwrap();
+                          } catch (err: unknown) {
+                            const anyErr = err as { data?: { detail?: string } };
+                            alert(anyErr?.data?.detail || "Failed to detach membership");
+                          }
+                        }}
+                      >
+                        Remove from Order
+                      </button>
+                    </div>
+                  )}
+                </div>
                 {(paymentMethod === "CARD" || paymentMethod === "QR") && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -608,22 +785,42 @@ export default function OrderDetailPage() {
                 {order.membership && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Points to Use (Available:{" "}
-                      {order.membership.points_balance})
+                      Points to Use (Available: {order.membership.points_balance}, Max per purchase: 2000)
                     </label>
-                    <input
-                      type="number"
-                      min="0"
-                      max={order.membership.points_balance}
-                      value={pointsUsed}
-                      onChange={(e) => setPointsUsed(Number(e.target.value))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        min={0}
+                        max={Math.min(2000, order.membership.points_balance, Math.floor(parseFloat(order.total_price) * 100))}
+                        value={pointsInput}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const clean = val.replace(/[^0-9]/g, "");
+                          setPointsInput(clean);
+                        }}
+                        placeholder=""
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleApplyPoints}
+                        className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                      >
+                        Apply
+                      </button>
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                      100 points = ฿1.00. Discount: {Number(order.membership.tier?.discount_percentage ?? 0)}% applied after points.
+                    </p>
                   </div>
                 )}
                 <div className="flex gap-2">
                   <button
-                    onClick={() => setShowPayment(false)}
+                    onClick={() => {
+                      setShowPayment(false);
+                      setNewTotalPrice(null);
+                      setPointsInput("");
+                    }}
                     className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
                   >
                     Cancel

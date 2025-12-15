@@ -15,6 +15,12 @@ export default function OrdersPage() {
   const router = useRouter();
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterOrderType, setFilterOrderType] = useState<string>("all");
+  const [filterMinTotal, setFilterMinTotal] = useState<string>("");
+  const [filterCreatedFrom, setFilterCreatedFrom] = useState<string>("");
+  const [filterCreatedTo, setFilterCreatedTo] = useState<string>("");
+  const [filterBranchId, setFilterBranchId] = useState<string>("");
+  const [filterEmployeeId, setFilterEmployeeId] = useState<string>("");
+  const [filterMembershipId, setFilterMembershipId] = useState<string>("");
 
   // Build filters object
   const filters: OrderFilters | undefined = (() => {
@@ -25,12 +31,30 @@ export default function OrdersPage() {
     if (filterOrderType !== "all") {
       filterObj.order_type = filterOrderType;
     }
+    if (filterMinTotal) {
+      filterObj.min_total = filterMinTotal;
+    }
+    if (filterCreatedFrom) {
+      filterObj.created_from = filterCreatedFrom;
+    }
+    if (filterCreatedTo) {
+      filterObj.created_to = filterCreatedTo;
+    }
+    if (filterBranchId) {
+      filterObj.branch_id = Number(filterBranchId);
+    }
+    if (filterEmployeeId) {
+      filterObj.employee_id = Number(filterEmployeeId);
+    }
+    if (filterMembershipId) {
+      filterObj.membership_id = Number(filterMembershipId);
+    }
     return Object.keys(filterObj).length > 0 ? filterObj : undefined;
   })();
 
   const { data: orders, isLoading, error } = useGetOrdersQuery(filters);
-  const { data: branches } = useGetBranchesQuery();
-  const { data: employees } = useGetEmployeesQuery();
+  const { data: branches } = useGetBranchesQuery({ is_deleted: false });
+  const { data: employees } = useGetEmployeesQuery({ is_deleted: false });
   const [createEmptyOrder] = useCreateEmptyOrderMutation();
   const [selectedBranchId, setSelectedBranchId] = useState<number | null>(null);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(
@@ -45,22 +69,55 @@ export default function OrdersPage() {
     }
 
     try {
+      console.log("Creating order with:", {
+        branch_id: selectedBranchId,
+        employee_id: selectedEmployeeId,
+        order_type: orderType,
+      });
+
       const order = await createEmptyOrder({
         branch_id: selectedBranchId,
         employee_id: selectedEmployeeId,
         order_type: orderType,
       }).unwrap();
+
+      console.log("Order created successfully:", order);
       router.push(`/orders/${order.order_id}`);
     } catch (err: any) {
-      alert(err?.data?.detail || "Failed to create order");
+      // Log the full error for debugging
+      console.error("Error creating order:", err);
+      console.error("Error data:", err?.data);
+      console.error("Error status:", err?.status);
+      console.error("Full error object:", JSON.stringify(err, null, 2));
+
+      // Extract error message from various possible error formats
+      let errorMessage = "Failed to create order";
+
+      if (err?.data) {
+        if (typeof err.data === "string") {
+          errorMessage = err.data;
+        } else if (err.data?.detail) {
+          errorMessage = err.data.detail;
+        } else if (err.data?.message) {
+          errorMessage = err.data.message;
+        }
+      } else if (err?.message) {
+        errorMessage = err.message;
+      }
+
+      if (err?.status) {
+        errorMessage += ` (Status: ${err.status})`;
+      }
+
+      alert(errorMessage);
     }
   };
 
   // Filter employees by selected branch
   const availableEmployees = selectedBranchId
     ? employees?.filter(
-      (emp) => emp.branch_id === selectedBranchId && !emp.is_deleted
-    )
+        (emp) => emp.branch_id === selectedBranchId && !emp.is_deleted
+      )
     : [];
 
   // Backend filters orders based on status parameter
@@ -85,8 +142,9 @@ export default function OrdersPage() {
     };
     return (
       <span
-        className={`px-2 py-1 rounded-full text-xs font-medium ${colors[status] || "bg-gray-100 text-gray-800"
-          }`}
+        className={`px-2 py-1 rounded-full text-xs font-medium ${
+          colors[status] || "bg-gray-100 text-gray-800"
+        }`}
       >
         {status}
       </span>
@@ -127,29 +185,141 @@ export default function OrdersPage() {
                 onClick={() => router.push("/order-analytics")}
                 className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center gap-2"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="18" y1="20" x2="18" y2="10" />
+                  <line x1="12" y1="20" x2="12" y2="4" />
+                  <line x1="6" y1="20" x2="6" y2="14" />
+                </svg>
                 Overview
               </button>
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Status</option>
-                <option value="UNPAID">Unpaid</option>
-                <option value="PAID">Paid</option>
-                <option value="CANCELLED">Cancelled</option>
-              </select>
-              <select
-                value={filterOrderType}
-                onChange={(e) => setFilterOrderType(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Types</option>
-                <option value="DINE_IN">Dine In</option>
-                <option value="TAKEAWAY">Takeaway</option>
-                <option value="DELIVERY">Delivery</option>
-              </select>
+            </div>
+          </div>
+
+          {/* Filters */}
+          <div className="bg-white rounded-lg shadow-md border border-gray-200 p-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Status
+                </label>
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Status</option>
+                  <option value="UNPAID">Unpaid</option>
+                  <option value="PAID">Paid</option>
+                  <option value="CANCELLED">Cancelled</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Order Type
+                </label>
+                <select
+                  value={filterOrderType}
+                  onChange={(e) => setFilterOrderType(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Types</option>
+                  <option value="DINE_IN">Dine In</option>
+                  <option value="TAKEAWAY">Takeaway</option>
+                  <option value="DELIVERY">Delivery</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {"Min Total (>=)"}
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={filterMinTotal}
+                  onChange={(e) => setFilterMinTotal(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g. 1000"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Branch
+                </label>
+                <select
+                  value={filterBranchId}
+                  onChange={(e) => setFilterBranchId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">All Branches</option>
+                  {branches?.map((b) => (
+                    <option key={b.branch_id} value={b.branch_id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Employee
+                </label>
+                <select
+                  value={filterEmployeeId}
+                  onChange={(e) => setFilterEmployeeId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">All Employees</option>
+                  {employees?.map((emp) => (
+                    <option key={emp.employee_id} value={emp.employee_id}>
+                      {emp.first_name} {emp.last_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Membership ID
+                </label>
+                <input
+                  type="number"
+                  value={filterMembershipId}
+                  onChange={(e) => setFilterMembershipId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="optional"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Created From
+                </label>
+                <input
+                  type="date"
+                  value={filterCreatedFrom}
+                  onChange={(e) => setFilterCreatedFrom(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Created To
+                </label>
+                <input
+                  type="date"
+                  value={filterCreatedTo}
+                  onChange={(e) => setFilterCreatedTo(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
             </div>
           </div>
 
@@ -288,7 +458,10 @@ export default function OrdersPage() {
                         {order.order_type}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        ฿{parseFloat(order.total_price).toFixed(2)}
+                        ฿
+                        {parseFloat(
+                          order.payment?.paid_price ?? order.total_price
+                        ).toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {getStatusBadge(order.status)}

@@ -18,6 +18,18 @@ def get_orders(
         None, description="Filter by order status (e.g., PAID, PENDING, UNPAID, CANCELLED)"),
     order_type: Optional[str] = Query(
         None, description="Filter by order type (e.g., DINE_IN, TAKEAWAY, DELIVERY)"),
+    min_total: Optional[Decimal] = Query(
+        None, description="Filter by minimum total_price"),
+    created_from: Optional[datetime] = Query(
+        None, description="Filter orders created on/after this datetime"),
+    created_to: Optional[datetime] = Query(
+        None, description="Filter orders created on/before this datetime"),
+    branch_id: Optional[int] = Query(
+        None, description="Filter by branch"),
+    employee_id: Optional[int] = Query(
+        None, description="Filter by employee"),
+    membership_id: Optional[int] = Query(
+        None, description="Filter by membership"),
     db: Session = Depends(get_db)
 ):
     query = db.query(models.Orders).options(
@@ -35,6 +47,24 @@ def get_orders(
 
     if order_type:
         query = query.filter(models.Orders.order_type == order_type)
+
+    if min_total is not None:
+        query = query.filter(models.Orders.total_price >= min_total)
+
+    if created_from:
+        query = query.filter(models.Orders.created_at >= created_from)
+
+    if created_to:
+        query = query.filter(models.Orders.created_at <= created_to)
+
+    if branch_id:
+        query = query.filter(models.Orders.branch_id == branch_id)
+
+    if employee_id:
+        query = query.filter(models.Orders.employee_id == employee_id)
+
+    if membership_id:
+        query = query.filter(models.Orders.membership_id == membership_id)
 
     # Sort by created_at descending (most recent first) by default
     orders = query.order_by(models.Orders.created_at.desc()).offset(
@@ -62,54 +92,67 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
 @router.post("/empty", response_model=schemas.Order)
 def create_empty_order(order: schemas.OrderCreateEmpty, db: Session = Depends(get_db)):
     """Create an empty order (no items) for order-taking flow."""
-    # Validate branch exists and is active
-    branch = db.query(models.Branches).filter(
-        models.Branches.branch_id == order.branch_id
-    ).first()
-    if not branch:
-        raise HTTPException(status_code=404, detail="Branch not found")
-    if branch.is_deleted:
-        raise HTTPException(status_code=400, detail="Branch is not active")
+    try:
+        # Validate branch exists and is active
+        branch = db.query(models.Branches).filter(
+            models.Branches.branch_id == order.branch_id
+        ).first()
+        if not branch:
+            raise HTTPException(status_code=404, detail="Branch not found")
+        if branch.is_deleted:
+            raise HTTPException(status_code=400, detail="Branch is not active")
 
-    # Validate employee exists and is active
-    employee = db.query(models.Employees).filter(
-        models.Employees.employee_id == order.employee_id
-    ).first()
-    if not employee:
-        raise HTTPException(status_code=404, detail="Employee not found")
-    if employee.is_deleted:
-        raise HTTPException(status_code=400, detail="Employee is not active")
+        # Validate employee exists and is active
+        employee = db.query(models.Employees).filter(
+            models.Employees.employee_id == order.employee_id
+        ).first()
+        if not employee:
+            raise HTTPException(status_code=404, detail="Employee not found")
+        if employee.is_deleted:
+            raise HTTPException(
+                status_code=400, detail="Employee is not active")
 
-    # Validate employee belongs to the branch
-    if employee.branch_id != order.branch_id:
-        raise HTTPException(
-            status_code=400,
-            detail="Employee does not belong to the selected branch"
+        # Validate employee belongs to the branch
+        if employee.branch_id != order.branch_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Employee does not belong to the selected branch"
+            )
+
+        # Create empty order
+        db_order = models.Orders(
+            branch_id=order.branch_id,
+            membership_id=None,
+            employee_id=order.employee_id,
+            order_type=order.order_type,
+            status="UNPAID",
+            total_price=Decimal("0")
         )
-
-    # Create empty order
-    db_order = models.Orders(
-        branch_id=order.branch_id,
-        membership_id=None,
-        employee_id=order.employee_id,
-        order_type=order.order_type,
-        status="UNPAID",
-        total_price=Decimal("0")
-    )
-    db.add(db_order)
-    db.commit()
-    db.refresh(db_order)
-    # Load relationships before returning
-    db_order = db.query(models.Orders).options(
-        joinedload(models.Orders.employee),
-        joinedload(models.Orders.membership),
-        joinedload(models.Orders.branch),
-        selectinload(models.Orders.order_items).joinedload(
-            models.OrderItems.menu_item),
-        joinedload(models.Orders.payment),
-        selectinload(models.Orders.stock_movements)
-    ).filter(models.Orders.order_id == db_order.order_id).first()
-    return db_order
+        db.add(db_order)
+        db.commit()
+        db.refresh(db_order)
+        # Load relationships before returning
+        db_order = db.query(models.Orders).options(
+            joinedload(models.Orders.employee),
+            joinedload(models.Orders.membership),
+            joinedload(models.Orders.branch),
+            selectinload(models.Orders.order_items).joinedload(
+                models.OrderItems.menu_item),
+            joinedload(models.Orders.payment),
+            selectinload(models.Orders.stock_movements)
+        ).filter(models.Orders.order_id == db_order.order_id).first()
+        return db_order
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except Exception as e:
+        # Rollback on any other exception
+        db.rollback()
+        # Log the error and return a user-friendly message
+        import traceback
+        error_detail = f"Failed to create order: {str(e)}"
+        print(f"Error creating empty order: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=error_detail)
 
 
 @router.post("/", response_model=schemas.Order)
@@ -427,4 +470,48 @@ def cancel_order(order_id: int, db: Session = Depends(get_db)):
         joinedload(models.Orders.payment),
         selectinload(models.Orders.stock_movements)
     ).filter(models.Orders.order_id == db_order.order_id).first()
+    return db_order
+
+
+@router.put("/{order_id}/membership", response_model=schemas.Order)
+def update_order_membership(order_id: int, payload: schemas.OrderMembershipUpdate, db: Session = Depends(get_db)):
+    """
+    Assign or clear a membership for an order without modifying items.
+    Only allowed for UNPAID or PENDING orders.
+    """
+    db_order = db.query(models.Orders).filter(
+        models.Orders.order_id == order_id).first()
+    if not db_order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if db_order.status == "PAID":
+        raise HTTPException(
+            status_code=400, detail="Cannot update membership on a paid order")
+    if db_order.status == "CANCELLED":
+        raise HTTPException(
+            status_code=400, detail="Cannot update membership on a cancelled order")
+
+    # Validate membership if provided
+    if payload.membership_id is not None:
+        membership = db.query(models.Memberships).filter(
+            models.Memberships.membership_id == payload.membership_id).first()
+        if not membership:
+            raise HTTPException(status_code=404, detail="Membership not found")
+        db_order.membership_id = payload.membership_id
+    else:
+        db_order.membership_id = None
+
+    db.commit()
+    db.refresh(db_order)
+
+    # Reload relationships for response
+    db_order = db.query(models.Orders).options(
+        joinedload(models.Orders.employee),
+        joinedload(models.Orders.membership),
+        joinedload(models.Orders.branch),
+        selectinload(models.Orders.order_items).joinedload(
+            models.OrderItems.menu_item),
+        joinedload(models.Orders.payment),
+        selectinload(models.Orders.stock_movements)
+    ).filter(models.Orders.order_id == order_id).first()
     return db_order

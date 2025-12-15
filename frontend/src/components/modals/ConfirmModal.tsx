@@ -22,7 +22,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 bg-opacity-50 transition-opacity">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm transition-opacity">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-sm transform transition-all scale-100">
                 <div className="px-6 py-4 border-b border-gray-100">
                     <h3 className={`text-lg font-semibold ${isDestructive ? "text-red-600" : "text-gray-900"}`}>

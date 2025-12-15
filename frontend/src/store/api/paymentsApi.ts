@@ -29,6 +29,11 @@ export interface PaymentFilters {
   month?: number;
   quarter?: number;
   search?: string;
+  min_paid?: number;
+  max_paid?: number;
+  paid_from?: string;
+  paid_to?: string;
+  membership_only?: boolean;
 }
 
 export const paymentsApi = baseApi.injectEndpoints({
@@ -51,6 +56,21 @@ export const paymentsApi = baseApi.injectEndpoints({
           }
           if (params.search) {
             searchParams.append("search", params.search);
+          }
+          if (params.min_paid !== undefined) {
+            searchParams.append("min_paid", params.min_paid.toString());
+          }
+          if (params.max_paid !== undefined) {
+            searchParams.append("max_paid", params.max_paid.toString());
+          }
+          if (params.paid_from) {
+            searchParams.append("paid_from", params.paid_from);
+          }
+          if (params.paid_to) {
+            searchParams.append("paid_to", params.paid_to);
+          }
+          if (params.membership_only !== undefined) {
+            searchParams.append("membership_only", String(params.membership_only));
           }
         }
         const queryString = searchParams.toString();

@@ -2,6 +2,7 @@ import { baseApi } from "./baseApi";
 
 // Import Menu type from menuApi instead of duplicating
 import { Menu } from "./menuApi";
+import type { Membership } from "./membershipsApi";
 export type MenuItem = Menu;
 
 export interface OrderItem {
@@ -35,13 +36,8 @@ export interface Order {
   total_price: string;
   status: string;
   order_type: string;
-  membership?: {
-    membership_id: number;
-    name: string;
-    phone: string;
-    points_balance: number;
-    membership_tier: string;
-  } | null;
+  // Full membership object with optional nested tier (includes discount_percentage)
+  membership?: Membership | null;
   employee?: {
     employee_id: number;
     first_name: string;
@@ -76,6 +72,12 @@ export interface OrderCreateEmpty {
 export interface OrderFilters {
   status?: string;
   order_type?: string;
+  min_total?: string | number;
+  created_from?: string;
+  created_to?: string;
+  branch_id?: number;
+  employee_id?: number;
+  membership_id?: number;
 }
 
 export const ordersApi = baseApi.injectEndpoints({
@@ -84,12 +86,21 @@ export const ordersApi = baseApi.injectEndpoints({
       query: (params) => {
         const searchParams = new URLSearchParams();
         if (params) {
-          if (params.status) {
-            searchParams.append("status", params.status);
-          }
-          if (params.order_type) {
+          if (params.status) searchParams.append("status", params.status);
+          if (params.order_type)
             searchParams.append("order_type", params.order_type);
-          }
+          if (params.min_total !== undefined)
+            searchParams.append("min_total", String(params.min_total));
+          if (params.created_from)
+            searchParams.append("created_from", params.created_from);
+          if (params.created_to)
+            searchParams.append("created_to", params.created_to);
+          if (params.branch_id !== undefined)
+            searchParams.append("branch_id", String(params.branch_id));
+          if (params.employee_id !== undefined)
+            searchParams.append("employee_id", String(params.employee_id));
+          if (params.membership_id !== undefined)
+            searchParams.append("membership_id", String(params.membership_id));
         }
         const queryString = searchParams.toString();
         return `/orders${queryString ? `?${queryString}` : ""}`;
@@ -139,6 +150,19 @@ export const ordersApi = baseApi.injectEndpoints({
         "OrderItems",
       ],
     }),
+      updateOrderMembership: builder.mutation<Order, { id: number; membership_id: number | null }>(
+        {
+          query: ({ id, membership_id }) => ({
+            url: `/orders/${id}/membership`,
+            method: "PUT",
+            body: { membership_id },
+          }),
+          invalidatesTags: (result, error, { id }) => [
+            { type: "Orders", id },
+            "Orders",
+          ],
+        }
+      ),
     getAvailableMenus: builder.query<MenuItem[], void>({
       query: () => "/menu?available_only=true",
       providesTags: ["Menus"],
@@ -154,4 +178,5 @@ export const {
   useCreateEmptyOrderMutation,
   useCancelOrderMutation,
   useGetAvailableMenusQuery,
+  useUpdateOrderMembershipMutation,
 } = ordersApi;
