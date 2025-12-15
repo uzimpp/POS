@@ -24,16 +24,16 @@ export const analyticsApi = baseApi.injectEndpoints({
             }),
             providesTags: ["Analytics"],
         }),
-        getBranchPaymentProfile: builder.query({
+        getWalletShareByTier: builder.query({
             query: (params) => ({
-                url: "/analytics/branch-payment-profile",
+                url: "/analytics/wallet-share-by-tier",
                 params,
             }),
             providesTags: ["Analytics"],
         }),
-        getRevenueStream: builder.query({
+        getCashInflowHeatmap: builder.query({
             query: (params) => ({
-                url: "/analytics/revenue-stream",
+                url: "/analytics/cash-inflow-heatmap",
                 params,
             }),
             providesTags: ["Analytics"],
@@ -45,6 +45,6 @@ export const {
     useGetPaymentAnalyticsStatsQuery,
     useGetPaymentMethodShareQuery,
     useGetATVByMethodQuery,
-    useGetBranchPaymentProfileQuery,
-    useGetRevenueStreamQuery,
+    useGetWalletShareByTierQuery,
+    useGetCashInflowHeatmapQuery,
 } = analyticsApi;

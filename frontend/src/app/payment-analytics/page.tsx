@@ -6,8 +6,8 @@ import Link from "next/link";
 import PaymentStats from "@/components/analytics/payment/PaymentStats";
 import PaymentMethodShareChart from "@/components/analytics/payment/PaymentMethodShareChart";
 import ATVByMethodChart from "@/components/analytics/payment/ATVByMethodChart";
-import BranchPaymentProfileChart from "@/components/analytics/payment/BranchPaymentProfileChart";
-import CashFlowStreamChart from "@/components/analytics/payment/CashFlowStreamChart";
+import WalletShareByTierChart from "@/components/analytics/payment/WalletShareByTierChart";
+import CashInflowHeatmap from "@/components/analytics/payment/CashInflowHeatmap";
 
 export default function PaymentAnalyticsPage() {
     const [period, setPeriod] = useState("30days");
@@ -65,14 +65,14 @@ export default function PaymentAnalyticsPage() {
                     </div>
                 </div>
 
-                {/* 3. Charts Row 2: Branch Profile */}
+                {/* 3. Charts Row 2: Wallet Share by Tier */}
                 <div className="mb-6">
-                    <BranchPaymentProfileChart period={period} />
+                    <WalletShareByTierChart period={period} />
                 </div>
 
-                {/* 4. Charts Row 3: Cash Flow Stream */}
+                {/* 4. Charts Row 3: Cash Inflow Heatmap */}
                 <div className="mb-6">
-                    <CashFlowStreamChart period={period} />
+                    <CashInflowHeatmap period={period} />
                 </div>
             </div>
         </Layout>

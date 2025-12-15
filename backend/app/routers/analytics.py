@@ -817,95 +817,106 @@ def get_atv_by_method(
     
     return [{"name": r.payment_method, "value": float(r.value or 0)} for r in results]
 
-@router.get("/branch-payment-profile")
-def get_branch_payment_profile(
+@router.get("/wallet-share-by-tier")
+def get_wallet_share_by_tier(
     period: str = Query("30days", regex="^(today|7days|30days|1year)$"),
     db: Session = Depends(get_db)
 ):
     start, now = get_date_range(period)
     
-    # We want: Branch Name, then columns for each Payment Method
-    # result: [{name: "Branch A", CASH: 100, CARD: 50}, ...]
+    # We want: Tier Name (or "Non-Member") -> Payment Method breakdown
+    # Result: [{name: "Non-Member", CASH: 100, CARD: 20...}, {name: "Bronze", ...}]
     
-    # Query: BranchName, PaymentMethod, Count (or Sum Amount? Brief says "Profile" -> usually mix or share. Stacked bar usually % or value.)
-    # "Sadsouan kan chamra ngern" -> Proportion. Let's return Total Value per Method per Branch.
+    # Left join Orders -> Memberships -> Tiers
+    # If membership_id is NULL, it's Non-Member
     
     results = db.query(
-        Branches.name.label("branch_name"),
+        Tiers.tier_name,
         Payments.payment_method,
         func.sum(Payments.paid_price).label("total_value")
-    ).join(
-        Orders, Branches.branch_id == Orders.branch_id
+    ).select_from(Orders).join(
+        Payments, Orders.order_id == Payments.order_id
+    ).outerjoin(
+        Memberships, Orders.membership_id == Memberships.membership_id
+    ).outerjoin(
+        Tiers, Memberships.tier_id == Tiers.tier_id
+    ).filter(
+        Orders.created_at >= start,
+        Orders.created_at <= now,
+        Orders.status == 'PAID'
+    ).group_by(Tiers.tier_name, Payments.payment_method).all()
+    
+    # Transform
+    data_map = {}
+    
+    # Initialize basic groups to ensure order? Or just let data drive it.
+    # User mentioned: Non-Member (Left) ... Platinum (Right).
+    # We can sort later.
+    
+    for tier_name, method, value in results:
+        t_name = tier_name if tier_name else "Non-Member"
+        
+        if t_name not in data_map:
+            data_map[t_name] = {"name": t_name}
+        
+        data_map[t_name][method] = float(value or 0)
+        
+    # Ensure Non-Member is present? 
+    if "Non-Member" not in data_map:
+         # Check if we have any non-member orders that just didn't join to tiers?
+         # The query handles NULL Tiers.tier_name as None.
+         pass
+         
+    # Return list
+    # Sorting: Non-Member, then Tiers by level?
+    # We don't have tier level in this query group by.
+    # We can fetch tiers order or just rely on frontend or alphabetical.
+    # Let's just return list.
+    return list(data_map.values())
+
+@router.get("/cash-inflow-heatmap")
+def get_cash_inflow_heatmap(
+    period: str = Query("30days", regex="^(today|7days|30days|1year)$"),
+    db: Session = Depends(get_db)
+):
+    start, now = get_date_range(period)
+    
+    # Heatmap: Day of Week (0-6) x Hour (0-23)
+    # Sum Revenue
+    
+    # Extract Dow and Hour
+    # Postgres: extract(isodow from created_at) -> 1 (Mon) - 7 (Sun) or similar. 
+    # extract(hour from created_at) -> 0-23
+    # SQLite: strftime('%w', ...) -> 0 (Sun) - 6 (Sat). strftime('%H', ...)
+    
+    # We use sqlalchemy extract which usually maps well, or func.
+    from sqlalchemy import extract
+    
+    # Note: 'dow' in Postgres is 0-6 (Sun-Sat) in some versions or 1-7 (Mon-Sun) in ISODOW.
+    # SQLAlchemy `extract('dow', ...)` usually returns 0-6 (Sun-Sat) generally.
+    
+    results = db.query(
+        extract('dow', Orders.created_at).label("day_of_week"),
+        extract('hour', Orders.created_at).label("hour_of_day"),
+        func.sum(Payments.paid_price).label("value")
     ).join(
         Payments, Orders.order_id == Payments.order_id
     ).filter(
         Orders.created_at >= start,
-        Orders.created_at <= now
-    ).group_by(Branches.name, Payments.payment_method).all()
+        Orders.created_at <= now,
+        Orders.status == 'PAID'
+    ).group_by(
+        extract('dow', Orders.created_at),
+        extract('hour', Orders.created_at)
+    ).all()
     
-    # Transform to pivot structure
-    profile_map = {}
-    for r in results:
-        b_name = r.branch_name
-        if b_name not in profile_map:
-            profile_map[b_name] = {"name": b_name}
-        profile_map[b_name][r.payment_method] = float(r.total_value or 0)
+    # Format: [{day: 0, hour: 0, value: 50}, ...]
+    data = []
+    for dow, hour, val in results:
+        data.append({
+            "day_index": int(dow), # 0=Sun, 1=Mon... depending on DB, assumed 0=Sun for JS
+            "hour_index": int(hour),
+            "value": float(val or 0)
+        })
         
-    return list(profile_map.values())
-
-@router.get("/revenue-stream")
-def get_revenue_stream(
-    period: str = Query("30days", regex="^(today|7days|30days|1year)$"),
-    db: Session = Depends(get_db)
-):
-    start, now = get_date_range(period)
-    
-    # Daily revenue by payment method
-    # Group by Date(created_at), PaymentMethod
-    
-    # SQLite uses strftime
-    date_col = func.date(Orders.created_at)
-    
-    results = db.query(
-        date_col.label("date"),
-        Payments.payment_method,
-        func.sum(Payments.paid_price).label("daily_total")
-    ).join(
-        Orders, Payments.order_id == Orders.order_id
-    ).filter(
-        Orders.created_at >= start,
-        Orders.created_at <= now
-    ).group_by(date_col, Payments.payment_method).order_by(date_col).all()
-    
-    # Pivot: [{date: "2023-01-01", CASH: 100, CARD: 0}, ...]
-    stream_map = {}
-    
-    # Initialize map with all dates in range? 
-    # Or just return sparse data and let frontend handle? 
-    # Frontend AreaChart (Recharts) handles it better if we have continuous data, 
-    # but for simplicity, let's just return what we have. Recharts might gap if missing.
-    # Ideally we backfill zeros.
-    
-    # First, collect all unique methods and dates
-    all_methods = set()
-    
-    for r in results:
-        d_str = str(r.date)
-        if d_str not in stream_map:
-            stream_map[d_str] = {"date": d_str}
-        
-        stream_map[d_str][r.payment_method] = float(r.daily_total or 0)
-        all_methods.add(r.payment_method)
-        
-    # Fill missing methods with 0 (optional but good for stacked area)
-    final_list = []
-    sorted_dates = sorted(stream_map.keys())
-    
-    for d in sorted_dates:
-        obj = stream_map[d]
-        for m in all_methods:
-            if m not in obj:
-                obj[m] = 0
-        final_list.append(obj)
-        
-    return final_list
+    return data
