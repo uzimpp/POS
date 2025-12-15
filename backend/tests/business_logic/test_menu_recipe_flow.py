@@ -67,7 +67,12 @@ class TestMenuRecipeIngredientFlow:
         assert menu_detail.status_code == 200
         data = menu_detail.json()
         assert data["is_available"] == True
-        assert len(data["recipes"]) == 2
+        
+        # Step 5: Verify recipes via separate API call
+        recipes_response = client.get(f"/api/recipe/menu-item/{menu_id}")
+        assert recipes_response.status_code == 200
+        recipes = recipes_response.json()
+        assert len(recipes) == 2
     
     def test_ingredient_deletion_affects_menu_availability(self, client, test_db, 
                                                             sample_menu_item, sample_recipe):
