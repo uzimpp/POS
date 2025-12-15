@@ -278,51 +278,82 @@ def get_membership_stats(
 
 @router.get("/acquisition-growth")
 def get_acquisition_growth(
-    period: str = "1year", # Default to 1 year trend
+    period: str = "1year", # 1year, 30days, 7days
     db: Session = Depends(get_db)
 ):
-    # Cumulative growth
-    # For simplicity, let's group by Month for the last 12 months
-    
     end_date = datetime.now()
-    start_date = end_date - timedelta(days=365)
     
-    # Monthly acquisition count
-    results = db.query(
-        func.to_char(Memberships.joined_at, 'YYYY-MM').label("month"),
-        func.count(Memberships.membership_id).label("count")
-    ).filter(
-        Memberships.joined_at >= start_date
-    ).group_by("month").order_by("month").all()
-    
-    # Calculate cumulative
-    # We need total before start_date to start properly?
-    # Or just show growth during this period.
-    # Let's show cumulative count over this period starting from base?
-    # Actually, simpler: just return monthly new members for "Growth" check?
-    # User said: "Cumulative monthly".
-    
-    # Get total count BEFORE start_date
+    # Determine start date and grouping format
+    if period == "7days":
+        start_date = end_date - timedelta(days=6)
+        time_format = func.to_char(Memberships.joined_at, 'YYYY-MM-DD')
+        label_func = lambda d: datetime.strptime(d, "%Y-%m-%d").strftime("%a") # Mon, Tue...
+    elif period == "30days":
+        start_date = end_date - timedelta(days=29)
+        time_format = func.to_char(Memberships.joined_at, 'YYYY-MM-DD')
+        label_func = lambda d: datetime.strptime(d, "%Y-%m-%d").strftime("%d %b") # 15 Dec
+    else: # 1year
+        start_date = end_date - timedelta(days=365)
+        time_format = func.to_char(Memberships.joined_at, 'YYYY-MM')
+        label_func = lambda d: datetime.strptime(d, "%Y-%m").strftime("%b %Y") # Dec 2023
+        
+    start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Get total count BEFORE start_date (Base)
     base_count = db.query(func.count(Memberships.membership_id)).filter(
         Memberships.joined_at < start_date
     ).scalar() or 0
     
+    # Get incremental growth
+    results = db.query(
+        time_format.label("period"),
+        func.count(Memberships.membership_id).label("count")
+    ).filter(
+        Memberships.joined_at >= start_date
+    ).group_by("period").order_by("period").all()
+    
+    # Aggregate
     data = []
     current_total = base_count
     
-    # Fill in gaps? Assuming data is dense enough or sparse is fine.
-    # Ideally should generate all months.
+    # To handle gaps (days with 0 growth), we might want to fill them?
+    # For now, let's just show present data points to avoid complex fill logic in SQL
+    # But for "7 days", valid points are needed.
     
-    for r in results:
-        current_total += r.count
-        # Format month "2023-10" -> "Oct 2023"
-        month_obj = datetime.strptime(r.month, "%Y-%m")
-        month_name = month_obj.strftime("%b %Y")
-        data.append({
-            "name": month_name,
-            "value": current_total,
-            "new": r.count
-        })
+    res_map = {r.period: r.count for r in results}
+    
+    if period == "1year":
+        # Monthly iteration
+        curr = start_date.replace(day=1)
+        while curr <= end_date:
+            key = curr.strftime("%Y-%m")
+            count = res_map.get(key, 0)
+            current_total += count
+            
+            data.append({
+                "name": label_func(key),
+                "value": current_total,
+                "new": count
+            })
+            # Next month
+            if curr.month == 12:
+                curr = curr.replace(year=curr.year+1, month=1)
+            else:
+                curr = curr.replace(month=curr.month+1)
+    else:
+        # Daily iteration
+        curr = start_date
+        while curr.date() <= end_date.date():
+            key = curr.strftime("%Y-%m-%d")
+            count = res_map.get(key, 0)
+            current_total += count
+            
+            data.append({
+                "name": label_func(key),
+                "value": current_total,
+                "new": count
+            })
+            curr += timedelta(days=1)
         
     return data
 

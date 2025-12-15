@@ -31,12 +31,13 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export default function AcquisitionGrowthChart() {
     const [data, setData] = useState<GrowthData[]>([]);
     const [loading, setLoading] = useState(true);
+    const [period, setPeriod] = useState<"7days" | "30days" | "1year">("1year");
 
     useEffect(() => {
         async function fetchData() {
             setLoading(true);
             try {
-                const res = await fetch("http://localhost:8000/api/analytics/acquisition-growth");
+                const res = await fetch(`http://localhost:8000/api/analytics/acquisition-growth?period=${period}`);
                 if (!res.ok) throw new Error("Failed");
                 const json = await res.json();
                 setData(json);
@@ -47,20 +48,32 @@ export default function AcquisitionGrowthChart() {
             }
         }
         fetchData();
-    }, []);
+    }, [period]);
 
     return (
         <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col h-full relative overflow-hidden group hover:shadow-lg transition-all duration-300">
-            <div className="mb-6 z-10">
-                <h3 className="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
-                    <span className="p-1.5 bg-violet-100 text-violet-600 rounded-lg">
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                        </svg>
-                    </span>
-                    Acquisition Growth
-                </h3>
-                <p className="text-slate-500 text-sm mt-1 ml-9">Cumulative members over time</p>
+            <div className="flex justify-between items-start mb-6 z-10">
+                <div>
+                    <h3 className="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
+                        <span className="p-1.5 bg-violet-100 text-violet-600 rounded-lg">
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                            </svg>
+                        </span>
+                        Acquisition Growth
+                    </h3>
+                    <p className="text-slate-500 text-sm mt-1 ml-9">Cumulative members over time</p>
+                </div>
+
+                <select
+                    value={period}
+                    onChange={(e) => setPeriod(e.target.value as any)}
+                    className="text-xs border-none bg-slate-100 rounded-lg px-2 py-1 text-slate-600 focus:ring-0 cursor-pointer"
+                >
+                    <option value="7days">7 Days</option>
+                    <option value="30days">30 Days</option>
+                    <option value="1year">1 Year</option>
+                </select>
             </div>
 
             <div className="flex-1 min-h-[250px] relative z-10">

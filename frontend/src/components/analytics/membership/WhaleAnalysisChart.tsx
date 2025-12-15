@@ -77,10 +77,15 @@ export default function WhaleAnalysisChart() {
     const [data, setData] = useState<RevenueData[]>([]);
     const [loading, setLoading] = useState(true);
     const [period, setPeriod] = useState<"today" | "7days" | "30days">("today");
-    const [activeIndex, setActiveIndex] = useState(0);
+    const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
+    const [totalRevenue, setTotalRevenue] = useState(0);
 
     const onPieEnter = (_: any, index: number) => {
         setActiveIndex(index);
+    };
+
+    const onPieLeave = () => {
+        setActiveIndex(undefined);
     };
 
     useEffect(() => {
@@ -91,6 +96,8 @@ export default function WhaleAnalysisChart() {
                 if (!res.ok) throw new Error("Failed");
                 const json = await res.json();
                 setData(json);
+                const total = json.reduce((sum: number, item: any) => sum + item.value, 0);
+                setTotalRevenue(total);
             } catch (e) {
                 console.error(e);
             } finally {
@@ -127,12 +134,23 @@ export default function WhaleAnalysisChart() {
                 </select>
             </div>
 
-            <div className="flex-1 min-h-[300px] relative z-10">
+            <div className="flex-1 min-h-[300px] relative z-10 flex items-center justify-center">
                 {loading && (
                     <div className="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-sm z-20 rounded-xl">
                         <div className="w-8 h-8 border-4 border-rose-100 border-t-rose-500 rounded-full animate-spin" />
                     </div>
                 )}
+
+                {/* Central Text Overlay - Hidden when hovering */}
+                <div
+                    className={`absolute inset-0 flex items-center justify-center pb-8 pointer-events-none z-0 transition-opacity duration-200 ${activeIndex !== undefined ? 'opacity-0' : 'opacity-100'}`}
+                >
+                    <div className="text-center">
+                        <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Total</p>
+                        <p className="text-slate-800 text-xl font-bold">฿{(totalRevenue / 1000).toFixed(1)}k</p>
+                    </div>
+                </div>
+
                 <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                         <Pie
@@ -146,8 +164,11 @@ export default function WhaleAnalysisChart() {
                             paddingAngle={5}
                             dataKey="value"
                             onMouseEnter={onPieEnter}
+                            onMouseLeave={onPieLeave}
                             // @ts-ignore
                             activeIndex={activeIndex}
+                            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                            labelLine={false}
                         >
                             {data.map((entry, index) => (
                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />
