@@ -281,6 +281,11 @@ class Order(OrderBase):
         from_attributes = True
 
 
+# Lightweight update for membership assignment in an order
+class OrderMembershipUpdate(BaseModel):
+    membership_id: Optional[int] = None
+
+
 # =========================
 # Payment Schemas (1:1 with Orders)
 # =========================

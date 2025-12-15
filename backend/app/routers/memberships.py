@@ -31,6 +31,13 @@ def get_membership_by_phone(phone: str, db: Session = Depends(get_db)):
     return membership
 
 
+@router.get("/email/{email}", response_model=Optional[schemas.Membership])
+def get_membership_by_email(email: str, db: Session = Depends(get_db)):
+    membership = db.query(models.Memberships).filter(
+        models.Memberships.email == email).first()
+    return membership
+
+
 @router.post("/", response_model=schemas.Membership)
 def create_membership(membership: schemas.MembershipCreate, db: Session = Depends(get_db)):
     # Validate phone number format

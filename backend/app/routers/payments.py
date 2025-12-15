@@ -146,34 +146,50 @@ def create_payment(payment: schemas.PaymentCreate, db: Session = Depends(get_db)
                 detail=f"Payment reference (payment_ref) is required for {payment.payment_method} payments"
             )
 
-    # Calculate final price from order.total_price and points_used
+    # Calculate final price from order.total_price, points_used (100 points = ฿1), then apply tier discount
     # Backend calculates this to prevent manipulation
     total_price = Decimal(str(order.total_price))
-    points_used = payment.points_used or 0
+    points_used_req = int(payment.points_used or 0)
 
-    # Validate points don't exceed membership balance
-    if points_used > 0:
-        if not order.membership_id:
+    # Load membership (if any) to apply discount and validate points usage; include tier for discount
+    membership = None
+    discount_pct = Decimal("0")
+    if order.membership_id:
+        membership = db.query(models.Memberships).options(joinedload(models.Memberships.tier)).filter(
+            models.Memberships.membership_id == order.membership_id
+        ).first()
+        if membership and membership.tier and membership.tier.discount_percentage is not None:
+            discount_pct = Decimal(str(membership.tier.discount_percentage))
+
+    # Validate points usage
+    clamped_points_used = 0
+    if points_used_req > 0:
+        if not membership:
             raise HTTPException(
                 status_code=400,
                 detail="Cannot use points without a membership"
             )
-        membership = db.query(models.Memberships).filter(
-            models.Memberships.membership_id == order.membership_id
-        ).first()
-        if not membership:
-            raise HTTPException(
-                status_code=404,
-                detail="Membership not found"
-            )
-        if points_used > membership.points_balance:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Insufficient points. Available: {membership.points_balance}, Requested: {points_used}"
-            )
+        # Max points usable is min(2000, membership balance, floor(total_price * 100))
+        max_points_by_total = int((total_price * Decimal("100")).to_integral_value(rounding="ROUND_FLOOR"))
+        max_usable = min(2000, membership.points_balance, max_points_by_total)
+        if max_usable < 0:
+            max_usable = 0
+        if points_used_req > max_usable:
+            # Clamp instead of erroring, to be robust against UI mismatch
+            clamped_points_used = max_usable
+        else:
+            clamped_points_used = max(0, points_used_req)
 
-    # Calculate final paid price (cannot be negative)
-    paid_price = max(Decimal("0"), total_price - Decimal(str(points_used)))
+    # Convert points to baht (100 points = 1 baht)
+    baht_from_points = Decimal(clamped_points_used) / Decimal("100")
+    subtotal = total_price - baht_from_points
+    if subtotal < 0:
+        subtotal = Decimal("0")
+    # Apply discount after points
+    multiplier = Decimal("1") - (discount_pct / Decimal("100"))
+    if multiplier < 0:
+        multiplier = Decimal("0")
+    paid_price = (subtotal * multiplier).quantize(Decimal("0.01"))
 
     # If paid_price was provided, validate it matches our calculation
     if payment.paid_price:
@@ -189,7 +205,7 @@ def create_payment(payment: schemas.PaymentCreate, db: Session = Depends(get_db)
     db_payment = models.Payments(
         order_id=payment.order_id,
         paid_price=paid_price,  # Pass Decimal directly, SQLAlchemy handles it
-        points_used=points_used,
+        points_used=clamped_points_used,
         payment_method=payment.payment_method,
         payment_ref=payment.payment_ref,
         paid_timestamp=payment.paid_timestamp or datetime.now()
@@ -200,13 +216,13 @@ def create_payment(payment: schemas.PaymentCreate, db: Session = Depends(get_db)
     order.status = "PAID"
 
     # If points were used, deduct from membership
-    if points_used > 0 and order.membership_id:
+    if clamped_points_used > 0 and order.membership_id:
         membership = db.query(models.Memberships).filter(
             models.Memberships.membership_id == order.membership_id
         ).first()
         if membership:
             membership.points_balance = max(
-                0, membership.points_balance - points_used)
+                0, membership.points_balance - clamped_points_used)
 
     # Award points to membership (if applicable) based on calculated paid_price
     if order.membership_id:
@@ -214,9 +230,34 @@ def create_payment(payment: schemas.PaymentCreate, db: Session = Depends(get_db)
             models.Memberships.membership_id == order.membership_id
         ).first()
         if membership:
-            # Award points based on paid_price (e.g., 1 point per 10 baht)
+            # Award points: for every 10 baht paid, +1 point
             points_earned = int(float(paid_price) / 10)
-            membership.points_balance += points_earned
+            if points_earned > 0:
+                membership.points_balance += points_earned
+                # Also increase cumulative points by the same amount
+                membership.cumulative_points += points_earned
+
+                # Auto-upgrade tier based on cumulative_points
+                # Find the highest tier where minimum_point_required <= cumulative_points
+                # and tier number is greater than current
+                current_tier = db.query(models.Tiers).filter(
+                    models.Tiers.tier_id == membership.tier_id
+                ).first()
+                current_tier_number = current_tier.tier if current_tier else 0
+
+                eligible_tiers = (
+                    db.query(models.Tiers)
+                    .filter(models.Tiers.minimum_point_required <= membership.cumulative_points)
+                    .order_by(models.Tiers.tier.desc())
+                    .all()
+                )
+
+                for t in eligible_tiers:
+                    # Upgrade only if strictly higher tier number
+                    if t.tier > current_tier_number:
+                        membership.tier_id = t.tier_id
+                        current_tier_number = t.tier
+                        break
 
     db.commit()
     db.refresh(db_payment)

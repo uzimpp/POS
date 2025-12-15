@@ -38,6 +38,12 @@ export const membershipsApi = baseApi.injectEndpoints({
         { type: "Memberships", id: phone },
       ],
     }),
+    getMembershipByEmail: builder.query<Membership | null, string>({
+      query: (email) => `/memberships/email/${email}`,
+      providesTags: (result, error, email) => [
+        { type: "Memberships", id: email },
+      ],
+    }),
     createMembership: builder.mutation<Membership, MembershipCreate>({
       query: (body) => ({
         url: "/memberships",
@@ -74,6 +80,9 @@ export const {
   useGetMembershipsQuery,
   useGetMembershipQuery,
   useGetMembershipByPhoneQuery,
+  useGetMembershipByEmailQuery,
+  useLazyGetMembershipByPhoneQuery,
+  useLazyGetMembershipByEmailQuery,
   useCreateMembershipMutation,
   useUpdateMembershipMutation,
   useDeleteMembershipMutation,
