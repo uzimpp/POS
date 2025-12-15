@@ -59,8 +59,8 @@ export default function OrdersPage() {
   // Filter employees by selected branch
   const availableEmployees = selectedBranchId
     ? employees?.filter(
-        (emp) => emp.branch_id === selectedBranchId && !emp.is_deleted
-      )
+      (emp) => emp.branch_id === selectedBranchId && !emp.is_deleted
+    )
     : [];
 
   // Backend filters orders based on status parameter
@@ -85,9 +85,8 @@ export default function OrdersPage() {
     };
     return (
       <span
-        className={`px-2 py-1 rounded-full text-xs font-medium ${
-          colors[status] || "bg-gray-100 text-gray-800"
-        }`}
+        className={`px-2 py-1 rounded-full text-xs font-medium ${colors[status] || "bg-gray-100 text-gray-800"
+          }`}
       >
         {status}
       </span>
@@ -124,6 +123,13 @@ export default function OrdersPage() {
               <p className="text-gray-600 mt-2">Manage and view all orders</p>
             </div>
             <div className="flex gap-2">
+              <button
+                onClick={() => router.push("/order-analytics")}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>
+                Overview
+              </button>
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
