@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from "recharts";
 
 // Dynamic palettes for branches? Or fixed set.
 const COLORS = [
@@ -12,6 +12,7 @@ const COLORS = [
 export default function InventoryLevelsChart() {
     const [data, setData] = useState<any[]>([]);
     const [branches, setBranches] = useState<string[]>([]);
+    const [isStacked, setIsStacked] = useState(true);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -45,16 +46,39 @@ export default function InventoryLevelsChart() {
 
     return (
         <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col h-full relative overflow-hidden">
-            <div className="mb-4">
-                <h3 className="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
-                    <span className="p-1.5 bg-violet-100 text-violet-600 rounded-lg">
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                        </svg>
-                    </span>
-                    Current Inventory Levels
-                </h3>
-                <p className="text-slate-500 text-sm ml-9">Top 10 Ingredients by Branch</p>
+            <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h3 className="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
+                        <span className="p-1.5 bg-violet-100 text-violet-600 rounded-lg">
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                            </svg>
+                        </span>
+                        Current Inventory Levels
+                    </h3>
+                    <p className="text-slate-500 text-sm ml-9">Top 10 Ingredients by Branch</p>
+                </div>
+
+                <div className="flex bg-slate-100 p-1 rounded-lg self-start sm:self-auto">
+                    <button
+                        onClick={() => setIsStacked(true)}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${isStacked
+                            ? "bg-white text-violet-600 shadow-sm"
+                            : "text-slate-500 hover:text-slate-700"
+                            }`}
+                    >
+                        Stacked
+                    </button>
+                    <button
+                        onClick={() => setIsStacked(false)}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${!isStacked
+                            ? "bg-white text-violet-600 shadow-sm"
+                            : "text-slate-500 hover:text-slate-700"
+                            }`}
+                    >
+                        Grouped
+                    </button>
+                </div>
             </div>
 
             <div className="flex-1 min-h-[300px] relative">
@@ -65,7 +89,7 @@ export default function InventoryLevelsChart() {
                 )}
 
                 <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <BarChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                         <XAxis
                             dataKey="name"
@@ -84,7 +108,15 @@ export default function InventoryLevelsChart() {
                         />
                         <Legend iconType="circle" iconSize={8} />
                         {branches.map((branch, index) => (
-                            <Bar key={branch} dataKey={branch} stackId="a" fill={COLORS[index % COLORS.length]} radius={[4, 4, 0, 0]} />
+                            <Bar
+                                key={branch}
+                                dataKey={branch}
+                                stackId={isStacked ? "a" : undefined}
+                                fill={COLORS[index % COLORS.length]}
+                                radius={isStacked ? [0, 0, 0, 0] : [4, 4, 0, 0]}
+                            >
+                                {!isStacked && <LabelList dataKey={branch} position="top" fontSize={10} fill="#64748b" formatter={(val: any) => val > 0 ? val : ''} />}
+                            </Bar>
                         ))}
                     </BarChart>
                 </ResponsiveContainer>

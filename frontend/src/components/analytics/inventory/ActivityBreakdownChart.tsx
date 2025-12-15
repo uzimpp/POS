@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, Label } from "recharts";
 
 type ActivityData = {
     name: string;
@@ -76,10 +76,28 @@ export default function ActivityBreakdownChart() {
                             outerRadius={100}
                             paddingAngle={2}
                             dataKey="value"
+                            label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
+                                const RADIAN = Math.PI / 180;
+                                const radius = outerRadius + 25;
+                                const angle = midAngle || 0;
+                                const x = cx + radius * Math.cos(-angle * RADIAN);
+                                const y = cy + radius * Math.sin(-angle * RADIAN);
+                                return (
+                                    <text x={x} y={y} fill="#64748b" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize={11}>
+                                        {`${data[index].name} (${((percent || 0) * 100).toFixed(0)}%)`}
+                                    </text>
+                                );
+                            }}
                         >
                             {data.map((entry, index) => (
                                 <Cell key={`cell-${index}`} fill={COLORS[entry.name] || DEFAULT_COLOR} stroke="white" strokeWidth={2} />
                             ))}
+                            <Label
+                                value={data.reduce((sum, item) => sum + item.value, 0).toLocaleString()}
+                                position="center"
+                                fill="#1e293b"
+                                style={{ fontSize: '24px', fontWeight: 'bold' }}
+                            />
                         </Pie>
                         <Tooltip formatter={(value: number) => value.toLocaleString()} />
                         <Legend
