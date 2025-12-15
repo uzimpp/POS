@@ -4,7 +4,7 @@ from sqlalchemy import func, case, desc
 from typing import List, Optional, Any
 from datetime import datetime, timedelta
 from app.database import get_db
-from app.models import Orders, OrderItems, Branches, Menu, Memberships, Tiers
+from app.models import Orders, OrderItems, Branches, Menu, Memberships, Tiers, Employees, Roles, StockMovements
 import math
 
 router = APIRouter(
@@ -13,17 +13,23 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-def get_date_filter(period: str):
+def get_date_range(period: str):
     now = datetime.now()
     if period == "today":
-        return Orders.created_at >= now.replace(hour=0, minute=0, second=0, microsecond=0)
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     elif period == "7days":
-        return Orders.created_at >= now - timedelta(days=7)
+        start = now - timedelta(days=7)
     elif period == "30days":
-        return Orders.created_at >= now - timedelta(days=30)
+        start = now - timedelta(days=30)
     elif period == "1year":
-        return Orders.created_at >= now - timedelta(days=365)
-    return True
+        start = now - timedelta(days=365)
+    else:
+        start = now - timedelta(days=30) # Default
+    return start, now
+
+def get_date_filter(period: str):
+    start, _ = get_date_range(period)
+    return Orders.created_at >= start
 
 @router.get("/order-stats")
 def get_order_stats(db: Session = Depends(get_db)):
@@ -316,10 +322,6 @@ def get_acquisition_growth(
     data = []
     current_total = base_count
     
-    # To handle gaps (days with 0 growth), we might want to fill them?
-    # For now, let's just show present data points to avoid complex fill logic in SQL
-    # But for "7 days", valid points are needed.
-    
     res_map = {r.period: r.count for r in results}
     
     if period == "1year":
@@ -356,6 +358,170 @@ def get_acquisition_growth(
             curr += timedelta(days=1)
         
     return data
+
+
+# -------------------------------------------------------------------
+# Employee Analytics
+# -------------------------------------------------------------------
+
+@router.get("/employee-stats")
+def get_employee_stats(db: Session = Depends(get_db)):
+    total_active = db.query(func.count(Employees.employee_id)).filter(Employees.is_deleted == False).scalar() or 0
+    total_inactive = db.query(func.count(Employees.employee_id)).filter(Employees.is_deleted == True).scalar() or 0
+    
+    # Calculate total monthly payroll (sum of salaries of active employees)
+    total_payroll = db.query(func.sum(Employees.salary)).filter(Employees.is_deleted == False).scalar() or 0
+    
+    # Churn rate (Inactive / Total Ever?) or just simple ratio
+    # Let's return the raw numbers for frontend to compute ratios
+    return {
+        "active_employees": total_active,
+        "inactive_employees": total_inactive,
+        "total_payroll": total_payroll
+    }
+
+@router.get("/top-sales-employees")
+def get_top_sales_employees(period: str = "30days", db: Session = Depends(get_db)):
+    # Connect Orders -> Employees
+    # Filter by date range
+    start_date, _ = get_date_range(period)
+    
+    results = db.query(
+        Employees.first_name,
+        Employees.last_name,
+        func.sum(Orders.total_price).label("revenue")
+    ).join(Orders, Employees.employee_id == Orders.employee_id)\
+     .filter(Orders.created_at >= start_date, Orders.status == 'PAID')\
+     .group_by(Employees.employee_id, Employees.first_name, Employees.last_name)\
+     .order_by(func.sum(Orders.total_price).desc())\
+     .limit(10).all()
+     
+    return [
+        {"name": f"{r.first_name} {r.last_name}", "value": r.revenue}
+        for r in results
+    ]
+
+@router.get("/top-waste-employees")
+def get_top_waste_employees(period: str = "30days", db: Session = Depends(get_db)):
+    start_date, _ = get_date_range(period)
+    
+    # Assuming StockMovements.reason == 'WASTE'
+    # qty_change is usually negative for waste, so we sum ABS or sum and negate
+    # Let's sum ABS(qty_change)
+    
+    results = db.query(
+        Employees.first_name,
+        Employees.last_name,
+        func.sum(func.abs(StockMovements.qty_change)).label("waste_qty")
+    ).join(StockMovements, Employees.employee_id == StockMovements.employee_id)\
+     .filter(
+         StockMovements.created_at >= start_date, 
+         StockMovements.reason == 'WASTE'
+     )\
+     .group_by(Employees.employee_id, Employees.first_name, Employees.last_name)\
+     .order_by(func.sum(func.abs(StockMovements.qty_change)).desc())\
+     .limit(10).all()
+     
+    return [
+        {"name": f"{r.first_name} {r.last_name}", "value": r.waste_qty}
+        for r in results
+    ]
+
+@router.get("/efficiency-matrix")
+def get_efficiency_matrix(period: str = "30days", db: Session = Depends(get_db)):
+    start_date, _ = get_date_range(period)
+    
+    # Get revenue per employee first
+    revenue_subquery = db.query(
+        Orders.employee_id,
+        func.sum(Orders.total_price).label("revenue")
+    ).filter(
+        Orders.created_at >= start_date, 
+        Orders.status == 'PAID'
+    ).group_by(Orders.employee_id).subquery()
+    
+    # Join with Employees to get salary and role
+    results = db.query(
+        Employees.first_name,
+        Employees.last_name,
+        Employees.salary,
+        Roles.role_name,
+        func.coalesce(revenue_subquery.c.revenue, 0).label("revenue")
+    ).outerjoin(revenue_subquery, Employees.employee_id == revenue_subquery.c.employee_id)\
+     .join(Roles, Employees.role_id == Roles.role_id)\
+     .filter(Employees.is_deleted == False).all()
+     
+    return [
+        {
+            "name": f"{r.first_name} {r.last_name}",
+            "role": r.role_name,
+            "salary": r.salary,
+            "revenue": r.revenue
+        }
+        for r in results
+    ]
+
+@router.get("/tenure-distribution")
+def get_tenure_distribution(db: Session = Depends(get_db)):
+    # Calculate days since joined
+    # Only for active employees? Or all? Usually active for current workforce analysis.
+    
+    # SQLite/Postgres difference for date diff might be tricky with portable code
+    # Let's fetch joined_date and compute in python for simplicity and database agnostic safety (within reason)
+    
+    employees = db.query(Employees.joined_date).filter(Employees.is_deleted == False).all()
+    
+    now = datetime.now()
+    data = []
+    
+    # Buckets: <90 days, 90-180, 180-365, >1 year (365+)
+    buckets = {
+        "< 90 Days": 0,
+        "3-6 Months": 0,
+        "6-12 Months": 0,
+        "> 1 Year": 0
+    }
+    
+    for emp in employees:
+        if not emp.joined_date:
+            continue
+        delta = now - emp.joined_date
+        days = delta.days
+        
+        if days < 90:
+            buckets["< 90 Days"] += 1
+        elif days < 180:
+            buckets["3-6 Months"] += 1
+        elif days < 365:
+            buckets["6-12 Months"] += 1
+        else:
+            buckets["> 1 Year"] += 1
+            
+    return [
+        {"name": k, "value": v} for k, v in buckets.items()
+    ]
+
+@router.get("/employees-by-branch")
+def get_employees_by_branch(db: Session = Depends(get_db)):
+    results = db.query(
+        Branches.name,
+        func.count(Employees.employee_id).label("count")
+    ).join(Branches, Employees.branch_id == Branches.branch_id)\
+     .filter(Employees.is_deleted == False)\
+     .group_by(Branches.name).all()
+     
+    return [{"name": r.name, "value": r.count} for r in results]
+
+@router.get("/employees-by-role")
+def get_employees_by_role(db: Session = Depends(get_db)):
+    results = db.query(
+        Roles.role_name,
+        func.count(Employees.employee_id).label("count")
+    ).join(Roles, Employees.role_id == Roles.role_id)\
+     .filter(Employees.is_deleted == False)\
+     .group_by(Roles.role_name).all()
+     
+    return [{"name": r.role_name, "value": r.count} for r in results]
 
 @router.get("/tier-distribution")
 def get_tier_distribution(db: Session = Depends(get_db)):
