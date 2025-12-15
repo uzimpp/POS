@@ -92,54 +92,67 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
 @router.post("/empty", response_model=schemas.Order)
 def create_empty_order(order: schemas.OrderCreateEmpty, db: Session = Depends(get_db)):
     """Create an empty order (no items) for order-taking flow."""
-    # Validate branch exists and is active
-    branch = db.query(models.Branches).filter(
-        models.Branches.branch_id == order.branch_id
-    ).first()
-    if not branch:
-        raise HTTPException(status_code=404, detail="Branch not found")
-    if branch.is_deleted:
-        raise HTTPException(status_code=400, detail="Branch is not active")
+    try:
+        # Validate branch exists and is active
+        branch = db.query(models.Branches).filter(
+            models.Branches.branch_id == order.branch_id
+        ).first()
+        if not branch:
+            raise HTTPException(status_code=404, detail="Branch not found")
+        if branch.is_deleted:
+            raise HTTPException(status_code=400, detail="Branch is not active")
 
-    # Validate employee exists and is active
-    employee = db.query(models.Employees).filter(
-        models.Employees.employee_id == order.employee_id
-    ).first()
-    if not employee:
-        raise HTTPException(status_code=404, detail="Employee not found")
-    if employee.is_deleted:
-        raise HTTPException(status_code=400, detail="Employee is not active")
+        # Validate employee exists and is active
+        employee = db.query(models.Employees).filter(
+            models.Employees.employee_id == order.employee_id
+        ).first()
+        if not employee:
+            raise HTTPException(status_code=404, detail="Employee not found")
+        if employee.is_deleted:
+            raise HTTPException(
+                status_code=400, detail="Employee is not active")
 
-    # Validate employee belongs to the branch
-    if employee.branch_id != order.branch_id:
-        raise HTTPException(
-            status_code=400,
-            detail="Employee does not belong to the selected branch"
+        # Validate employee belongs to the branch
+        if employee.branch_id != order.branch_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Employee does not belong to the selected branch"
+            )
+
+        # Create empty order
+        db_order = models.Orders(
+            branch_id=order.branch_id,
+            membership_id=None,
+            employee_id=order.employee_id,
+            order_type=order.order_type,
+            status="UNPAID",
+            total_price=Decimal("0")
         )
-
-    # Create empty order
-    db_order = models.Orders(
-        branch_id=order.branch_id,
-        membership_id=None,
-        employee_id=order.employee_id,
-        order_type=order.order_type,
-        status="UNPAID",
-        total_price=Decimal("0")
-    )
-    db.add(db_order)
-    db.commit()
-    db.refresh(db_order)
-    # Load relationships before returning
-    db_order = db.query(models.Orders).options(
-        joinedload(models.Orders.employee),
-        joinedload(models.Orders.membership),
-        joinedload(models.Orders.branch),
-        selectinload(models.Orders.order_items).joinedload(
-            models.OrderItems.menu_item),
-        joinedload(models.Orders.payment),
-        selectinload(models.Orders.stock_movements)
-    ).filter(models.Orders.order_id == db_order.order_id).first()
-    return db_order
+        db.add(db_order)
+        db.commit()
+        db.refresh(db_order)
+        # Load relationships before returning
+        db_order = db.query(models.Orders).options(
+            joinedload(models.Orders.employee),
+            joinedload(models.Orders.membership),
+            joinedload(models.Orders.branch),
+            selectinload(models.Orders.order_items).joinedload(
+                models.OrderItems.menu_item),
+            joinedload(models.Orders.payment),
+            selectinload(models.Orders.stock_movements)
+        ).filter(models.Orders.order_id == db_order.order_id).first()
+        return db_order
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except Exception as e:
+        # Rollback on any other exception
+        db.rollback()
+        # Log the error and return a user-friendly message
+        import traceback
+        error_detail = f"Failed to create order: {str(e)}"
+        print(f"Error creating empty order: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=error_detail)
 
 
 @router.post("/", response_model=schemas.Order)
@@ -466,18 +479,22 @@ def update_order_membership(order_id: int, payload: schemas.OrderMembershipUpdat
     Assign or clear a membership for an order without modifying items.
     Only allowed for UNPAID or PENDING orders.
     """
-    db_order = db.query(models.Orders).filter(models.Orders.order_id == order_id).first()
+    db_order = db.query(models.Orders).filter(
+        models.Orders.order_id == order_id).first()
     if not db_order:
         raise HTTPException(status_code=404, detail="Order not found")
 
     if db_order.status == "PAID":
-        raise HTTPException(status_code=400, detail="Cannot update membership on a paid order")
+        raise HTTPException(
+            status_code=400, detail="Cannot update membership on a paid order")
     if db_order.status == "CANCELLED":
-        raise HTTPException(status_code=400, detail="Cannot update membership on a cancelled order")
+        raise HTTPException(
+            status_code=400, detail="Cannot update membership on a cancelled order")
 
     # Validate membership if provided
     if payload.membership_id is not None:
-        membership = db.query(models.Memberships).filter(models.Memberships.membership_id == payload.membership_id).first()
+        membership = db.query(models.Memberships).filter(
+            models.Memberships.membership_id == payload.membership_id).first()
         if not membership:
             raise HTTPException(status_code=404, detail="Membership not found")
         db_order.membership_id = payload.membership_id
@@ -492,7 +509,8 @@ def update_order_membership(order_id: int, payload: schemas.OrderMembershipUpdat
         joinedload(models.Orders.employee),
         joinedload(models.Orders.membership),
         joinedload(models.Orders.branch),
-        selectinload(models.Orders.order_items).joinedload(models.OrderItems.menu_item),
+        selectinload(models.Orders.order_items).joinedload(
+            models.OrderItems.menu_item),
         joinedload(models.Orders.payment),
         selectinload(models.Orders.stock_movements)
     ).filter(models.Orders.order_id == order_id).first()

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Layout } from "@/components/layout";
 import {
   useGetEmployeesQuery,
@@ -44,9 +45,7 @@ export default function EmployeesPage() {
       filterRoleIds.length > 0 ? (filterRoleIds as number[]) : undefined,
     salary_min: filterSalaryMin ? Number(filterSalaryMin) : undefined,
     salary_max: filterSalaryMax ? Number(filterSalaryMax) : undefined,
-    joined_from: filterJoinedFrom
-      ? `${filterJoinedFrom}T00:00:00`
-      : undefined,
+    joined_from: filterJoinedFrom ? `${filterJoinedFrom}T00:00:00` : undefined,
     joined_to: filterJoinedTo ? `${filterJoinedTo}T23:59:59` : undefined,
   });
   const { data: roles } = useGetRolesQuery();

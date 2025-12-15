@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import { Layout } from "../../components/layout";
 import {
   useGetMembershipsQuery,
@@ -1055,6 +1056,13 @@ export default function MembershipsPage() {
             >
               Add Membership
             </button>
+            <Link
+              href="/membership-analytics"
+              className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors flex items-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18" /><path d="m19 9-5 5-4-4-3 3" /></svg>
+              Overview
+            </Link>
             <button
               className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors h-[42px]"
               onClick={() => setShowTierModal(true)}

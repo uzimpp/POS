@@ -80,3 +80,365 @@ def get_dashboard_stats(
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error calculating dashboard stats: {str(e)}")
+
+
+@router.get("/sales-chart")
+def get_sales_chart_data(
+    period: str = Query(..., regex="^(today|7days|30days|1year|all)$"),
+    split_by_type: bool = Query(False),
+    split_by_category: bool = Query(False),
+    branch_ids: Optional[List[int]] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Get sales data for line chart.
+    Periods:
+    - today: Hourly data (00-23) for current day
+    - 7days: Daily data for last 7 days
+    - 30days: Daily data for last 30 days
+    - 1year: Monthly data for last 12 months
+    
+    If split_by_type is True, returns breakdown by order_type.
+    If split_by_category is True, returns breakdown by Menu.category.
+    """
+    try:
+        from datetime import datetime, timedelta, date, time
+        from sqlalchemy import extract, func, cast, Date
+
+        now = datetime.now()
+        data = []
+
+        # Base query depends on split method
+        # If splitting by category, we must join OrderItems and Menu
+        if split_by_category:
+            query = db.query(
+                models.Orders.created_at,
+                models.OrderItems.line_total.label("amount"),
+                models.Menu.category.label("category")
+            ).join(
+                models.OrderItems, models.Orders.order_id == models.OrderItems.order_id
+            ).join(
+                models.Menu, models.OrderItems.menu_item_id == models.Menu.menu_item_id
+            ).filter(models.Orders.status == 'PAID')
+        else:
+            # Default or split_by_type uses Orders table directly
+            query = db.query(
+                models.Orders.created_at,
+                models.Orders.total_price.label("amount"),
+                models.Orders.order_type
+            ).filter(models.Orders.status == 'PAID')
+
+        if branch_ids:
+            query = query.filter(models.Orders.branch_id.in_(branch_ids))
+
+        # Helper to process results into {label: {type: value}} or {label: value}
+        def aggregate_results(results, labels, label_key_func):
+            agg_data = {}
+            # Initialize with 0 or dict
+            is_split = split_by_type or split_by_category
+            
+            for label in labels:
+                agg_data[label] = {} if is_split else 0.0
+
+            if split_by_category:
+                for t, amount, category in results:
+                    key = label_key_func(t)
+                    if key in agg_data:
+                        amt = float(amount)
+                        current_cat_val = agg_data[key].get(category, 0.0)
+                        agg_data[key][category] = current_cat_val + amt
+            elif split_by_type:
+                for t, amount, o_type in results:
+                    key = label_key_func(t)
+                    if key in agg_data:
+                        amt = float(amount)
+                        current_type_val = agg_data[key].get(o_type, 0.0)
+                        agg_data[key][o_type] = current_type_val + amt
+            else:
+                for t, amount, _ in results:
+                    key = label_key_func(t)
+                    if key in agg_data:
+                        agg_data[key] += float(amount)
+            
+            # Flatten for response
+            final_data = []
+            for label in labels:
+                item = {"name": str(label)}
+                val = agg_data[label]
+                if is_split:
+                    item.update(val)
+                else:
+                    item["value"] = val
+                final_data.append(item)
+            return final_data
+
+        # Determine Date Range
+        if period == "today":
+            start_of_day = datetime.combine(now.date(), time.min)
+            end_of_day = datetime.combine(now.date(), time.max)
+            results = query.filter(models.Orders.created_at >= start_of_day, models.Orders.created_at <= end_of_day).all()
+            labels = list(range(24))
+            final = aggregate_results(results, labels, lambda t: t.hour)
+            for item in final: item["name"] = f"{int(item['name']):02d}:00"
+            return final
+
+        elif period == "7days" or period == "30days":
+            days = 7 if period == "7days" else 30
+            start_date = (now - timedelta(days=days-1)).date()
+            results = query.filter(func.date(models.Orders.created_at) >= start_date).all()
+            labels = [start_date + timedelta(days=i) for i in range(days)]
+            final = aggregate_results(results, labels, lambda t: t.date())
+            for i, label in enumerate(labels): final[i]["name"] = label.strftime("%d/%m")
+            return final
+
+        elif period == "1year" or period == "all":
+            if period == "1year":
+                start_date = (now - timedelta(days=365))
+            else:
+                start_date = datetime(2020, 1, 1) # All time start
+
+            results = query.filter(models.Orders.created_at >= start_date).all()
+            
+            # Dynamic monthly buckets
+            months = []
+            curr = start_date.replace(day=1)
+            end_date = now.date()
+            while curr.date() <= end_date:
+                months.append(curr.date())
+                # Increment month
+                if curr.month == 12:
+                    curr = curr.replace(year=curr.year+1, month=1)
+                else:
+                    curr = curr.replace(month=curr.month+1)
+            
+            final = aggregate_results(results, months, lambda t: t.date().replace(day=1))
+            for i, d in enumerate(months): final[i]["name"] = d.strftime("%b %Y")
+            return final
+
+        return data
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching sales chart data: {str(e)}")
+
+
+@router.get("/top-branches")
+def get_top_branches(
+    period: str = Query("today", regex="^(today|7days|30days|1year|all)$"),
+    split_by_category: bool = Query(False),
+    branch_ids: Optional[List[int]] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Get top 5 branches by sales.
+    If split_by_category is True, returns stacked data by category.
+    """
+    try:
+        from datetime import datetime, timedelta, date, time
+        from sqlalchemy import func, desc, case
+
+        now = datetime.now()
+        
+        if period == "today":
+            start_date = datetime.combine(now.date(), time.min)
+        elif period == "7days":
+            start_date = datetime.combine(now.date() - timedelta(days=6), time.min)
+        elif period == "30days":
+            start_date = datetime.combine(now.date() - timedelta(days=29), time.min)
+        elif period == "1year":
+            start_date = datetime.combine((now.replace(day=1) - timedelta(days=365)).replace(day=1), time.min)
+        elif period == "all":
+            start_date = datetime(2020, 1, 1)
+        
+        if split_by_category:
+            # 1. Find Top 5 Branch IDs first (filtering by branch_ids if provided)
+            top_branches_query = db.query(models.Branches.branch_id).join(
+                models.Orders, models.Branches.branch_id == models.Orders.branch_id
+            ).filter(
+                models.Orders.status == 'PAID',
+                models.Orders.created_at >= start_date
+            )
+
+            if branch_ids:
+                top_branches_query = top_branches_query.filter(models.Branches.branch_id.in_(branch_ids))
+
+            top_branches_query = top_branches_query.group_by(models.Branches.branch_id).order_by(
+                desc(func.sum(models.Orders.total_price))
+            ).limit(5)
+            
+            top_branch_ids = [r[0] for r in top_branches_query.all()]
+            
+            if not top_branch_ids:
+                return []
+
+            # 2. Query breakdown for these branches
+            results_query = db.query(
+                models.Branches.name,
+                models.Menu.category,
+                func.sum(models.OrderItems.line_total)
+            ).join(
+                models.Orders, models.Branches.branch_id == models.Orders.branch_id
+            ).join(
+                models.OrderItems, models.Orders.order_id == models.OrderItems.order_id
+            ).join(
+                models.Menu, models.OrderItems.menu_item_id == models.Menu.menu_item_id
+            ).filter(
+                models.Orders.status == 'PAID',
+                models.Orders.created_at >= start_date,
+                models.Branches.branch_id.in_(top_branch_ids)
+            )
+
+            if branch_ids:
+                results_query = results_query.filter(models.Branches.branch_id.in_(branch_ids))
+                
+            results = results_query.group_by(
+                models.Branches.name, models.Menu.category
+            ).all()
+            
+            # 3. Transform
+            data_map = {}
+            for name, category, amount in results:
+                if name not in data_map:
+                    data_map[name] = {"name": name, "total": 0.0}
+                data_map[name][category] = float(amount)
+                data_map[name]["total"] += float(amount)
+            
+            data = sorted(data_map.values(), key=lambda x: x["total"], reverse=True)
+            return data
+
+        else:
+            # Original logic
+            query = db.query(
+                models.Branches.name,
+                func.sum(models.Orders.total_price).label("total_sales")
+            ).join(
+                models.Orders, models.Branches.branch_id == models.Orders.branch_id
+            ).filter(
+                models.Orders.status == 'PAID',
+                models.Orders.created_at >= start_date
+            )
+
+            if branch_ids:
+                query = query.filter(models.Branches.branch_id.in_(branch_ids))
+
+            results = query.group_by(
+                models.Branches.branch_id, models.Branches.name
+            ).order_by(
+                desc("total_sales")
+            ).limit(5).all()
+
+            data = []
+            for name, total in results:
+                data.append({
+                    "name": name,
+                    "value": float(total) if total else 0.0
+                })
+            return data
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching top branches: {str(e)}")
+
+
+@router.get("/membership-ratio")
+def get_membership_ratio(
+    period: str = Query("today", regex="^(today|7days|30days|1year|all)$"),
+    branch_ids: Optional[List[int]] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Get ratio of orders by Members vs Guests.
+    """
+    try:
+        from datetime import datetime, timedelta, time
+        now = datetime.now()
+        
+        # Determine start date
+        if period == "today":
+            start_date = datetime.combine(now.date(), time.min)
+        elif period == "7days":
+            start_date = datetime.combine(now.date() - timedelta(days=6), time.min)
+        elif period == "30days":
+            start_date = datetime.combine(now.date() - timedelta(days=29), time.min)
+        elif period == "1year":
+            start_date = datetime.combine((now.replace(day=1) - timedelta(days=365)).replace(day=1), time.min)
+        elif period == "all":
+            start_date = datetime(2020, 1, 1)
+            
+        # Base query for counts
+        base_query = db.query(func.count(models.Orders.order_id)).filter(
+            models.Orders.status == 'PAID',
+            models.Orders.created_at >= start_date
+        )
+
+        if branch_ids:
+            base_query = base_query.filter(models.Orders.branch_id.in_(branch_ids))
+
+        # Count Member orders (membership_id IS NOT NULL)
+        member_count = base_query.filter(models.Orders.membership_id.isnot(None)).scalar() or 0
+        
+        # Count Guest orders (membership_id IS NULL)
+        guest_count = base_query.filter(models.Orders.membership_id.is_(None)).scalar() or 0
+        
+        return [
+            {"name": "Member", "value": member_count},
+            {"name": "Guest", "value": guest_count}
+        ]
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching membership ratio: {str(e)}")
+@router.get("/top-items")
+def get_top_items(
+    period: str = Query("today", regex="^(today|7days|30days|1year|all)$"),
+    branch_ids: Optional[List[int]] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Get top 5 menu items by sales revenue.
+    """
+    try:
+        from datetime import datetime, timedelta, time
+        from sqlalchemy import func, desc
+
+        now = datetime.now()
+        
+        if period == "today":
+            start_date = datetime.combine(now.date(), time.min)
+        elif period == "7days":
+            start_date = datetime.combine(now.date() - timedelta(days=6), time.min)
+        elif period == "30days":
+            start_date = datetime.combine(now.date() - timedelta(days=29), time.min)
+        elif period == "1year":
+            start_date = datetime.combine((now.replace(day=1) - timedelta(days=365)).replace(day=1), time.min)
+        elif period == "all":
+            start_date = datetime(2020, 1, 1)
+            
+        query = db.query(
+            models.Menu.name,
+            func.sum(models.OrderItems.line_total).label("total_sales")
+        ).join(
+            models.OrderItems, models.Menu.menu_item_id == models.OrderItems.menu_item_id
+        ).join(
+            models.Orders, models.OrderItems.order_id == models.Orders.order_id
+        ).filter(
+            models.Orders.status == 'PAID',
+            models.Orders.created_at >= start_date
+        )
+
+        if branch_ids:
+            query = query.filter(models.Orders.branch_id.in_(branch_ids))
+
+        results = query.group_by(
+            models.Menu.menu_item_id, models.Menu.name
+        ).order_by(
+            desc("total_sales")
+        ).limit(5).all()
+
+        data = []
+        for name, total in results:
+            data.append({
+                "name": name,
+                "value": float(total) if total else 0.0
+            })
+        return data
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching top items: {str(e)}")

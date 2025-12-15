@@ -53,8 +53,8 @@ export default function OrdersPage() {
   })();
 
   const { data: orders, isLoading, error } = useGetOrdersQuery(filters);
-  const { data: branches } = useGetBranchesQuery();
-  const { data: employees } = useGetEmployeesQuery();
+  const { data: branches } = useGetBranchesQuery({ is_deleted: false });
+  const { data: employees } = useGetEmployeesQuery({ is_deleted: false });
   const [createEmptyOrder] = useCreateEmptyOrderMutation();
   const [selectedBranchId, setSelectedBranchId] = useState<number | null>(null);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(
@@ -69,14 +69,47 @@ export default function OrdersPage() {
     }
 
     try {
+      console.log("Creating order with:", {
+        branch_id: selectedBranchId,
+        employee_id: selectedEmployeeId,
+        order_type: orderType,
+      });
+
       const order = await createEmptyOrder({
         branch_id: selectedBranchId,
         employee_id: selectedEmployeeId,
         order_type: orderType,
       }).unwrap();
+
+      console.log("Order created successfully:", order);
       router.push(`/orders/${order.order_id}`);
     } catch (err: any) {
-      alert(err?.data?.detail || "Failed to create order");
+      // Log the full error for debugging
+      console.error("Error creating order:", err);
+      console.error("Error data:", err?.data);
+      console.error("Error status:", err?.status);
+      console.error("Full error object:", JSON.stringify(err, null, 2));
+
+      // Extract error message from various possible error formats
+      let errorMessage = "Failed to create order";
+
+      if (err?.data) {
+        if (typeof err.data === "string") {
+          errorMessage = err.data;
+        } else if (err.data?.detail) {
+          errorMessage = err.data.detail;
+        } else if (err.data?.message) {
+          errorMessage = err.data.message;
+        }
+      } else if (err?.message) {
+        errorMessage = err.message;
+      }
+
+      if (err?.status) {
+        errorMessage += ` (Status: ${err.status})`;
+      }
+
+      alert(errorMessage);
     }
   };
 
@@ -146,6 +179,29 @@ export default function OrdersPage() {
             <div>
               <h1 className="text-3xl font-bold text-gray-800">Orders</h1>
               <p className="text-gray-600 mt-2">Manage and view all orders</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => router.push("/order-analytics")}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center gap-2"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="18" y1="20" x2="18" y2="10" />
+                  <line x1="12" y1="20" x2="12" y2="4" />
+                  <line x1="6" y1="20" x2="6" y2="14" />
+                </svg>
+                Overview
+              </button>
             </div>
           </div>
 
@@ -402,7 +458,10 @@ export default function OrdersPage() {
                         {order.order_type}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        ฿{parseFloat(order.payment?.paid_price ?? order.total_price).toFixed(2)}
+                        ฿
+                        {parseFloat(
+                          order.payment?.paid_price ?? order.total_price
+                        ).toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {getStatusBadge(order.status)}
