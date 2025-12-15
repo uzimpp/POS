@@ -36,7 +36,7 @@ const CustomTooltip = ({ active, payload }: any) => {
 export default function EfficiencyMatrixChart() {
     const [data, setData] = useState<EfficiencyData[]>([]);
     const [loading, setLoading] = useState(true);
-    const [period, setPeriod] = useState<"30days">("30days");
+    const [period, setPeriod] = useState<"30days" | "1year" | "all">("30days");
 
     useEffect(() => {
         async function fetchData() {
@@ -74,8 +74,15 @@ export default function EfficiencyMatrixChart() {
                     <p className="text-slate-500 text-sm mt-1 ml-9">Salary vs Revenue Generated</p>
                 </div>
 
-                {/* Period is fixed to 30 days for now as salary is monthly */}
-                <span className="text-xs font-medium text-slate-400 px-2 py-1 bg-slate-50 rounded-lg">30 Days</span>
+                <select
+                    value={period}
+                    onChange={(e) => setPeriod(e.target.value as any)}
+                    className="text-xs border-none bg-slate-100 rounded-lg px-2 py-1 text-slate-600 focus:ring-0 cursor-pointer"
+                >
+                    <option value="30days">30 Days</option>
+                    <option value="1year">1 Year</option>
+                    <option value="all">All Time</option>
+                </select>
             </div>
 
             <div className="flex-1 min-h-[300px] relative z-10">

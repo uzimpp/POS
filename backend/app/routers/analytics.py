@@ -23,6 +23,8 @@ def get_date_range(period: str):
         start = now - timedelta(days=30)
     elif period == "1year" or period == "365days":
         start = now - timedelta(days=365)
+    elif period == "all":
+        start = datetime(2020, 1, 1) # Project start roughly
     else:
         start = now - timedelta(days=30) # Default
     return start, now
@@ -51,7 +53,7 @@ def get_order_stats(db: Session = Depends(get_db)):
 
 @router.get("/order-trend")
 def get_order_trend(
-    period: str = Query("today", regex="^(today|7days|30days|1year)$"),
+    period: str = Query("today", regex="^(today|7days|30days|1year|all)$"),
     split_by: str = Query("none", regex="^(none|type|category)$"),
     db: Session = Depends(get_db)
 ):
@@ -150,16 +152,27 @@ def get_order_trend(
             for i, label in enumerate(labels): final[i]["name"] = label.strftime("%d/%m")
             return final
 
-        elif period == "1year":
+        elif period == "1year" or period == "all":
+            # For 1year/all, we aggregate by month
+            if period == "1year":
+                start_date = (now - timedelta(days=365))
+            else:
+                start_date = datetime(2020, 1, 1)
+            
+            results = query.filter(Orders.created_at >= start_date).all()
+            
+            # Dynamic monthly buckets from start_date to now
             months = []
-            curr = now.replace(day=1)
-            for i in range(12):
-                m = (curr.month - 1 - i) % 12 + 1
-                y = curr.year + ((curr.month - 1 - i) // 12)
-                months.append(date(y, m, 1))
-            months.reverse()
-            min_date = months[0]
-            results = query.filter(Orders.created_at >= min_date).all()
+            curr = start_date.replace(day=1)
+            end_date = now.date()
+            while curr.date() <= end_date:
+                months.append(curr.date())
+                # Increment month
+                if curr.month == 12:
+                    curr = curr.replace(year=curr.year+1, month=1)
+                else:
+                    curr = curr.replace(month=curr.month+1)
+            
             final = aggregate_results(results, months, lambda t: t.date().replace(day=1))
             for i, d in enumerate(months): final[i]["name"] = d.strftime("%b %Y")
             return final
@@ -298,8 +311,11 @@ def get_acquisition_growth(
         start_date = end_date - timedelta(days=29)
         time_format = func.to_char(Memberships.joined_at, 'YYYY-MM-DD')
         label_func = lambda d: datetime.strptime(d, "%Y-%m-%d").strftime("%d %b") # 15 Dec
-    else: # 1year
-        start_date = end_date - timedelta(days=365)
+    else: # 1year or all
+        if period == "all":
+            start_date = datetime(2020, 1, 1)
+        else:
+            start_date = end_date - timedelta(days=365)
         time_format = func.to_char(Memberships.joined_at, 'YYYY-MM')
         label_func = lambda d: datetime.strptime(d, "%Y-%m").strftime("%b %Y") # Dec 2023
         
@@ -324,7 +340,7 @@ def get_acquisition_growth(
     
     res_map = {r.period: r.count for r in results}
     
-    if period == "1year":
+    if period == "1year" or period == "all":
         # Monthly iteration
         curr = start_date.replace(day=1)
         while curr <= end_date:
@@ -718,7 +734,7 @@ def get_waste_trend(db: Session = Depends(get_db)):
 
 @router.get("/payment-stats")
 def get_payment_stats(
-    period: str = Query("30days", regex="^(today|7days|30days|1year)$"),
+    period: str = Query("30days", regex="^(today|7days|30days|1year|all)$"),
     db: Session = Depends(get_db)
 ):
     start, now = get_date_range(period)
@@ -778,7 +794,7 @@ def get_payment_stats(
 
 @router.get("/payment-method-share")
 def get_payment_method_share(
-    period: str = Query("30days", regex="^(today|7days|30days|1year)$"),
+    period: str = Query("30days", regex="^(today|7days|30days|1year|all)$"),
     db: Session = Depends(get_db)
 ):
     start, now = get_date_range(period)

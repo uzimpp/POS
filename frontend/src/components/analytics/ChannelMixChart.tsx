@@ -30,7 +30,7 @@ const CustomTooltip = ({ active, payload }: any) => {
 
 export default function ChannelMixChart() {
     const [data, setData] = useState<ChannelData[]>([]);
-    const [period, setPeriod] = useState<"today" | "7days" | "30days" | "1year">("today");
+    const [period, setPeriod] = useState<"today" | "7days" | "30days" | "1year" | "all">("today");
     const [loading, setLoading] = useState(true);
     // const [activeIndex, setActiveIndex] = useState(0); // Removing complex interaction to match dashboard simplicity if desired, or keeping it?
     // User asked for "like dashboard", dashboard is simple donut with center text. 
@@ -69,7 +69,7 @@ export default function ChannelMixChart() {
                 </div>
 
                 <div className="flex bg-slate-100/80 p-1 rounded-xl backdrop-blur-sm shadow-inner self-start sm:self-auto">
-                    {(["today", "7days", "30days", "1year"] as const).map((p) => (
+                    {(["today", "7days", "30days", "1year", "all"] as const).map((p) => (
                         <button
                             key={p}
                             onClick={() => setPeriod(p)}
@@ -78,7 +78,7 @@ export default function ChannelMixChart() {
                                 : "text-slate-500 hover:text-slate-900 hover:bg-slate-200/50"
                                 }`}
                         >
-                            {p === "today" ? "Today" : p === "7days" ? "7D" : p === "30days" ? "30D" : "1Y"}
+                            {p === "today" ? "Today" : p === "7days" ? "7D" : p === "30days" ? "30D" : p === "1year" ? "1Y" : "All"}
                         </button>
                     ))}
                 </div>

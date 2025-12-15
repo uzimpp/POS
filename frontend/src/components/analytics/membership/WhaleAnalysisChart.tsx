@@ -76,7 +76,7 @@ import { Sector } from "recharts";
 export default function WhaleAnalysisChart() {
     const [data, setData] = useState<RevenueData[]>([]);
     const [loading, setLoading] = useState(true);
-    const [period, setPeriod] = useState<"today" | "7days" | "30days">("today");
+    const [period, setPeriod] = useState<"today" | "7days" | "30days" | "all">("today");
     const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
     const [totalRevenue, setTotalRevenue] = useState(0);
 
@@ -131,6 +131,7 @@ export default function WhaleAnalysisChart() {
                     <option value="today">Today</option>
                     <option value="7days">7 Days</option>
                     <option value="30days">30 Days</option>
+                    <option value="all">All Time</option>
                 </select>
             </div>
 

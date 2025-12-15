@@ -27,7 +27,7 @@ const CustomTooltip = ({ active, payload }: any) => {
 export default function RainmakersChart() {
     const [data, setData] = useState<SalesData[]>([]);
     const [loading, setLoading] = useState(true);
-    const [period, setPeriod] = useState<"7days" | "30days">("30days");
+    const [period, setPeriod] = useState<"7days" | "30days" | "1year" | "all">("30days");
 
     useEffect(() => {
         async function fetchData() {
@@ -68,6 +68,8 @@ export default function RainmakersChart() {
                 >
                     <option value="7days">7 Days</option>
                     <option value="30days">30 Days</option>
+                    <option value="1year">1 Year</option>
+                    <option value="all">All Time</option>
                 </select>
             </div>
 

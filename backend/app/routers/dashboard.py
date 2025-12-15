@@ -84,7 +84,7 @@ def get_dashboard_stats(
 
 @router.get("/sales-chart")
 def get_sales_chart_data(
-    period: str = Query(..., regex="^(today|7days|30days|1year)$"),
+    period: str = Query(..., regex="^(today|7days|30days|1year|all)$"),
     split_by_type: bool = Query(False),
     split_by_category: bool = Query(False),
     branch_ids: Optional[List[int]] = Query(None),
@@ -191,16 +191,26 @@ def get_sales_chart_data(
             for i, label in enumerate(labels): final[i]["name"] = label.strftime("%d/%m")
             return final
 
-        elif period == "1year":
+        elif period == "1year" or period == "all":
+            if period == "1year":
+                start_date = (now - timedelta(days=365))
+            else:
+                start_date = datetime(2020, 1, 1) # All time start
+
+            results = query.filter(models.Orders.created_at >= start_date).all()
+            
+            # Dynamic monthly buckets
             months = []
-            curr = now.replace(day=1)
-            for i in range(12):
-                m = (curr.month - 1 - i) % 12 + 1
-                y = curr.year + ((curr.month - 1 - i) // 12)
-                months.append(date(y, m, 1))
-            months.reverse()
-            min_date = months[0]
-            results = query.filter(models.Orders.created_at >= min_date).all()
+            curr = start_date.replace(day=1)
+            end_date = now.date()
+            while curr.date() <= end_date:
+                months.append(curr.date())
+                # Increment month
+                if curr.month == 12:
+                    curr = curr.replace(year=curr.year+1, month=1)
+                else:
+                    curr = curr.replace(month=curr.month+1)
+            
             final = aggregate_results(results, months, lambda t: t.date().replace(day=1))
             for i, d in enumerate(months): final[i]["name"] = d.strftime("%b %Y")
             return final
@@ -213,7 +223,7 @@ def get_sales_chart_data(
 
 @router.get("/top-branches")
 def get_top_branches(
-    period: str = Query("today", regex="^(today|7days|30days|1year)$"),
+    period: str = Query("today", regex="^(today|7days|30days|1year|all)$"),
     split_by_category: bool = Query(False),
     branch_ids: Optional[List[int]] = Query(None),
     db: Session = Depends(get_db)
@@ -236,6 +246,8 @@ def get_top_branches(
             start_date = datetime.combine(now.date() - timedelta(days=29), time.min)
         elif period == "1year":
             start_date = datetime.combine((now.replace(day=1) - timedelta(days=365)).replace(day=1), time.min)
+        elif period == "all":
+            start_date = datetime(2020, 1, 1)
         
         if split_by_category:
             # 1. Find Top 5 Branch IDs first (filtering by branch_ids if provided)
@@ -328,7 +340,7 @@ def get_top_branches(
 
 @router.get("/membership-ratio")
 def get_membership_ratio(
-    period: str = Query("today", regex="^(today|7days|30days|1year)$"),
+    period: str = Query("today", regex="^(today|7days|30days|1year|all)$"),
     branch_ids: Optional[List[int]] = Query(None),
     db: Session = Depends(get_db)
 ):
@@ -348,6 +360,8 @@ def get_membership_ratio(
             start_date = datetime.combine(now.date() - timedelta(days=29), time.min)
         elif period == "1year":
             start_date = datetime.combine((now.replace(day=1) - timedelta(days=365)).replace(day=1), time.min)
+        elif period == "all":
+            start_date = datetime(2020, 1, 1)
             
         # Base query for counts
         base_query = db.query(func.count(models.Orders.order_id)).filter(
@@ -373,7 +387,7 @@ def get_membership_ratio(
         raise HTTPException(status_code=500, detail=f"Error fetching membership ratio: {str(e)}")
 @router.get("/top-items")
 def get_top_items(
-    period: str = Query("today", regex="^(today|7days|30days|1year)$"),
+    period: str = Query("today", regex="^(today|7days|30days|1year|all)$"),
     branch_ids: Optional[List[int]] = Query(None),
     db: Session = Depends(get_db)
 ):
@@ -394,6 +408,8 @@ def get_top_items(
             start_date = datetime.combine(now.date() - timedelta(days=29), time.min)
         elif period == "1year":
             start_date = datetime.combine((now.replace(day=1) - timedelta(days=365)).replace(day=1), time.min)
+        elif period == "all":
+            start_date = datetime(2020, 1, 1)
             
         query = db.query(
             models.Menu.name,

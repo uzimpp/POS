@@ -51,7 +51,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export default function OrderTrendChart() {
     const [data, setData] = useState<TrendData[]>([]);
-    const [period, setPeriod] = useState<"today" | "7days" | "30days" | "1year">("today");
+    const [period, setPeriod] = useState<"today" | "7days" | "30days" | "1year" | "all">("today");
     const [splitBy, setSplitBy] = useState<"none" | "type" | "category">("none");
     const [loading, setLoading] = useState(true);
 
@@ -101,13 +101,13 @@ export default function OrderTrendChart() {
                     </div>
 
                     <div className="flex bg-slate-100/50 p-1.5 rounded-xl backdrop-blur-sm border border-slate-200/50 overflow-x-auto scrollbar-hide">
-                        {(["today", "7days", "30days", "1year"] as const).map((p) => (
+                        {(["today", "7days", "30days", "1year", "all"] as const).map((p) => (
                             <button
                                 key={p}
                                 onClick={() => setPeriod(p)}
                                 className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all whitespace-nowrap shadow-sm ${period === p ? "bg-white text-violet-600 shadow-md transform scale-105" : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50 shadow-transparent"}`}
                             >
-                                {p === "today" ? "Today" : p === "7days" ? "7 Days" : p === "30days" ? "30 Days" : "1 Year"}
+                                {p === "today" ? "Today" : p === "7days" ? "7 Days" : p === "30days" ? "30 Days" : p === "1year" ? "1 Year" : "All Time"}
                             </button>
                         ))}
                     </div>

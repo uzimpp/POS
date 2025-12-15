@@ -33,7 +33,7 @@ export default function PaymentAnalyticsPage() {
                     </div>
 
                     <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-slate-200">
-                        {["7days", "30days", "1year"].map((p) => (
+                        {["7days", "30days", "1year", "all"].map((p) => (
                             <button
                                 key={p}
                                 onClick={() => setPeriod(p)}
@@ -46,7 +46,9 @@ export default function PaymentAnalyticsPage() {
                                     ? "7 Days"
                                     : p === "30days"
                                         ? "30 Days"
-                                        : "Yearly"}
+                                        : p === "1year"
+                                            ? "Yearly"
+                                            : "All Time"}
                             </button>
                         ))}
                     </div>

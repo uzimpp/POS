@@ -34,7 +34,7 @@ const CustomTooltip = ({ active, payload }: any) => {
 
 export default function MembershipChart({ branchId }: { branchId?: number }) {
     const [data, setData] = useState<RatioData[]>([]);
-    const [period, setPeriod] = useState<"today" | "7days" | "30days" | "1year">("today");
+    const [period, setPeriod] = useState<"today" | "7days" | "30days" | "1year" | "all">("today");
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -77,7 +77,7 @@ export default function MembershipChart({ branchId }: { branchId?: number }) {
 
                 {/* Segmented Control */}
                 <div className="flex bg-slate-100/80 p-1 rounded-xl backdrop-blur-sm shadow-inner self-start xl:self-auto">
-                    {(["today", "7days", "30days", "1year"] as const).map((p) => (
+                    {(["today", "7days", "30days", "1year", "all"] as const).map((p) => (
                         <button
                             key={p}
                             onClick={() => setPeriod(p)}
@@ -86,7 +86,7 @@ export default function MembershipChart({ branchId }: { branchId?: number }) {
                                 : "text-slate-500 hover:text-slate-900 hover:bg-slate-200/50"
                                 }`}
                         >
-                            {p === "today" ? "Today" : p === "7days" ? "7D" : p === "30days" ? "30D" : "1Y"}
+                            {p === "today" ? "Today" : p === "7days" ? "7D" : p === "30days" ? "30D" : p === "1year" ? "1Y" : "All"}
                         </button>
                     ))}
                 </div>

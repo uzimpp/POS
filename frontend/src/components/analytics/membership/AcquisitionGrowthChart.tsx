@@ -31,7 +31,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export default function AcquisitionGrowthChart() {
     const [data, setData] = useState<GrowthData[]>([]);
     const [loading, setLoading] = useState(true);
-    const [period, setPeriod] = useState<"7days" | "30days" | "1year">("1year");
+    const [period, setPeriod] = useState<"7days" | "30days" | "1year" | "all">("1year");
 
     useEffect(() => {
         async function fetchData() {
@@ -73,6 +73,7 @@ export default function AcquisitionGrowthChart() {
                     <option value="7days">7 Days</option>
                     <option value="30days">30 Days</option>
                     <option value="1year">1 Year</option>
+                    <option value="all">All Time</option>
                 </select>
             </div>
 

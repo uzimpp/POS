@@ -59,7 +59,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export default function SalesChart({ branchId }: { branchId?: number }) {
     const [data, setData] = useState<SalesData[]>([]);
-    const [period, setPeriod] = useState<"today" | "7days" | "30days" | "1year">("today");
+    const [period, setPeriod] = useState<"today" | "7days" | "30days" | "1year" | "all">("today");
     const [splitBy, setSplitBy] = useState<"none" | "type" | "category">("none");
     const [loading, setLoading] = useState(true);
 
@@ -140,7 +140,7 @@ export default function SalesChart({ branchId }: { branchId?: number }) {
 
                     {/* Period Segmented Control */}
                     <div className="flex bg-slate-100/80 p-1 rounded-xl backdrop-blur-sm overflow-x-auto shadow-inner">
-                        {(["today", "7days", "30days", "1year"] as const).map((p) => (
+                        {(["today", "7days", "30days", "1year", "all"] as const).map((p) => (
                             <button
                                 key={p}
                                 onClick={() => setPeriod(p)}
@@ -149,7 +149,7 @@ export default function SalesChart({ branchId }: { branchId?: number }) {
                                     : "text-slate-500 hover:text-slate-900 hover:bg-slate-200/50"
                                     }`}
                             >
-                                {p === "today" ? "Today" : p === "7days" ? "7 Days" : p === "30days" ? "30 Days" : "1 Year"}
+                                {p === "today" ? "Today" : p === "7days" ? "7 Days" : p === "30days" ? "30 Days" : p === "1year" ? "1 Year" : "All Time"}
                             </button>
                         ))}
                     </div>

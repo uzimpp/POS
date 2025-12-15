@@ -25,7 +25,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export default function ValueGapChart() {
     const [data, setData] = useState<ValueData[]>([]);
     const [loading, setLoading] = useState(true);
-    const [period, setPeriod] = useState<"today" | "7days" | "30days">("today");
+    const [period, setPeriod] = useState<"today" | "7days" | "30days" | "all">("today");
 
     useEffect(() => {
         async function fetchData() {
@@ -68,6 +68,7 @@ export default function ValueGapChart() {
                     <option value="today">Today</option>
                     <option value="7days">7 Days</option>
                     <option value="30days">30 Days</option>
+                    <option value="all">All Time</option>
                 </select>
             </div>
 
