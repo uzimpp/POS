@@ -21,7 +21,8 @@ VALID_ADDRESSES = [
     "789 Pattaya Road, Chonburi",
     "321 Patong Road, Phuket"
 ]
-VALID_PHONES = ["02-123-4567", "053-123-456", "038-123-456", "076-123-456"]
+# Phone numbers: 9 digits (company) or 10 digits (mobile), NO dashes
+VALID_PHONES = ["021234567", "0531234567", "0381234567", "0761234567"]
 VALID_ROLE_NAMES = ["Manager", "Chef", "Cashier", "Waiter", "Supervisor"]
 VALID_TIER_NAMES = ["Bronze", "Silver", "Gold", "Platinum", "Diamond"]
 VALID_FIRST_NAMES = ["John", "Jane", "David", "Sarah", "Mike", "Emma", "Tom", "Lisa"]
@@ -63,11 +64,21 @@ def random_datetime_in_range(start_date, end_date):
 
 
 def random_phone():
-    """Generate a random phone number"""
-    area_codes = ["02", "053", "038", "076", "032", "044", "077", "081", "082", "083"]
-    area = random.choice(area_codes)
-    number = random.randint(1000000, 9999999)
-    return f"{area}-{number}"
+    """Generate a random phone number (9-10 digits, no dashes)"""
+    # Company phones: 9 digits (02xxxxxxx, 03xxxxxxx, etc.)
+    # Mobile phones: 10 digits (08xxxxxxxx, 09xxxxxxxx)
+    if random.random() < 0.5:
+        # Company phone (9 digits)
+        area_codes = ["02", "03", "04", "05", "07"]
+        area = random.choice(area_codes)
+        number = random.randint(1000000, 9999999)
+        return f"{area}{number}"
+    else:
+        # Mobile phone (10 digits)
+        prefixes = ["08", "09", "06"]
+        prefix = random.choice(prefixes)
+        number = random.randint(10000000, 99999999)
+        return f"{prefix}{number}"
 
 
 def random_email(first_name, last_name):
@@ -96,17 +107,17 @@ def generate_valid_csv(filename="data_valid.csv", num_branches=5, num_roles=4, n
         if i == 1:
             branch_name = "Main Branch"
             address = "123 Sukhumvit Road Bangkok"
-            phone = "02-123-4567"
+            phone = "021234567"  # 9 digits, no dashes
             is_active = True
         elif i == 2:
             branch_name = "Chiang Mai Branch"
             address = "456 Nimmanhemin Road Chiang Mai"
-            phone = "053-123-456"
+            phone = "0531234567"  # 10 digits, no dashes
             is_active = True
         elif i == 3:
             branch_name = "Pattaya Branch"
             address = "789 Pattaya Road Chonburi"
-            phone = "038-123-456"
+            phone = "0381234567"  # 10 digits, no dashes
             is_active = True
         else:
             city = random.choice(ADDITIONAL_CITIES)

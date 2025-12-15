@@ -22,8 +22,8 @@ class Branches(Base):
     branch_id = Column(Integer, primary_key=True, index=True)
     name = Column(String(50), nullable=False)
     address = Column(String(200), nullable=False)
-    # Thai phone number: 9 digits (company) or 10 digits (mobile)
-    phone = Column(String(10), nullable=False)
+    # Thai phone number: 9-10 digits, may include dashes (e.g., 02-123-4567)
+    phone = Column(String(15), nullable=False)
     is_deleted = Column(Boolean, default=False, nullable=False)
 
     employees = relationship("Employees", back_populates="branch")

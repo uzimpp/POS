@@ -17,8 +17,8 @@ from sqlalchemy import exists, text
 from app.database import SessionLocal, engine
 from app.models import (
     Branches, Roles, Employees, Tiers, Memberships,
-    MenuItems, Stock, MenuIngredients, Orders, OrderItems,
-    Payments, StockMovements
+    Menu, Stock, Recipe, Orders, OrderItems,
+    Payments, StockMovements, Ingredients
 )
 
 
@@ -101,7 +101,7 @@ def feed_branches(db: Session, data: dict) -> dict:
                     name=row.get('name'),
                     address=row.get('address'),
                     phone=row.get('phone'),
-                    is_active=parse_boolean(row.get('is_active', 'true'))
+                    is_deleted=not parse_boolean(row.get('is_active', 'true'))
                 )
                 db.add(branch)
                 db.flush()
@@ -244,7 +244,7 @@ def feed_employees(db: Session, data: dict, branches_map: dict, roles_map: dict)
                     first_name=row.get('first_name'),
                     last_name=row.get('last_name'),
                     salary=parse_int(row.get('salary')),
-                    is_active=parse_boolean(row.get('is_active', 'true')),
+                    is_deleted=not parse_boolean(row.get('is_active', 'true')),
                     joined_date=parse_datetime(row.get('joined_date')) if row.get('joined_date') else None
                 )
                 db.add(employee)
@@ -311,8 +311,95 @@ def feed_memberships(db: Session, data: dict, tiers_map: dict) -> dict:
     return memberships_map
 
 
-def feed_stock(db: Session, data: dict, branches_map: dict) -> dict:
-    """Feed stock data"""
+def feed_ingredients(db: Session, data: dict) -> dict:
+    """Feed ingredients data - supports both new schema and legacy stock-based schema"""
+    ingredients_map = {}
+    
+    # New schema: ingredients table exists
+    if 'ingredients' in data:
+        for row in data['ingredients']:
+            try:
+                csv_ingredient_id = parse_int(row.get('ingredient_id')) if row.get('ingredient_id') else None
+                
+                # Check if ingredient already exists
+                if csv_ingredient_id:
+                    existing = db.query(Ingredients).filter(Ingredients.ingredient_id == csv_ingredient_id).first()
+                    if existing:
+                        print(f"  Ingredient ID {csv_ingredient_id} already exists, skipping: {existing.name}")
+                        ingredients_map[row.get('ingredient_id')] = existing.ingredient_id
+                        continue
+                
+                ingredient = Ingredients(
+                    ingredient_id=csv_ingredient_id,
+                    name=row.get('name'),
+                    base_unit=row.get('base_unit', row.get('unit', 'g')),
+                    is_deleted=not parse_boolean(row.get('is_active', 'true'))
+                )
+                db.add(ingredient)
+                db.flush()
+                ingredients_map[row.get('ingredient_id')] = ingredient.ingredient_id
+                print(f"  Added ingredient: {ingredient.name} (ID: {ingredient.ingredient_id})")
+            except IntegrityError as e:
+                print(f"  Ingredient already exists (duplicate), skipping: {row.get('name')}")
+                db.rollback()
+                if csv_ingredient_id:
+                    existing = db.query(Ingredients).filter(Ingredients.ingredient_id == csv_ingredient_id).first()
+                    if existing:
+                        ingredients_map[row.get('ingredient_id')] = existing.ingredient_id
+                continue
+            except Exception as e:
+                print(f"  Failed to add ingredient {row.get('name')} (skipping): {e}")
+                db.rollback()
+                continue
+    
+    # Legacy schema: create ingredients from stock table's stk_name
+    elif 'stock' in data:
+        print("  (Legacy mode: creating ingredients from stock data)")
+        seen_names = {}  # Track unique ingredient names
+        
+        for row in data['stock']:
+            stk_name = row.get('stk_name')
+            unit = row.get('unit', 'g')
+            stock_id = row.get('stock_id')
+            
+            if not stk_name:
+                continue
+            
+            # Create ingredient if not seen before
+            if stk_name not in seen_names:
+                try:
+                    # Check if ingredient already exists in DB
+                    existing = db.query(Ingredients).filter(Ingredients.name == stk_name).first()
+                    if existing:
+                        seen_names[stk_name] = existing.ingredient_id
+                        # Map stock_id to ingredient_id for legacy compatibility
+                        ingredients_map[stock_id] = existing.ingredient_id
+                        print(f"  Ingredient '{stk_name}' already exists (ID: {existing.ingredient_id})")
+                        continue
+                    
+                    ingredient = Ingredients(
+                        name=stk_name,
+                        base_unit=unit,
+                        is_deleted=False
+                    )
+                    db.add(ingredient)
+                    db.flush()
+                    seen_names[stk_name] = ingredient.ingredient_id
+                    ingredients_map[stock_id] = ingredient.ingredient_id
+                    print(f"  Created ingredient from stock: {stk_name} (ID: {ingredient.ingredient_id})")
+                except Exception as e:
+                    print(f"  Failed to create ingredient {stk_name}: {e}")
+                    db.rollback()
+                    continue
+            else:
+                # Already created, just map stock_id
+                ingredients_map[stock_id] = seen_names[stk_name]
+    
+    return ingredients_map
+
+
+def feed_stock(db: Session, data: dict, branches_map: dict, ingredients_map: dict) -> dict:
+    """Feed stock data - supports both new schema (ingredient_id) and legacy (stk_name)"""
     stock_map = {}
     if 'stock' in data:
         for row in data['stock']:
@@ -323,24 +410,35 @@ def feed_stock(db: Session, data: dict, branches_map: dict) -> dict:
                 if csv_stock_id:
                     existing = db.query(Stock).filter(Stock.stock_id == csv_stock_id).first()
                     if existing:
-                        print(f"  Stock ID {csv_stock_id} already exists, skipping: {existing.stk_name}")
+                        print(f"  Stock ID {csv_stock_id} already exists, skipping")
                         stock_map[row.get('stock_id')] = existing.stock_id
                         continue
                 
                 branch_id = branches_map.get(row.get('branch_id'), row.get('branch_id'))
+                
+                # New schema: ingredient_id column
+                if row.get('ingredient_id'):
+                    ingredient_id = ingredients_map.get(row.get('ingredient_id'), row.get('ingredient_id'))
+                # Legacy schema: look up by stock_id (mapped to ingredient in feed_ingredients)
+                else:
+                    ingredient_id = ingredients_map.get(row.get('stock_id'))
+                    if not ingredient_id:
+                        print(f"  Skipping stock {csv_stock_id}: no ingredient mapping found")
+                        continue
+                
                 stock = Stock(
                     stock_id=csv_stock_id,
                     branch_id=parse_int(branch_id) if branch_id else None,
-                    stk_name=row.get('stk_name'),
+                    ingredient_id=parse_int(ingredient_id) if ingredient_id else None,
                     amount_remaining=parse_decimal(row.get('amount_remaining')),
-                    unit=row.get('unit')
+                    is_deleted=not parse_boolean(row.get('is_active', 'true'))
                 )
                 db.add(stock)
                 db.flush()
                 stock_map[row.get('stock_id')] = stock.stock_id
-                print(f"  Added stock: {stock.stk_name} (ID: {stock.stock_id})")
+                print(f"  Added stock: ID={stock.stock_id}, ingredient_id={ingredient_id}")
             except IntegrityError as e:
-                print(f"  Stock already exists (duplicate), skipping: {row.get('stk_name')}")
+                print(f"  Stock already exists (duplicate), skipping: {row.get('stock_id')}")
                 db.rollback()
                 if csv_stock_id:
                     existing = db.query(Stock).filter(Stock.stock_id == csv_stock_id).first()
@@ -348,9 +446,9 @@ def feed_stock(db: Session, data: dict, branches_map: dict) -> dict:
                         stock_map[row.get('stock_id')] = existing.stock_id
                 continue
             except Exception as e:
-                print(f"  Failed to add stock {row.get('stk_name')} (skipping): {e}")
+                print(f"  Failed to add stock {row.get('stock_id')} (skipping): {e}")
                 db.rollback()
-                continue  # Continue instead of raise to allow other stock items to be inserted
+                continue
     return stock_map
 
 
@@ -364,17 +462,17 @@ def feed_menu_items(db: Session, data: dict) -> dict:
                 
                 # Check if menu item already exists
                 if csv_menu_item_id:
-                    existing = db.query(MenuItems).filter(MenuItems.menu_item_id == csv_menu_item_id).first()
+                    existing = db.query(Menu).filter(Menu.menu_item_id == csv_menu_item_id).first()
                     if existing:
                         print(f"  Menu item ID {csv_menu_item_id} already exists, skipping: {existing.name}")
                         menu_items_map[row.get('menu_item_id')] = existing.menu_item_id
                         continue
                 
-                menu_item = MenuItems(
+                menu_item = Menu(
                     menu_item_id=csv_menu_item_id,
                     name=row.get('name'),
                     type=row.get('type'),
-                    description=parse_string(row.get('description')),  # Handle nullable description
+                    description=parse_string(row.get('description')),
                     price=parse_decimal(row.get('price')),
                     category=row.get('category'),
                     is_available=parse_boolean(row.get('is_available', 'true'))
@@ -387,40 +485,55 @@ def feed_menu_items(db: Session, data: dict) -> dict:
                 print(f"  Menu item already exists (duplicate), skipping: {row.get('name')}")
                 db.rollback()
                 if csv_menu_item_id:
-                    existing = db.query(MenuItems).filter(MenuItems.menu_item_id == csv_menu_item_id).first()
+                    existing = db.query(Menu).filter(Menu.menu_item_id == csv_menu_item_id).first()
                     if existing:
                         menu_items_map[row.get('menu_item_id')] = existing.menu_item_id
                 continue
             except Exception as e:
                 print(f"  Failed to add menu item {row.get('name')} (skipping): {e}")
                 db.rollback()
-                continue  # Continue instead of raise to allow other menu items to be inserted
+                continue
     return menu_items_map
 
 
-def feed_menu_ingredients(db: Session, data: dict, menu_items_map: dict, stock_map: dict):
-    """Feed menu ingredients data"""
-    if 'menu_ingredients' in data:
-        for row in data['menu_ingredients']:
+def feed_recipes(db: Session, data: dict, menu_items_map: dict, ingredients_map: dict, stock_map: dict = None):
+    """Feed recipe data - supports both new (ingredient_id) and legacy (stock_id) schemas"""
+    # Support both 'recipe' and 'menu_ingredients' table names
+    table_name = 'recipe' if 'recipe' in data else 'menu_ingredients'
+    if table_name in data:
+        for row in data[table_name]:
             try:
                 menu_item_id = menu_items_map.get(row.get('menu_item_id'), row.get('menu_item_id'))
-                stock_id = stock_map.get(row.get('stock_id'), row.get('stock_id'))
-                menu_ingredient = MenuIngredients(
+                
+                # New schema: ingredient_id column
+                if row.get('ingredient_id'):
+                    ingredient_id = ingredients_map.get(row.get('ingredient_id'), row.get('ingredient_id'))
+                # Legacy schema: stock_id -> need to find ingredient from stock
+                elif row.get('stock_id'):
+                    # Get ingredient_id from the stock_id mapping
+                    ingredient_id = ingredients_map.get(row.get('stock_id'))
+                    if not ingredient_id:
+                        print(f"  Skipping recipe: no ingredient mapping for stock_id={row.get('stock_id')}")
+                        continue
+                else:
+                    print(f"  Skipping recipe: no ingredient_id or stock_id")
+                    continue
+                
+                recipe = Recipe(
                     menu_item_id=parse_int(menu_item_id) if menu_item_id else None,
-                    stock_id=parse_int(stock_id) if stock_id else None,
-                    qty_per_unit=parse_decimal(row.get('qty_per_unit')),
-                    unit=row.get('unit')
+                    ingredient_id=parse_int(ingredient_id) if ingredient_id else None,
+                    qty_per_unit=parse_decimal(row.get('qty_per_unit'))
                 )
-                db.add(menu_ingredient)
-                print(f"  Added menu ingredient: menu_item_id={menu_item_id}, stock_id={stock_id}")
+                db.add(recipe)
+                print(f"  Added recipe: menu_item_id={menu_item_id}, ingredient_id={ingredient_id}")
             except IntegrityError as e:
-                print(f"  Menu ingredient already exists (duplicate), skipping: menu_item_id={menu_item_id}, stock_id={stock_id}")
+                print(f"  Recipe already exists (duplicate), skipping: menu_item_id={menu_item_id}")
                 db.rollback()
                 continue
             except Exception as e:
-                print(f"  Failed to add menu ingredient (skipping): {e}")
+                print(f"  Failed to add recipe (skipping): {e}")
                 db.rollback()
-                continue  # Continue instead of raise to allow other menu ingredients to be inserted
+                continue
 
 
 def feed_orders(db: Session, data: dict, branches_map: dict, employees_map: dict, memberships_map: dict, menu_items_map: dict) -> dict:
@@ -711,9 +824,15 @@ def feed_data_from_csv(csv_file: str, validate: bool = True):
         db.commit()
         
         print(f"\n{separator}")
+        print("Feeding Ingredients...")
+        print(separator)
+        ingredients_map = feed_ingredients(db, data)
+        db.commit()
+        
+        print(f"\n{separator}")
         print("Feeding Stock...")
         print(separator)
-        stock_map = feed_stock(db, data, branches_map)
+        stock_map = feed_stock(db, data, branches_map, ingredients_map)
         db.commit()
         
         print(f"\n{separator}")
@@ -723,9 +842,9 @@ def feed_data_from_csv(csv_file: str, validate: bool = True):
         db.commit()
         
         print(f"\n{separator}")
-        print("Feeding Menu Ingredients...")
+        print("Feeding Recipes...")
         print(separator)
-        feed_menu_ingredients(db, data, menu_items_map, stock_map)
+        feed_recipes(db, data, menu_items_map, ingredients_map, stock_map)
         db.commit()
         
         print(f"\n{separator}")
@@ -772,6 +891,44 @@ def feed_data_from_csv(csv_file: str, validate: bool = True):
         db.close()
 
 
+def reset_database(db: Session):
+    """Reset database by truncating all tables in correct order (respecting foreign keys)"""
+    print("\n🗑️  Resetting database (truncating all tables)...")
+    
+    # Tables in reverse dependency order (children first, then parents)
+    tables_to_truncate = [
+        "stock_movements",
+        "payments",
+        "order_items",
+        "orders",
+        "recipe",
+        "stock",
+        "ingredients",
+        "menu",
+        "employees",
+        "memberships",
+        "tiers",
+        "roles",
+        "branches",
+    ]
+    
+    try:
+        for table in tables_to_truncate:
+            try:
+                db.execute(text(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE"))
+                print(f"  ✓ Truncated {table}")
+            except Exception as e:
+                print(f"  ✗ Failed to truncate {table}: {e}")
+                db.rollback()
+        
+        db.commit()
+        print("✅ Database reset complete!\n")
+    except Exception as e:
+        print(f"❌ Error resetting database: {e}")
+        db.rollback()
+        raise
+
+
 if __name__ == "__main__":
     import argparse
     
@@ -779,7 +936,17 @@ if __name__ == "__main__":
     parser.add_argument('csv_file', help='Path to CSV file')
     parser.add_argument('--no-validate', action='store_true', 
                        help='Do not validate constraints (use for invalid data testing)')
+    parser.add_argument('--reset', action='store_true',
+                       help='Reset database (truncate all tables) before feeding data')
     
     args = parser.parse_args()
+    
+    # Handle reset before feeding
+    if args.reset:
+        db = SessionLocal()
+        try:
+            reset_database(db)
+        finally:
+            db.close()
     
     feed_data_from_csv(args.csv_file, validate=not args.no_validate)
