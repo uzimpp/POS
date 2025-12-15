@@ -43,6 +43,7 @@ export default function BranchDetailPage({
   // Fetch Branch Info (for title)
   const { data: branches } = useGetBranchesQuery();
   const branch = branches?.find((b) => b.branch_id === branchId);
+  const isBranchDeleted = !!branch?.is_deleted;
 
   return (
     <Layout>
@@ -103,12 +104,20 @@ export default function BranchDetailPage({
 
         {/* Content */}
         <div className="p-6">
+          {isBranchDeleted && (
+            <div className="mb-4 rounded-md border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+              This branch is deleted. All actions are disabled.
+            </div>
+          )}
           {activeTab === "employees" ? (
-            <EmployeeManager branchId={branchId} />
+            <EmployeeManager branchId={branchId} readOnly={isBranchDeleted} />
           ) : activeTab === "stock" ? (
-            <StockManager branchId={branchId} />
+            <StockManager branchId={branchId} readOnly={isBranchDeleted} />
           ) : (
-            <StockMovementsManager branchId={branchId} />
+            <StockMovementsManager
+              branchId={branchId}
+              readOnly={isBranchDeleted}
+            />
           )}
         </div>
       </div>
@@ -116,7 +125,13 @@ export default function BranchDetailPage({
   );
 }
 
-function EmployeeManager({ branchId }: { branchId: number }) {
+function EmployeeManager({
+  branchId,
+  readOnly,
+}: {
+  branchId: number;
+  readOnly: boolean;
+}) {
   const { data: employees, isLoading } = useGetEmployeesByBranchQuery(branchId);
   const { data: roles } = useGetRolesQuery();
   const [createEmployee] = useCreateEmployeeMutation();
@@ -142,6 +157,7 @@ function EmployeeManager({ branchId }: { branchId: number }) {
   });
 
   const handleOpenAdd = () => {
+    if (readOnly) return;
     setEditingEmployee(null);
     setFormData({
       branch_id: branchId,
@@ -155,6 +171,7 @@ function EmployeeManager({ branchId }: { branchId: number }) {
   };
 
   const handleOpenEdit = (emp: Employee) => {
+    if (readOnly) return;
     setEditingEmployee(emp);
     setFormData({
       branch_id: emp.branch_id || branchId, // fallback if missing
@@ -168,11 +185,13 @@ function EmployeeManager({ branchId }: { branchId: number }) {
   };
 
   const handleDeleteClick = (id: number) => {
+    if (readOnly) return;
     setEmployeeToDelete(id);
     setIsDeleteModalOpen(true);
   };
 
   const handleConfirmDelete = async () => {
+    if (readOnly) return;
     if (employeeToDelete !== null) {
       try {
         await deleteEmployee(employeeToDelete).unwrap();
@@ -187,6 +206,10 @@ function EmployeeManager({ branchId }: { branchId: number }) {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (readOnly) {
+      alert("This branch is deleted. Actions are disabled.");
+      return;
+    }
     try {
       if (editingEmployee) {
         await updateEmployee({
@@ -224,7 +247,12 @@ function EmployeeManager({ branchId }: { branchId: number }) {
           </label>
           <button
             onClick={handleOpenAdd}
-            className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
+            className={`px-3 py-1 rounded ${
+              readOnly
+                ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                : "bg-green-600 text-white hover:bg-green-700"
+            }`}
+            disabled={readOnly}
           >
             + Add Employee
           </button>
@@ -418,7 +446,13 @@ function EmployeeManager({ branchId }: { branchId: number }) {
   );
 }
 
-function StockManager({ branchId }: { branchId: number }) {
+function StockManager({
+  branchId,
+  readOnly,
+}: {
+  branchId: number;
+  readOnly: boolean;
+}) {
   const { data: stockItems, isLoading } = useGetStockByBranchQuery(branchId);
   const { data: ingredients } = useGetIngredientsQuery();
   const [createStock] = useCreateStockMutation();
@@ -437,6 +471,7 @@ function StockManager({ branchId }: { branchId: number }) {
   });
 
   const handleOpenAdd = () => {
+    if (readOnly) return;
     setFormData({
       branch_id: branchId,
       ingredient_id: 0,
@@ -446,11 +481,13 @@ function StockManager({ branchId }: { branchId: number }) {
   };
 
   const handleDeleteClick = (id: number) => {
+    if (readOnly) return;
     setStockToDelete(id);
     setIsDeleteModalOpen(true);
   };
 
   const handleConfirmDelete = async () => {
+    if (readOnly) return;
     if (stockToDelete !== null) {
       try {
         await deleteStock(stockToDelete).unwrap();
@@ -465,6 +502,10 @@ function StockManager({ branchId }: { branchId: number }) {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (readOnly) {
+      alert("This branch is deleted. Actions are disabled.");
+      return;
+    }
     try {
       await createStock(formData).unwrap();
       setIsModalOpen(false);
@@ -488,7 +529,12 @@ function StockManager({ branchId }: { branchId: number }) {
         </div>
         <button
           onClick={handleOpenAdd}
-          className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
+          className={`px-3 py-1 rounded ${
+            readOnly
+              ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+              : "bg-green-600 text-white hover:bg-green-700"
+          }`}
+          disabled={readOnly}
         >
           + Add Stock
         </button>
@@ -634,7 +680,13 @@ function StockManager({ branchId }: { branchId: number }) {
   );
 }
 
-function StockMovementsManager({ branchId }: { branchId: number }) {
+function StockMovementsManager({
+  branchId,
+  readOnly,
+}: {
+  branchId: number;
+  readOnly: boolean;
+}) {
   const { data: movements, isLoading } = useGetStockMovementsQuery({
     branch_id: branchId,
   });
@@ -653,6 +705,10 @@ function StockMovementsManager({ branchId }: { branchId: number }) {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (readOnly) {
+      alert("This branch is deleted. Actions are disabled.");
+      return;
+    }
     try {
       const parsedQty = parseFloat(qtyInput);
       if (isNaN(parsedQty)) {
@@ -724,7 +780,12 @@ function StockMovementsManager({ branchId }: { branchId: number }) {
               setQtyInput("0");
               setIsModalOpen(true);
             }}
-            className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
+            className={`px-3 py-1 rounded ${
+              readOnly
+                ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                : "bg-green-600 text-white hover:bg-green-700"
+            }`}
+            disabled={readOnly}
           >
             + Add Movement
           </button>
