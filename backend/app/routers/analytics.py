@@ -4,7 +4,7 @@ from sqlalchemy import func, case, desc
 from typing import List, Optional, Any
 from datetime import datetime, timedelta
 from app.database import get_db
-from app.models import Orders, OrderItems, Branches, Menu
+from app.models import Orders, OrderItems, Branches, Menu, Memberships, Tiers
 import math
 
 router = APIRouter(
@@ -243,3 +243,149 @@ def get_top_branches_volume(period: str = "today", db: Session = Depends(get_db)
     ).join(Branches).filter(date_filter).group_by(Branches.name).order_by(desc("value")).limit(5).all()
     
     return [{"name": r.name, "value": r.value} for r in results]
+
+@router.get("/membership-stats")
+def get_membership_stats(
+    period: str = "today",
+    db: Session = Depends(get_db)
+):
+    date_filter = get_date_filter(period)
+    
+    # 1. Total Memberships
+    total_members = db.query(func.count(Memberships.membership_id)).scalar()
+    
+    # 2. Total Tiers
+    total_tiers = db.query(func.count(Tiers.tier_id)).scalar()
+    
+    # 3. Membership Order Ratio (Member Orders / Total Orders * 100)
+    # Using period filter for this metric to show current trend
+    total_orders_period = db.query(func.count(Orders.order_id)).filter(date_filter).scalar() or 0
+    member_orders_period = db.query(func.count(Orders.order_id)).filter(
+        date_filter, 
+        Orders.membership_id.isnot(None)
+    ).scalar() or 0
+    
+    ratio = 0.0
+    if total_orders_period > 0:
+        ratio = (member_orders_period / total_orders_period) * 100
+        
+    return {
+        "total_members": total_members,
+        "total_tiers": total_tiers,
+        "start_tier_count": total_tiers, # Redundant but for completeness
+        "member_ratio": round(ratio, 1)
+    }
+
+@router.get("/acquisition-growth")
+def get_acquisition_growth(
+    period: str = "1year", # Default to 1 year trend
+    db: Session = Depends(get_db)
+):
+    # Cumulative growth
+    # For simplicity, let's group by Month for the last 12 months
+    
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=365)
+    
+    # Monthly acquisition count
+    results = db.query(
+        func.to_char(Memberships.joined_at, 'YYYY-MM').label("month"),
+        func.count(Memberships.membership_id).label("count")
+    ).filter(
+        Memberships.joined_at >= start_date
+    ).group_by("month").order_by("month").all()
+    
+    # Calculate cumulative
+    # We need total before start_date to start properly?
+    # Or just show growth during this period.
+    # Let's show cumulative count over this period starting from base?
+    # Actually, simpler: just return monthly new members for "Growth" check?
+    # User said: "Cumulative monthly".
+    
+    # Get total count BEFORE start_date
+    base_count = db.query(func.count(Memberships.membership_id)).filter(
+        Memberships.joined_at < start_date
+    ).scalar() or 0
+    
+    data = []
+    current_total = base_count
+    
+    # Fill in gaps? Assuming data is dense enough or sparse is fine.
+    # Ideally should generate all months.
+    
+    for r in results:
+        current_total += r.count
+        # Format month "2023-10" -> "Oct 2023"
+        month_obj = datetime.strptime(r.month, "%Y-%m")
+        month_name = month_obj.strftime("%b %Y")
+        data.append({
+            "name": month_name,
+            "value": current_total,
+            "new": r.count
+        })
+        
+    return data
+
+@router.get("/tier-distribution")
+def get_tier_distribution(db: Session = Depends(get_db)):
+    results = db.query(
+        Tiers.tier_name,
+        func.count(Memberships.membership_id).label("count")
+    ).join(
+        Memberships, Tiers.tier_id == Memberships.tier_id
+    ).group_by(Tiers.tier_name).all()
+    
+    return [
+        {"name": r.tier_name, "value": r.count}
+        for r in results
+    ]
+
+@router.get("/value-gap")
+def get_value_gap(
+    period: str = "today",
+    db: Session = Depends(get_db)
+):
+    date_filter = get_date_filter(period)
+    
+    # Avg Ticket Size Member
+    member_avg = db.query(func.avg(Orders.total_price)).filter(
+        date_filter,
+        Orders.membership_id.isnot(None),
+        Orders.status == 'PAID'
+    ).scalar() or 0
+    
+    # Avg Ticket Size Non-Member
+    non_member_avg = db.query(func.avg(Orders.total_price)).filter(
+        date_filter,
+        Orders.membership_id.is_(None),
+        Orders.status == 'PAID'
+    ).scalar() or 0
+    
+    return [
+        {"name": "Member", "value": float(round(member_avg, 2))},
+        {"name": "Guest", "value": float(round(non_member_avg, 2))}
+    ]
+
+@router.get("/revenue-by-tier")
+def get_revenue_by_tier(
+    period: str = "today",
+    db: Session = Depends(get_db)
+):
+    date_filter = get_date_filter(period)
+    
+    results = db.query(
+        Tiers.tier_name,
+        func.sum(Orders.total_price).label("revenue")
+    ).join(
+        Memberships, Orders.membership_id == Memberships.membership_id
+    ).join(
+        Tiers, Memberships.tier_id == Tiers.tier_id
+    ).filter(
+        date_filter,
+        Orders.status == 'PAID'
+    ).group_by(Tiers.tier_name).all()
+    
+    return [
+        {"name": r.tier_name, "value": float(r.revenue)}
+        for r in results
+    ]
