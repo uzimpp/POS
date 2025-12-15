@@ -4,7 +4,7 @@ from .database import engine, get_db
 from .models import Base
 from .routers import (
     roles, employees, memberships, tiers, stock, menu,
-    recipe, ingredients, orders, order_items, payments, branches, dashboard
+    recipe, ingredients, orders, order_items, payments, branches, dashboard, analytics
 )
 
 # Create tables
@@ -36,6 +36,7 @@ app.include_router(order_items.router)
 app.include_router(payments.router)
 app.include_router(branches.router)
 app.include_router(dashboard.router)
+app.include_router(analytics.router)
 
 
 @app.get("/")

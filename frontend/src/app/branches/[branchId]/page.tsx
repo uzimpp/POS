@@ -27,6 +27,7 @@ import { useGetIngredientsQuery } from "@/store/api/ingredientsApi";
 import { useGetRolesQuery } from "@/store/api/rolesApi";
 
 import { ConfirmModal } from "@/components/modals";
+import DashboardOverview from "@/components/dashboard/DashboardOverview";
 
 export default function BranchDetailPage({
   params,
@@ -37,8 +38,8 @@ export default function BranchDetailPage({
   const branchId = parseInt(resolvedParams.branchId);
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<
-    "employees" | "stock" | "movements"
-  >("employees");
+    "overview" | "employees" | "stock" | "movements"
+  >("overview");
 
   // Fetch Branch Info (for title)
   const { data: branches } = useGetBranchesQuery();
@@ -69,6 +70,16 @@ export default function BranchDetailPage({
             </div>
           </div>
           <div className="flex space-x-2">
+            <button
+              onClick={() => setActiveTab("overview")}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === "overview"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              }`}
+            >
+              Overview
+            </button>
             <button
               onClick={() => setActiveTab("employees")}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -109,7 +120,9 @@ export default function BranchDetailPage({
               This branch is deleted. All actions are disabled.
             </div>
           )}
-          {activeTab === "employees" ? (
+          {activeTab === "overview" ? (
+            <DashboardOverview branchId={branchId} />
+          ) : activeTab === "employees" ? (
             <EmployeeManager branchId={branchId} readOnly={isBranchDeleted} />
           ) : activeTab === "stock" ? (
             <StockManager branchId={branchId} readOnly={isBranchDeleted} />

@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from .database import SessionLocal, engine
 from .models import (
     Roles, Employees, Memberships, Menu, Stock, Recipe, Ingredients,
@@ -52,11 +53,11 @@ def seed_database():
         # BRANCHES (Multiple locations)
         # =====================
         branches_data = [
-            {"name": "สาขาสยาม (Siam)", "address": "123 Siam Square, Pathumwan, Bangkok 10330",
+            {"name": "Siam Branch", "address": "123 Siam Square, Pathumwan, Bangkok 10330",
              "phone": "021234567", "is_deleted": False},
-            {"name": "สาขาทองหล่อ (Thonglor)", "address": "88 Sukhumvit 55, Watthana, Bangkok 10110",
+            {"name": "Thonglor Branch", "address": "88 Sukhumvit 55, Watthana, Bangkok 10110",
              "phone": "022345678", "is_deleted": False},
-            {"name": "สาขาเซ็นทรัลเวิลด์ (CentralWorld)", "address": "4th Floor, CentralWorld, Ratchadamri Rd, Bangkok 10330",
+            {"name": "CentralWorld Branch", "address": "4th Floor, CentralWorld, Ratchadamri Rd, Bangkok 10330",
              "phone": "023456789", "is_deleted": False},
         ]
         branches = []
@@ -94,10 +95,10 @@ def seed_database():
         # =====================
         # EMPLOYEES (Multiple per branch)
         # =====================
-        thai_first_names = ["สมชาย", "สมหญิง", "นิรันดร์", "พิมพ์", "อรุณ", "กมล", "วิชัย", "สุภา", "ธนา", "ปราณี",
-                            "สุรชัย", "นภา", "ชาติชาย", "รัตนา", "ประสิทธิ์", "วราภรณ์", "สมศักดิ์", "จันทร์"]
-        thai_last_names = ["ตันติ", "วงศ์", "สุขใจ", "ลี", "จันทร์", "พงษ์", "ศรี", "แก้ว", "ทอง", "สว่าง",
-                           "เจริญ", "อุดม", "มั่งมี", "รุ่งเรือง", "สมบูรณ์"]
+        first_names = ["James", "Sarah", "Michael", "Emily", "David", "Jessica", "Robert", "Amanda", "John", "Lisa",
+                       "William", "Jennifer", "Richard", "Michelle", "Joseph", "Ashley", "Thomas", "Melissa", "Charles", "Nicole"]
+        last_names = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez",
+                      "Hernandez", "Lopez", "Wilson", "Anderson", "Thomas", "Taylor", "Moore", "Jackson", "Martin", "Lee"]
 
         employees = []
         employee_configs = [
@@ -127,8 +128,8 @@ def seed_database():
         ]
 
         for i, (branch, role, salary) in enumerate(employee_configs):
-            first_name = random.choice(thai_first_names)
-            last_name = random.choice(thai_last_names)
+            first_name = random.choice(first_names)
+            last_name = random.choice(last_names)
             emp = Employees(
                 branch_id=branch.branch_id,
                 role_id=role.role_id,
@@ -417,25 +418,25 @@ def seed_database():
         # MEMBERSHIPS
         # =====================
         memberships_data = [
-            {"name": "Somchai Tanaka", "phone": "0812345678", "email": "somchai@email.com",
+            {"name": "John Smith", "phone": "0812345678", "email": "john.smith@email.com",
                 "points_balance": 1500, "tier_id": tier_dict["Platinum"].tier_id},
-            {"name": "Nisa Wongsawat", "phone": "0823456789", "email": "nisa@email.com",
+            {"name": "Sarah Johnson", "phone": "0823456789", "email": "sarah.johnson@email.com",
                 "points_balance": 850, "tier_id": tier_dict["Gold"].tier_id},
-            {"name": "Prasit Jaidee", "phone": "0834567890", "email": "prasit@email.com",
+            {"name": "Michael Williams", "phone": "0834567890", "email": "michael.williams@email.com",
                 "points_balance": 420, "tier_id": tier_dict["Silver"].tier_id},
-            {"name": "Waraporn Chen", "phone": "0845678901", "email": "waraporn@email.com",
+            {"name": "Emily Brown", "phone": "0845678901", "email": "emily.brown@email.com",
                 "points_balance": 2100, "tier_id": tier_dict["Platinum"].tier_id},
-            {"name": "Kittisak Phongphan", "phone": "0856789012", "email": "kittisak@email.com",
+            {"name": "David Jones", "phone": "0856789012", "email": "david.jones@email.com",
                 "points_balance": 180, "tier_id": tier_dict["Bronze"].tier_id},
-            {"name": "Siriporn Lee", "phone": "0867890123", "email": "siriporn@email.com",
+            {"name": "Jessica Garcia", "phone": "0867890123", "email": "jessica.garcia@email.com",
                 "points_balance": 650, "tier_id": tier_dict["Gold"].tier_id},
-            {"name": "Anong Sukjai", "phone": "0878901234", "email": "anong@email.com",
+            {"name": "Robert Miller", "phone": "0878901234", "email": "robert.miller@email.com",
                 "points_balance": 90, "tier_id": tier_dict["Bronze"].tier_id},
-            {"name": "Chaiwat Ruengrit", "phone": "0889012345", "email": "chaiwat@email.com",
+            {"name": "Amanda Davis", "phone": "0889012345", "email": "amanda.davis@email.com",
                 "points_balance": 320, "tier_id": tier_dict["Silver"].tier_id},
-            {"name": "Malai Thongchai", "phone": "0890123456", "email": "malai@email.com",
+            {"name": "Thomas Rodriguez", "phone": "0890123456", "email": "thomas.rodriguez@email.com",
                 "points_balance": 1100, "tier_id": tier_dict["Gold"].tier_id},
-            {"name": "Pornthip Srisuwan", "phone": "0901234567", "email": "pornthip@email.com",
+            {"name": "Lisa Martinez", "phone": "0901234567", "email": "lisa.martinez@email.com",
                 "points_balance": 50, "tier_id": tier_dict["Bronze"].tier_id},
         ]
         memberships = []
@@ -695,6 +696,43 @@ def seed_database():
         db.commit()
         print(
             f"✓ Seeded {orders_created} Orders with {payments_created} Payments")
+
+        # =====================
+        # FIX SEQUENCES (Critical: Reset sequences to match max IDs)
+        # This prevents "duplicate key" errors when creating new records
+        # =====================
+        print("\n🔧 Fixing PostgreSQL sequences...")
+        sequences_to_fix = [
+            ("orders", "order_id", "orders_order_id_seq"),
+            ("order_items", "order_item_id", "order_items_order_item_id_seq"),
+            ("payments", "payment_id", "payments_payment_id_seq"),
+            ("employees", "employee_id", "employees_employee_id_seq"),
+            ("branches", "branch_id", "branches_branch_id_seq"),
+            ("memberships", "membership_id", "memberships_membership_id_seq"),
+            ("menu", "menu_item_id", "menu_menu_item_id_seq"),
+            ("ingredients", "ingredient_id", "ingredients_ingredient_id_seq"),
+            ("stock", "stock_id", "stock_stock_id_seq"),
+            ("stock_movements", "movement_id", "stock_movements_movement_id_seq"),
+            ("roles", "role_id", "roles_role_id_seq"),
+            ("tiers", "tier_id", "tiers_tier_id_seq"),
+        ]
+
+        for table_name, id_column, sequence_name in sequences_to_fix:
+            try:
+                # Get the current max ID from the table
+                result = db.execute(
+                    text(f"SELECT COALESCE(MAX({id_column}), 0) FROM {table_name}"))
+                max_id = result.scalar()
+
+                # Set the sequence to max_id + 1 (so next insert gets max_id + 1)
+                db.execute(
+                    text(f"SELECT setval('{sequence_name}', {max_id + 1}, false)"))
+                db.commit()
+                print(
+                    f"  ✓ Fixed {sequence_name} (max ID: {max_id}, sequence set to: {max_id + 1})")
+            except Exception as e:
+                db.rollback()
+                print(f"  ⚠️  Warning: Could not fix {sequence_name}: {e}")
 
         print("\n" + "="*50)
         print("✅ Database seeded successfully!")

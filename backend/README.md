@@ -77,6 +77,17 @@ backend/
    python -m app.init_db
    ```
 
+5. Seed the database with sample data:
+   ```bash
+   python -m app.seed
+   ```
+   
+   The seed script will:
+   - Create sample data for all tables (branches, employees, menu items, orders, etc.)
+   - Use English names for all entities
+   - Automatically fix PostgreSQL sequences to prevent duplicate key errors
+   - Display a summary of seeded data
+
 ## Running the Server
 
 ### Development Mode
@@ -93,7 +104,11 @@ The API will be available at:
 ### Using Docker
 
 ```bash
+# Start backend service
 docker-compose up backend
+
+# Seed database (run in another terminal)
+docker-compose exec backend python -m app.seed
 ```
 
 ## API Endpoints
@@ -151,11 +166,13 @@ All endpoints are prefixed with `/api`:
 - `DELETE /api/menu-ingredients/{id}` - Delete menu ingredient
 
 ### Orders
-- `GET /api/orders` - Get all orders
+- `GET /api/orders` - Get all orders (with filtering by status, type, branch, employee, etc.)
 - `GET /api/orders/{id}` - Get order by ID
-- `POST /api/orders` - Create new order
+- `POST /api/orders` - Create new order with items
+- `POST /api/orders/empty` - Create empty order (for order-taking flow)
 - `PUT /api/orders/{id}` - Update order
-- `DELETE /api/orders/{id}` - Delete order
+- `PUT /api/orders/{id}/cancel` - Cancel an order
+- `PUT /api/orders/{id}/membership` - Update order membership
 
 ### Order Items
 - `GET /api/order-items` - Get all order items
@@ -217,6 +234,38 @@ Follow PEP 8 style guidelines. Consider using:
 - `black` for code formatting
 - `flake8` or `pylint` for linting
 - `mypy` for type checking
+
+## Seed Script
+
+The `seed.py` script creates comprehensive sample data:
+
+- **Branches**: 3 locations (Siam, Thonglor, CentralWorld)
+- **Employees**: 18 employees across all branches
+- **Menu Items**: 25+ items including main dishes, sets, add-ons, and drinks
+- **Ingredients & Stock**: 50+ ingredients with per-branch inventory
+- **Memberships**: 10 members with tier-based rewards
+- **Orders**: 100+ historical orders for analytics
+- **All data uses English names**
+
+**Important**: The seed script automatically fixes PostgreSQL sequences after seeding. If you encounter "duplicate key" errors after manual data insertion, you can re-run the seed script or manually fix sequences using SQL:
+
+```sql
+SELECT setval('orders_order_id_seq', COALESCE((SELECT MAX(order_id) FROM orders), 0) + 1, false);
+```
+
+## Troubleshooting
+
+### Duplicate Key Errors
+
+If you see errors like `duplicate key value violates unique constraint "orders_pkey"`, the PostgreSQL sequence is out of sync. This is automatically fixed by the seed script, but if you've inserted data manually, you may need to reset sequences:
+
+```bash
+# Re-run seed script (will clear and re-seed all data)
+python -m app.seed
+
+# Or fix sequences manually via SQL
+psql -U posuser -d posdb -c "SELECT setval('orders_order_id_seq', COALESCE((SELECT MAX(order_id) FROM orders), 0) + 1, false);"
+```
 
 ## Environment Variables
 
