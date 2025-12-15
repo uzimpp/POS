@@ -639,7 +639,8 @@ def get_inventory_levels(db: Session = Depends(get_db)):
     return sorted_data
 
 @router.get("/inventory-activity")
-def get_inventory_activity(period: str = "30days", db: Session = Depends(get_db)):
+def get_inventory_activity(period: str = "365days", db: Session = Depends(get_db)):
+    # Defaulting to 365 days to capture older test data
     start_date, _ = get_date_range(period)
     
     results = db.query(
@@ -653,7 +654,7 @@ def get_inventory_activity(period: str = "30days", db: Session = Depends(get_db)
 @router.get("/inventory-flow")
 def get_inventory_flow(db: Session = Depends(get_db)):
     end_date = datetime.now()
-    start_date = end_date - timedelta(weeks=8)
+    start_date = end_date - timedelta(weeks=52) # Increased to 52 weeks for test data
     
     movements = db.query(
         StockMovements.created_at,
@@ -688,7 +689,7 @@ def get_inventory_flow(db: Session = Depends(get_db)):
 @router.get("/waste-trend")
 def get_waste_trend(db: Session = Depends(get_db)):
     end_date = datetime.now()
-    start_date = end_date - timedelta(days=180)
+    start_date = end_date - timedelta(days=365) # Increased to 365 days
     
     movements = db.query(
         StockMovements.created_at,

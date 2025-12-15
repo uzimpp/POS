@@ -88,7 +88,7 @@ def generate_valid_csv(filename="data_valid.csv", num_branches=4, num_roles=5, n
     
     # Date ranges for random generation
     start_date = datetime(2020, 1, 1)
-    end_date = datetime(2025, 12, 31)
+    end_date = datetime(2026, 12, 31)
     
     # Branches
     branch_rows = ["branch_id,name,address,phone,is_active"]
@@ -281,7 +281,7 @@ def generate_valid_csv(filename="data_valid.csv", num_branches=4, num_roles=5, n
             initial_qty = random.randint(5000, 20000)
             current_amount += initial_qty
             
-            created_at_base = datetime(2024, 1, 1, 9, 0, 0)
+            created_at_base = datetime(2025, 1, 1, 9, 0, 0)
             
             # Stock Movement for Initial Restock
             stock_movement_rows.append(f"{stock_id},{1},,{initial_qty},RESTOCK,Initial Stock,{created_at_base.strftime('%Y-%m-%d %H:%M:%S')}")
@@ -377,7 +377,7 @@ def generate_valid_csv(filename="data_valid.csv", num_branches=4, num_roles=5, n
     order_item_rows = ["order_id,menu_item_id,quantity,unit_price,line_total,status"]
     payment_rows = ["order_id,paid_price,points_used,payment_method,payment_ref,paid_timestamp"]
     
-    order_date_start = datetime(2024, 3, 1)
+    order_date_start = datetime(2025, 1, 1)
     order_date_end = datetime(2025, 12, 31)
 
     for i in range(1, num_orders + 1):

@@ -31,7 +31,7 @@ export default function ActivityBreakdownChart() {
         async function fetchData() {
             setLoading(true);
             try {
-                const res = await fetch("http://localhost:8000/api/analytics/inventory-activity?period=30days");
+                const res = await fetch("http://localhost:8000/api/analytics/inventory-activity");
                 if (!res.ok) throw new Error("Failed");
                 const json = await res.json();
                 setData(json);
@@ -56,7 +56,7 @@ export default function ActivityBreakdownChart() {
                     </span>
                     Activity Breakdown
                 </h3>
-                <p className="text-slate-500 text-sm ml-9">Stock movement reasons (Last 30 Days)</p>
+                <p className="text-slate-500 text-sm ml-9">Stock movement reasons (Last Year)</p>
             </div>
 
             <div className="flex-1 min-h-[300px] relative">
