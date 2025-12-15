@@ -89,7 +89,8 @@ class Tiers(Base):
 class Memberships(Base):
     __tablename__ = "memberships"
     __table_args__ = (
-        CheckConstraint('LENGTH(phone) >= 9 AND LENGTH(phone) <= 10', name='phone_length_check'),
+        CheckConstraint(
+            'LENGTH(phone) >= 9 AND LENGTH(phone) <= 10', name='phone_length_check'),
     )
 
     membership_id = Column(Integer, primary_key=True, index=True)
