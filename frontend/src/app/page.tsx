@@ -213,9 +213,25 @@ export default function Home() {
   return (
     <Layout>
       <div className="pb-8">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
-          <p className="text-gray-600 mt-2">Overview of your POS system</p>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800 tracking-tight">Dashboard</h1>
+            <p className="text-slate-500 mt-1">Overview of your POS system</p>
+          </div>
+
+          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 max-w-sm backdrop-blur-sm bg-white/80">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600 hidden sm:block">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-slate-800">Welcome to POS System</h2>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                  Managing your curry rice restaurant has never been easier.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
         <DashboardStats />
@@ -233,17 +249,6 @@ export default function Home() {
           <div className="lg:col-span-1 h-full">
             <MembershipChart />
           </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-          <h2 className="text-xl font-semibold mb-4 text-gray-800">
-            Welcome to POS System
-          </h2>
-          <p className="text-gray-600">
-            This is a Point of Sale system for managing a curry rice restaurant.
-            Use the sidebar navigation to access different sections of the
-            system.
-          </p>
         </div>
       </div>
     </Layout>
