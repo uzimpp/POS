@@ -411,7 +411,8 @@ export default function MembershipsPage() {
                     typeof detail === "string" &&
                     detail.toLowerCase().includes("phone")
                   ) {
-                    setPhoneError("This phone number has already been used");
+                    // Show the exact backend error message for phone conflicts
+                    setPhoneError(detail);
                   } else {
                     alert(
                       typeof detail === "string"
@@ -574,7 +575,8 @@ export default function MembershipsPage() {
                       typeof detail === "string" &&
                       detail.toLowerCase().includes("phone")
                     ) {
-                      setPhoneError("This phone number has already been used");
+                      // Show the exact backend error message for phone conflicts
+                      setPhoneError(detail);
                     } else {
                       alert(
                         typeof detail === "string"
