@@ -7,6 +7,7 @@ import {
   useGetPaymentStatsQuery,
   PaymentFilters,
 } from "@/store/api/paymentsApi";
+import Link from "next/link";
 
 export default function PaymentPage() {
   const currentYear = new Date().getFullYear();
@@ -144,9 +145,19 @@ export default function PaymentPage() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-gray-800">Payments</h1>
-              <p className="text-gray-600 mt-2">
-                View and manage payment records
-              </p>
+              <div className="flex items-center gap-3 mt-2">
+                <p className="text-gray-600">
+                  View and manage payment records
+                </p>
+                <div className="h-4 w-px bg-gray-300"></div>
+                <Link
+                  href="/payment-analytics"
+                  className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                  Overview
+                </Link>
+              </div>
             </div>
             {hasActiveFilters && (
               <button

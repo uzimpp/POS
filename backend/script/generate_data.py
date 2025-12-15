@@ -416,7 +416,8 @@ def generate_valid_csv(filename="data_valid.csv", num_branches=4, num_roles=5, n
         if status == "PAID":
             # Amount must match total_price
             paid_timestamp = (created_at_dt + timedelta(minutes=random.randint(5, 60))).strftime("%Y-%m-%d %H:%M:%S")
-            payment_rows.append(f"{i},{calculated_total:.2f},0,CASH,,{paid_timestamp}")
+            payment_method = random.choice(VALID_PAYMENT_METHODS)
+            payment_rows.append(f"{i},{calculated_total:.2f},0,{payment_method},,{paid_timestamp}")
 
     data_sections.append(("#orders", order_rows))
     data_sections.append(("#order_items", order_item_rows))

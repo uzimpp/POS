@@ -4,7 +4,7 @@ from sqlalchemy import func, case, desc
 from typing import List, Optional, Any
 from datetime import datetime, timedelta
 from app.database import get_db
-from app.models import Orders, OrderItems, Branches, Menu, Memberships, Tiers, Employees, Roles, StockMovements, Stock, Ingredients
+from app.models import Orders, OrderItems, Branches, Menu, Memberships, Tiers, Employees, Roles, StockMovements, Stock, Ingredients, Payments
 import math
 
 router = APIRouter(
@@ -715,3 +715,197 @@ def get_waste_trend(db: Session = Depends(get_db)):
         del d["full_date"]
         
     return data
+
+@router.get("/payment-stats")
+def get_payment_stats(
+    period: str = Query("30days", regex="^(today|7days|30days|1year)$"),
+    db: Session = Depends(get_db)
+):
+    start, now = get_date_range(period)
+    
+    # 1. Realized Revenue (Sum of Payments.paid_price)
+    # We filter by Orders date for consistency with the period
+    revenue = db.query(func.sum(Payments.paid_price)).join(
+        Orders, Payments.order_id == Orders.order_id
+    ).filter(
+        Orders.created_at >= start,
+        Orders.created_at <= now,
+        Orders.status == 'PAID' # Redundant but safe
+    ).scalar() or 0
+    
+    # 2. Paid Orders Count (for ATV)
+    paid_count = db.query(func.count(Orders.order_id)).filter(
+        Orders.created_at >= start,
+        Orders.created_at <= now,
+        Orders.status == 'PAID'
+    ).scalar() or 0
+    
+    # 3. ATV
+    atv = revenue / paid_count if paid_count > 0 else 0
+    
+    # 4. Total Orders (for Cancellation Rate)
+    total_count = db.query(func.count(Orders.order_id)).filter(
+        Orders.created_at >= start,
+        Orders.created_at <= now
+    ).scalar() or 0
+    
+    # 5. Cancelled Count
+    cancelled_count = db.query(func.count(Orders.order_id)).filter(
+        Orders.created_at >= start,
+        Orders.created_at <= now,
+        Orders.status == 'CANCELLED'
+    ).scalar() or 0
+    
+    # 6. Cancellation Rate
+    cancel_rate = (cancelled_count / total_count * 100) if total_count > 0 else 0
+    
+    # 7. Lost Revenue (Sum of potential total_price of Cancelled orders)
+    lost_revenue = db.query(func.sum(Orders.total_price)).filter(
+        Orders.created_at >= start,
+        Orders.created_at <= now,
+        Orders.status == 'CANCELLED'
+    ).scalar() or 0
+    
+    return {
+        "realized_revenue": float(revenue),
+        "atv": float(atv),
+        "cancellation_rate": float(cancel_rate),
+        "lost_revenue": float(lost_revenue),
+        "paid_count": paid_count,
+        "cancelled_count": cancelled_count,
+        "total_count": total_count
+    }
+
+@router.get("/payment-method-share")
+def get_payment_method_share(
+    period: str = Query("30days", regex="^(today|7days|30days|1year)$"),
+    db: Session = Depends(get_db)
+):
+    start, now = get_date_range(period)
+    
+    # Group by payment method, sum paid_price
+    results = db.query(
+        Payments.payment_method,
+        func.sum(Payments.paid_price).label("value")
+    ).join(
+        Orders, Payments.order_id == Orders.order_id
+    ).filter(
+        Orders.created_at >= start,
+        Orders.created_at <= now
+    ).group_by(Payments.payment_method).all()
+    
+    return [{"name": r.payment_method, "value": float(r.value or 0)} for r in results]
+
+@router.get("/atv-by-method")
+def get_atv_by_method(
+    period: str = Query("30days", regex="^(today|7days|30days|1year)$"),
+    db: Session = Depends(get_db)
+):
+    start, now = get_date_range(period)
+    
+    # Group by payment method, avg paid_price (or sum/count)
+    # Using AVG(paid_price) per transaction
+    results = db.query(
+        Payments.payment_method,
+        func.avg(Payments.paid_price).label("value")
+    ).join(
+        Orders, Payments.order_id == Orders.order_id
+    ).filter(
+        Orders.created_at >= start,
+        Orders.created_at <= now
+    ).group_by(Payments.payment_method).all()
+    
+    return [{"name": r.payment_method, "value": float(r.value or 0)} for r in results]
+
+@router.get("/branch-payment-profile")
+def get_branch_payment_profile(
+    period: str = Query("30days", regex="^(today|7days|30days|1year)$"),
+    db: Session = Depends(get_db)
+):
+    start, now = get_date_range(period)
+    
+    # We want: Branch Name, then columns for each Payment Method
+    # result: [{name: "Branch A", CASH: 100, CARD: 50}, ...]
+    
+    # Query: BranchName, PaymentMethod, Count (or Sum Amount? Brief says "Profile" -> usually mix or share. Stacked bar usually % or value.)
+    # "Sadsouan kan chamra ngern" -> Proportion. Let's return Total Value per Method per Branch.
+    
+    results = db.query(
+        Branches.name.label("branch_name"),
+        Payments.payment_method,
+        func.sum(Payments.paid_price).label("total_value")
+    ).join(
+        Orders, Branches.branch_id == Orders.branch_id
+    ).join(
+        Payments, Orders.order_id == Payments.order_id
+    ).filter(
+        Orders.created_at >= start,
+        Orders.created_at <= now
+    ).group_by(Branches.name, Payments.payment_method).all()
+    
+    # Transform to pivot structure
+    profile_map = {}
+    for r in results:
+        b_name = r.branch_name
+        if b_name not in profile_map:
+            profile_map[b_name] = {"name": b_name}
+        profile_map[b_name][r.payment_method] = float(r.total_value or 0)
+        
+    return list(profile_map.values())
+
+@router.get("/revenue-stream")
+def get_revenue_stream(
+    period: str = Query("30days", regex="^(today|7days|30days|1year)$"),
+    db: Session = Depends(get_db)
+):
+    start, now = get_date_range(period)
+    
+    # Daily revenue by payment method
+    # Group by Date(created_at), PaymentMethod
+    
+    # SQLite uses strftime
+    date_col = func.date(Orders.created_at)
+    
+    results = db.query(
+        date_col.label("date"),
+        Payments.payment_method,
+        func.sum(Payments.paid_price).label("daily_total")
+    ).join(
+        Orders, Payments.order_id == Orders.order_id
+    ).filter(
+        Orders.created_at >= start,
+        Orders.created_at <= now
+    ).group_by(date_col, Payments.payment_method).order_by(date_col).all()
+    
+    # Pivot: [{date: "2023-01-01", CASH: 100, CARD: 0}, ...]
+    stream_map = {}
+    
+    # Initialize map with all dates in range? 
+    # Or just return sparse data and let frontend handle? 
+    # Frontend AreaChart (Recharts) handles it better if we have continuous data, 
+    # but for simplicity, let's just return what we have. Recharts might gap if missing.
+    # Ideally we backfill zeros.
+    
+    # First, collect all unique methods and dates
+    all_methods = set()
+    
+    for r in results:
+        d_str = str(r.date)
+        if d_str not in stream_map:
+            stream_map[d_str] = {"date": d_str}
+        
+        stream_map[d_str][r.payment_method] = float(r.daily_total or 0)
+        all_methods.add(r.payment_method)
+        
+    # Fill missing methods with 0 (optional but good for stacked area)
+    final_list = []
+    sorted_dates = sorted(stream_map.keys())
+    
+    for d in sorted_dates:
+        obj = stream_map[d]
+        for m in all_methods:
+            if m not in obj:
+                obj[m] = 0
+        final_list.append(obj)
+        
+    return final_list
