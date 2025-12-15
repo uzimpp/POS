@@ -33,7 +33,8 @@ export default function TopBranchesEmployeeChart() {
                 const res = await fetch("http://localhost:8000/api/analytics/employees-by-branch");
                 if (!res.ok) throw new Error("Failed");
                 const json = await res.json();
-                setData(json);
+                const sorted = json.sort((a: BranchData, b: BranchData) => b.value - a.value);
+                setData(sorted);
             } catch (e) {
                 console.error(e);
             } finally {

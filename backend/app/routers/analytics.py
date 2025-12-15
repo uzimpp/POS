@@ -401,31 +401,7 @@ def get_top_sales_employees(period: str = "30days", db: Session = Depends(get_db
         for r in results
     ]
 
-@router.get("/top-waste-employees")
-def get_top_waste_employees(period: str = "30days", db: Session = Depends(get_db)):
-    start_date, _ = get_date_range(period)
-    
-    # Assuming StockMovements.reason == 'WASTE'
-    # qty_change is usually negative for waste, so we sum ABS or sum and negate
-    # Let's sum ABS(qty_change)
-    
-    results = db.query(
-        Employees.first_name,
-        Employees.last_name,
-        func.sum(func.abs(StockMovements.qty_change)).label("waste_qty")
-    ).join(StockMovements, Employees.employee_id == StockMovements.employee_id)\
-     .filter(
-         StockMovements.created_at >= start_date, 
-         StockMovements.reason == 'WASTE'
-     )\
-     .group_by(Employees.employee_id, Employees.first_name, Employees.last_name)\
-     .order_by(func.sum(func.abs(StockMovements.qty_change)).desc())\
-     .limit(10).all()
-     
-    return [
-        {"name": f"{r.first_name} {r.last_name}", "value": r.waste_qty}
-        for r in results
-    ]
+
 
 @router.get("/efficiency-matrix")
 def get_efficiency_matrix(period: str = "30days", db: Session = Depends(get_db)):

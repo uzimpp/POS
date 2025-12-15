@@ -78,7 +78,7 @@ export default function RainmakersChart() {
                     </div>
                 )}
                 <ResponsiveContainer width="100%" height="100%">
-                    <BarChart layout="vertical" data={data} margin={{ top: 5, right: 30, left: 40, bottom: 5 }} barSize={20}>
+                    <BarChart layout="vertical" data={data} margin={{ top: 5, right: 30, left: 40, bottom: 20 }} barSize={20}>
                         <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
                         <XAxis type="number" hide />
                         <YAxis

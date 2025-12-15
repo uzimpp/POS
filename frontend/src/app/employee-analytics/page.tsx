@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Layout } from "@/components/layout";
 import RainmakersChart from "@/components/analytics/employee/RainmakersChart";
-import WasteMakersChart from "@/components/analytics/employee/WasteMakersChart";
 import EfficiencyMatrixChart from "@/components/analytics/employee/EfficiencyMatrixChart";
 import LoyaltyCheckChart from "@/components/analytics/employee/LoyaltyCheckChart";
 import TopRolesChart from "@/components/analytics/employee/TopRolesChart";
@@ -141,15 +140,10 @@ export default function EmployeeAnalyticsPage() {
                 </div>
 
                 {/* Charts Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <div className="grid grid-cols-1 mb-6">
                     {/* Top Sales - The Rainmakers */}
                     <div className="h-[400px]">
                         <RainmakersChart />
-                    </div>
-
-                    {/* Top Waste - The Waste Makers */}
-                    <div className="h-[400px]">
-                        <WasteMakersChart />
                     </div>
                 </div>
 

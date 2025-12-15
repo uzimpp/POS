@@ -33,7 +33,8 @@ export default function TopRolesChart() {
                 const res = await fetch("http://localhost:8000/api/analytics/employees-by-role");
                 if (!res.ok) throw new Error("Failed");
                 const json = await res.json();
-                setData(json);
+                const sorted = json.sort((a: RoleData, b: RoleData) => b.value - a.value);
+                setData(sorted);
             } catch (e) {
                 console.error(e);
             } finally {

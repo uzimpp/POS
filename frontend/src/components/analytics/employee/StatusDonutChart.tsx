@@ -13,6 +13,16 @@ const COLORS = ["#10b981", "#ef4444"]; // Emerald for Active, Red for Inactive
 export default function StatusDonutChart() {
     const [data, setData] = useState<StatusData[]>([]);
     const [loading, setLoading] = useState(true);
+    const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
+    const [totalEmployees, setTotalEmployees] = useState(0);
+
+    const onPieEnter = (_: any, index: number) => {
+        setActiveIndex(index);
+    };
+
+    const onPieLeave = () => {
+        setActiveIndex(undefined);
+    };
 
     useEffect(() => {
         async function fetchData() {
@@ -30,6 +40,7 @@ export default function StatusDonutChart() {
                     { name: "Inactive", value: json.inactive_employees }
                 ];
                 setData(chartData);
+                setTotalEmployees(json.active_employees + json.inactive_employees);
             } catch (e) {
                 console.error(e);
             } finally {
@@ -46,7 +57,7 @@ export default function StatusDonutChart() {
                     <h3 className="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
                         <span className="p-1.5 bg-slate-100 text-slate-600 rounded-lg">
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126.1283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                             </svg>
                         </span>
                         Workforce Status
@@ -55,12 +66,23 @@ export default function StatusDonutChart() {
                 </div>
             </div>
 
-            <div className="flex-1 min-h-[250px] relative z-10">
+            <div className="flex-1 min-h-[250px] relative z-10 flex items-center justify-center">
                 {loading && (
                     <div className="absolute inset-0 flex items-center justify-center bg-white/50 backdrop-blur-sm z-20 rounded-xl">
                         <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-500 rounded-full animate-spin" />
                     </div>
                 )}
+
+                {/* Central Text Overlay */}
+                <div
+                    className={`absolute inset-0 flex items-center justify-center pb-8 pointer-events-none z-0 transition-opacity duration-200 ${activeIndex !== undefined ? 'opacity-0' : 'opacity-100'}`}
+                >
+                    <div className="text-center">
+                        <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Total</p>
+                        <p className="text-slate-800 text-xl font-bold">{totalEmployees}</p>
+                    </div>
+                </div>
+
                 <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                         <Pie
@@ -71,6 +93,12 @@ export default function StatusDonutChart() {
                             outerRadius={80}
                             paddingAngle={5}
                             dataKey="value"
+                            onMouseEnter={onPieEnter}
+                            onMouseLeave={onPieLeave}
+                            // @ts-ignore
+                            activeIndex={activeIndex}
+                            label={({ name, percent }: { name: string, percent?: number }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                            labelLine={false}
                         >
                             {data.map((entry, index) => (
                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />
