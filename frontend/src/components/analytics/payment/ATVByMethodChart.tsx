@@ -12,7 +12,8 @@ import {
     Cell,
 } from "recharts";
 
-const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
+// Premium Palette: Indigo, Emerald, Amber, Rose, Slate (Soft & Professional)
+const COLORS = ["#6366F1", "#10B981", "#F59E0B", "#F43F5E", "#64748B"];
 
 export default function ATVByMethodChart({ period = "30days" }: { period?: string }) {
     const { data: rawData, isLoading } = useGetATVByMethodQuery({ period });
@@ -78,13 +79,6 @@ export default function ATVByMethodChart({ period = "30days" }: { period?: strin
                 </ResponsiveContainer>
             </div>
 
-            <div className="mt-4 pt-4 border-t border-slate-50">
-                <div className="bg-indigo-50 p-3 rounded-lg">
-                    <p className="text-xs text-indigo-800 leading-relaxed">
-                        <strong>Action:</strong> If Credit Card ATV is higher, encourage staff to upsell when they see a card, as "Pain of Paying" is lower.
-                    </p>
-                </div>
-            </div>
         </div>
     );
 }

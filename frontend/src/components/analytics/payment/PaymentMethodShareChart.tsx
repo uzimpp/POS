@@ -46,22 +46,31 @@ export default function PaymentMethodShareChart({
                 <p className="text-sm text-slate-500">"Where is the money coming from?"</p>
             </div>
 
-            <div className="flex-1 w-full min-h-[300px]">
+            <div className="relative w-full h-full">
                 <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                         <Pie
                             data={data}
                             cx="50%"
                             cy="50%"
-                            labelLine={false}
-                            outerRadius={100}
-                            innerRadius={60}
-                            fill="#8884d8"
-                            dataKey="value"
+                            innerRadius={80}
+                            outerRadius={110}
                             paddingAngle={5}
+                            dataKey="value"
+                            label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
+                                const RADIAN = Math.PI / 180;
+                                const radius = outerRadius * 1.2;
+                                const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                                const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                                return (
+                                    <text x={x} y={y} fill="#64748B" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize={12}>
+                                        {`${data[index].name} (${(percent * 100).toFixed(0)}%)`}
+                                    </text>
+                                );
+                            }}
                         >
                             {data.map((entry: any, index: number) => (
-                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />
                             ))}
                         </Pie>
                         <Tooltip
@@ -73,18 +82,19 @@ export default function PaymentMethodShareChart({
                             }
                             contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
                         />
-                        <Legend verticalAlign="bottom" height={36} />
+                        <Legend verticalAlign="bottom" height={36} iconType="circle" />
                     </PieChart>
                 </ResponsiveContainer>
-            </div>
 
-            <div className="mt-4 pt-4 border-t border-slate-50">
-                <div className="bg-blue-50 p-3 rounded-lg">
-                    <p className="text-xs text-blue-800 leading-relaxed">
-                        <strong>Insight:</strong> Keep an eye on Credit Card fees. If High Spending customers use cards, upsell desserts to cover MDR fees.
+                {/* Centered Total Revenue */}
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 -mt-4 text-center pointer-events-none">
+                    <p className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">Total Revenue</p>
+                    <p className="text-xl font-bold text-slate-800">
+                        ฿{(totalValue / 1000).toFixed(1)}k
                     </p>
                 </div>
             </div>
+
         </div>
     );
 }

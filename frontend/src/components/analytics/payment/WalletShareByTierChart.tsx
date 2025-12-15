@@ -94,18 +94,6 @@ export default function WalletShareByTierChart({ period = "30days" }: { period?:
                 </ResponsiveContainer>
             </div>
 
-            <div className="mt-4 p-3 bg-indigo-50 rounded-lg border border-indigo-100 flex items-start gap-3">
-                <div className="p-1 bg-indigo-100 rounded text-indigo-600">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
-                </div>
-                <div>
-                    <h4 className="text-xs font-semibold text-indigo-900 uppercase tracking-wider mb-1">Action</h4>
-                    <p className="text-sm text-indigo-800">
-                        If <strong>Platinum</strong> uses heavy Cash, they might miss credit card promos (Upsell!).
-                        If <strong>Bronze</strong> uses heavy Credit, valid potential for upgrade.
-                    </p>
-                </div>
-            </div>
         </div>
     );
 }

@@ -98,18 +98,6 @@ export default function CashInflowHeatmap({ period = "30days" }: { period?: stri
                     <span>More</span>
                 </div>
 
-                <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-100 flex items-start gap-3 max-w-xl">
-                    <div className="p-1 bg-emerald-100 rounded text-emerald-600">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
-                    </div>
-                    <div>
-                        <h4 className="text-xs font-semibold text-emerald-900 uppercase tracking-wider mb-1">Peak Cash Flow</h4>
-                        <p className="text-sm text-emerald-800">
-                            <strong>Dark Green Zones</strong> are efficient staffing targets. <br />
-                            <strong>White/Pale Zones</strong> check internet/EDC stability before peak.
-                        </p>
-                    </div>
-                </div>
             </div>
         </div>
     );
