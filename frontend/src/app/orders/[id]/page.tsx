@@ -27,7 +27,6 @@ export default function OrderDetailPage() {
   const [showPayment, setShowPayment] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<string>("CASH");
   const [paymentRef, setPaymentRef] = useState<string>("");
-  const [pointsUsed, setPointsUsed] = useState<number>(0);
   const [newTotalPrice, setNewTotalPrice] = useState<number | null>(null);
   const [pointsInput, setPointsInput] = useState<string>("");
   // Preview total after points is not used currently; show order total directly
@@ -102,17 +101,22 @@ export default function OrderDetailPage() {
     } catch (err: unknown) {
       // Handle insufficient stock error with detailed message
       const anyErr = err as { data?: { detail?: unknown } };
-      const detail = anyErr?.data?.detail;
-      if (typeof detail === "object" && detail?.insufficient_ingredients) {
+      type StockErrorDetail = {
+        insufficient_ingredients?: Array<{ ingredient_name: string; needed: number; available: number }>;
+        message?: string;
+        suggestion?: string;
+      };
+      const detail = anyErr?.data?.detail as StockErrorDetail | string | undefined;
+      if (detail && typeof detail === "object" && detail.insufficient_ingredients) {
         const ingredients = detail.insufficient_ingredients
           .map(
             (ing: { ingredient_name: string; needed: number; available: number }) =>
               `${ing.ingredient_name}: need ${ing.needed}, have ${ing.available}`
           )
           .join("\n");
-        alert(`${detail.message}\n\n${ingredients}\n\n${detail.suggestion}`);
+        alert(`${detail.message ?? "Insufficient stock"}\n\n${ingredients}\n\n${detail.suggestion ?? "Please adjust quantities or stock."}`);
       } else {
-        alert(detail || "Failed to update status");
+        alert(typeof detail === "string" ? detail : "Failed to update status");
       }
     }
   };
@@ -743,10 +747,9 @@ export default function OrderDetailPage() {
                       </div>
                     </div>
                   )}
-                  <p className="mt-1 text-xs text-gray-500">Rate: 100 points = ฿1.00. Max usable points this order: {Math.min(2000, Math.floor(parseFloat(order.total_price) * 100))}.</p>
+                  
                   {order.membership && (
-                    <div className="mt-3 border-t pt-3">
-                      <div className="text-sm text-gray-700 mb-2">Current member: {order.membership.name} (points: {order.membership.points_balance})</div>
+                    <div className="mt-3">
                       <button
                         type="button"
                         className="px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700"
