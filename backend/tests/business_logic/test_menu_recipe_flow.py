@@ -97,43 +97,63 @@ class TestMenuRecipeIngredientFlow:
         menu_data = menu_response.json()
         assert menu_data["is_available"] == False
     
-    def test_restore_ingredient_restores_menu_availability(self, client, test_db, 
-                                                            sample_menu_item, sample_recipe, 
-                                                            sample_ingredient):
+    def test_restore_ingredient_requires_manual_menu_restore(self, client, test_db, 
+                                                              sample_menu_item, sample_recipe, 
+                                                              sample_ingredient):
         """
-        Test: Restoring ingredient restores menu availability
+        Test: Restoring ingredient does NOT auto-restore menu availability
+        Menu must be manually set to available after restoring ingredient.
         
         Steps:
         1. Delete ingredient (menu becomes unavailable)
         2. Restore ingredient
-        3. Verify menu becomes available again
+        3. Verify menu is still unavailable (requires manual restore)
+        4. Manually restore menu availability
+        5. Verify menu is now available
         """
-        # Step 1: Delete ingredient
-        sample_ingredient.is_deleted = True
-        test_db.commit()
+        # Step 1: Delete ingredient via API (which sets menu unavailable)
+        delete_response = client.delete(f"/api/ingredients/{sample_ingredient.ingredient_id}")
+        assert delete_response.status_code == 200
         
         # Verify menu is unavailable
-        test_db.refresh(sample_menu_item)
-        assert sample_menu_item.is_available == False
+        menu_response = client.get(f"/api/menu/{sample_menu_item.menu_item_id}")
+        assert menu_response.json()["is_available"] == False
         
         # Step 2: Restore ingredient
         restore_response = client.put(f"/api/ingredients/{sample_ingredient.ingredient_id}/restore")
         assert restore_response.status_code == 200
         
-        # Step 3: Verify menu is available again
-        test_db.refresh(sample_menu_item)
-        assert sample_menu_item.is_available == True
+        # Step 3: Verify menu is STILL unavailable (no auto-restore)
+        menu_response = client.get(f"/api/menu/{sample_menu_item.menu_item_id}")
+        assert menu_response.json()["is_available"] == False
+        
+        # Step 4: Manually restore menu availability
+        update_response = client.put(f"/api/menu/{sample_menu_item.menu_item_id}", json={
+            "name": sample_menu_item.name,
+            "type": sample_menu_item.type,
+            "category": sample_menu_item.category,
+            "price": float(sample_menu_item.price),
+            "is_available": True
+        })
+        assert update_response.status_code == 200
+        
+        # Step 5: Verify menu is now available
+        menu_response = client.get(f"/api/menu/{sample_menu_item.menu_item_id}")
+        assert menu_response.json()["is_available"] == True
     
     def test_menu_with_multiple_ingredients(self, client, test_db):
         """
-        Test: Menu requiring multiple ingredients - all must be available
+        Test: Menu requiring multiple ingredients - delete one makes menu unavailable
+        Restore ingredient does NOT auto-restore menu (requires manual restore)
         
         Steps:
         1. Create menu with 3 ingredients
         2. Delete one ingredient
         3. Verify menu becomes unavailable
         4. Restore ingredient
-        5. Verify menu becomes available
+        5. Verify menu is still unavailable (no auto-restore)
+        6. Manually restore menu
+        7. Verify menu is now available
         """
         # Step 1: Create ingredients and menu
         ingredients = []
@@ -169,9 +189,24 @@ class TestMenuRecipeIngredientFlow:
         assert menu_detail.json()["is_available"] == False
         
         # Step 4: Restore ingredient
-        client.put(f"/api/ingredients/{ingredients[0]}/restore")
+        restore_response = client.put(f"/api/ingredients/{ingredients[0]}/restore")
+        assert restore_response.status_code == 200
         
-        # Step 5: Verify menu available
+        # Step 5: Verify menu is STILL unavailable (no auto-restore)
+        menu_detail = client.get(f"/api/menu/{menu_id}")
+        assert menu_detail.json()["is_available"] == False
+        
+        # Step 6: Manually restore menu availability
+        update_response = client.put(f"/api/menu/{menu_id}", json={
+            "name": "ผัดผักกาดกุ้ง",
+            "type": "FOOD",
+            "category": "อาหาร",
+            "price": 80.0,
+            "is_available": True
+        })
+        assert update_response.status_code == 200
+        
+        # Step 7: Verify menu is now available
         menu_detail = client.get(f"/api/menu/{menu_id}")
         assert menu_detail.json()["is_available"] == True
     
