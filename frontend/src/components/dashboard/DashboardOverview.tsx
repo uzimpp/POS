@@ -5,6 +5,8 @@ import SalesChart from "@/components/dashboard/SalesChart";
 import TopBranchesChart from "@/components/dashboard/TopBranchesChart";
 import MembershipChart from "@/components/dashboard/MembershipChart";
 
+import TopItemsChart from "@/components/dashboard/TopItemsChart";
+
 function DashboardStats({ branchId }: { branchId?: number }) {
     const { data: stats, isLoading } = useGetDashboardStatsQuery(
         branchId ? { branch_ids: [branchId] } : undefined
@@ -209,6 +211,7 @@ function DashboardStats({ branchId }: { branchId?: number }) {
     );
 }
 
+
 export default function DashboardOverview({ branchId }: { branchId?: number }) {
     return (
         <div className="pb-8">
@@ -242,10 +245,14 @@ export default function DashboardOverview({ branchId }: { branchId?: number }) {
                 <SalesChart branchId={branchId} />
             </div>
 
-            {/* Row 2: Top Branches (Left) & Membership Ratio (Right) */}
+            {/* Row 2: Top Branches OR Top Items (Left) & Membership Ratio (Right) */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                 <div className="lg:col-span-2 h-full">
-                    <TopBranchesChart branchId={branchId} />
+                    {branchId ? (
+                        <TopItemsChart branchId={branchId} />
+                    ) : (
+                        <TopBranchesChart />
+                    )}
                 </div>
                 <div className="lg:col-span-1 h-full">
                     <MembershipChart branchId={branchId} />

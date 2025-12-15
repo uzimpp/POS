@@ -371,3 +371,58 @@ def get_membership_ratio(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching membership ratio: {str(e)}")
+@router.get("/top-items")
+def get_top_items(
+    period: str = Query("today", regex="^(today|7days|30days|1year)$"),
+    branch_ids: Optional[List[int]] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Get top 5 menu items by sales revenue.
+    """
+    try:
+        from datetime import datetime, timedelta, time
+        from sqlalchemy import func, desc
+
+        now = datetime.now()
+        
+        if period == "today":
+            start_date = datetime.combine(now.date(), time.min)
+        elif period == "7days":
+            start_date = datetime.combine(now.date() - timedelta(days=6), time.min)
+        elif period == "30days":
+            start_date = datetime.combine(now.date() - timedelta(days=29), time.min)
+        elif period == "1year":
+            start_date = datetime.combine((now.replace(day=1) - timedelta(days=365)).replace(day=1), time.min)
+            
+        query = db.query(
+            models.Menu.name,
+            func.sum(models.OrderItems.line_total).label("total_sales")
+        ).join(
+            models.OrderItems, models.Menu.menu_item_id == models.OrderItems.menu_item_id
+        ).join(
+            models.Orders, models.OrderItems.order_id == models.Orders.order_id
+        ).filter(
+            models.Orders.status == 'PAID',
+            models.Orders.created_at >= start_date
+        )
+
+        if branch_ids:
+            query = query.filter(models.Orders.branch_id.in_(branch_ids))
+
+        results = query.group_by(
+            models.Menu.menu_item_id, models.Menu.name
+        ).order_by(
+            desc("total_sales")
+        ).limit(5).all()
+
+        data = []
+        for name, total in results:
+            data.append({
+                "name": name,
+                "value": float(total) if total else 0.0
+            })
+        return data
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching top items: {str(e)}")
