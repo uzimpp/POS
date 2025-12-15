@@ -10,12 +10,17 @@ endpoints = [
     "/efficiency-matrix",
     "/tenure-distribution",
     "/employees-by-branch",
-    "/employees-by-role"
+    "/employees-by-role",
+    "/inventory-stats",
+    "/inventory-levels",
+    "/inventory-activity",
+    "/inventory-flow",
+    "/waste-trend"
 ]
 
 failed = False
 
-print("Verifying Employee Analytics Endpoints...")
+print("Verifying Analytics Endpoints...")
 for ep in endpoints:
     try:
         url = f"{BASE_URL}{ep}"

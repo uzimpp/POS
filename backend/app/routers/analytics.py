@@ -4,7 +4,7 @@ from sqlalchemy import func, case, desc
 from typing import List, Optional, Any
 from datetime import datetime, timedelta
 from app.database import get_db
-from app.models import Orders, OrderItems, Branches, Menu, Memberships, Tiers, Employees, Roles, StockMovements
+from app.models import Orders, OrderItems, Branches, Menu, Memberships, Tiers, Employees, Roles, StockMovements, Stock, Ingredients
 import math
 
 router = APIRouter(
@@ -562,3 +562,155 @@ def get_revenue_by_tier(
         {"name": r.tier_name, "value": float(r.revenue)}
         for r in results
     ]
+
+# -------------------------------------------------------------------
+# Inventory Analytics
+# -------------------------------------------------------------------
+
+@router.get("/inventory-stats")
+def get_inventory_stats(db: Session = Depends(get_db)):
+    # Total Items (unique ingredients in stock)
+    total_items = db.query(func.count(Ingredients.ingredient_id)).filter(Ingredients.is_deleted == False).scalar() or 0
+    
+    # Low Stock (arbitrary threshold < 10 for now)
+    low_stock_count = db.query(func.count(Stock.stock_id)).filter(
+        Stock.amount_remaining < 10,
+        Stock.is_deleted == False
+    ).scalar() or 0
+    
+    # Waste Rate: Waste / (Usage + Waste)
+    usage_qty = db.query(func.sum(func.abs(StockMovements.qty_change))).filter(
+        StockMovements.reason.in_(['USAGE', 'SALE'])
+    ).scalar() or 0
+    
+    waste_qty = db.query(func.sum(func.abs(StockMovements.qty_change))).filter(
+        StockMovements.reason == 'WASTE'
+    ).scalar() or 0
+    
+    total_consumption = usage_qty + waste_qty
+    waste_rate = (waste_qty / total_consumption * 100) if total_consumption > 0 else 0
+    
+    return {
+        "total_items": total_items,
+        "low_stock_count": low_stock_count,
+        "waste_rate": round(waste_rate, 2)
+    }
+
+@router.get("/inventory-levels")
+def get_inventory_levels(db: Session = Depends(get_db)):
+    from sqlalchemy import desc
+    # 1. Get Top 10 Ingredients
+    top_ingredients = db.query(
+        Ingredients.ingredient_id,
+        Ingredients.name,
+        func.sum(Stock.amount_remaining).label("total_stock")
+    ).join(Stock, Ingredients.ingredient_id == Stock.ingredient_id)\
+     .filter(Stock.is_deleted == False)\
+     .group_by(Ingredients.ingredient_id, Ingredients.name)\
+     .order_by(desc("total_stock"))\
+     .limit(10).all()
+     
+    # 2. Get Branch breakdown for these ingredients
+    top_ids = [i.ingredient_id for i in top_ingredients]
+    
+    if not top_ids:
+        return []
+        
+    stock_data = db.query(
+        Ingredients.name.label("ingredient_name"),
+        Branches.name.label("branch_name"),
+        Stock.amount_remaining
+    ).join(Ingredients, Stock.ingredient_id == Ingredients.ingredient_id)\
+     .join(Branches, Stock.branch_id == Branches.branch_id)\
+     .filter(Stock.ingredient_id.in_(top_ids))\
+     .all()
+     
+    data_map = {}
+    for r in stock_data:
+        if r.ingredient_name not in data_map:
+            data_map[r.ingredient_name] = {"name": r.ingredient_name}
+        data_map[r.ingredient_name][r.branch_name] = float(r.amount_remaining)
+        
+    sorted_data = []
+    for ing in top_ingredients:
+        if ing.name in data_map:
+            sorted_data.append(data_map[ing.name])
+            
+    return sorted_data
+
+@router.get("/inventory-activity")
+def get_inventory_activity(period: str = "30days", db: Session = Depends(get_db)):
+    start_date, _ = get_date_range(period)
+    
+    results = db.query(
+        StockMovements.reason,
+        func.sum(func.abs(StockMovements.qty_change)).label("qty")
+    ).filter(StockMovements.created_at >= start_date)\
+     .group_by(StockMovements.reason).all()
+     
+    return [{"name": r.reason, "value": float(r.qty)} for r in results]
+
+@router.get("/inventory-flow")
+def get_inventory_flow(db: Session = Depends(get_db)):
+    end_date = datetime.now()
+    start_date = end_date - timedelta(weeks=8)
+    
+    movements = db.query(
+        StockMovements.created_at,
+        StockMovements.reason,
+        StockMovements.qty_change
+    ).filter(
+        StockMovements.created_at >= start_date,
+        StockMovements.reason.in_(['USAGE', 'RESTOCK', 'SALE'])
+    ).all()
+    
+    weeks = {}
+    
+    for m in movements:
+        year, week, _ = m.created_at.isocalendar()
+        key = f"{year}-W{week}"
+        
+        if key not in weeks:
+            weeks[key] = {"name": key, "usage": 0, "restock": 0}
+            
+        qty = abs(float(m.qty_change))
+        
+        if m.reason == 'RESTOCK':
+            weeks[key]["restock"] += qty
+        else:
+            weeks[key]["usage"] += qty
+            
+    data = list(weeks.values())
+    data.sort(key=lambda x: x["name"])
+    
+    return data
+
+@router.get("/waste-trend")
+def get_waste_trend(db: Session = Depends(get_db)):
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=180)
+    
+    movements = db.query(
+        StockMovements.created_at,
+        StockMovements.qty_change
+    ).filter(
+        StockMovements.created_at >= start_date,
+        StockMovements.reason == 'WASTE'
+    ).all()
+    
+    months = {}
+    
+    for m in movements:
+        key = m.created_at.strftime("%Y-%m")
+        if key not in months:
+            months[key] = {"name": m.created_at.strftime("%b"), "full_date": key, "value": 0}
+        
+        months[key]["value"] += abs(float(m.qty_change))
+        
+    data = list(months.values())
+    data.sort(key=lambda x: x["full_date"])
+    
+    for d in data:
+        del d["full_date"]
+        
+    return data

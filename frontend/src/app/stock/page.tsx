@@ -1,6 +1,7 @@
 "use client";
-
 import { useState } from "react";
+import { Plus, Search, Filter, Edit, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { Layout } from "@/components/layout";
 import {
   useGetStockQuery,
@@ -192,14 +193,12 @@ export default function StockPage() {
               onClick={() => setShowDeleted(!showDeleted)}
             >
               <div
-                className={`block w-10 h-6 rounded-full transition-colors ${
-                  showDeleted ? "bg-blue-500" : "bg-gray-300"
-                }`}
+                className={`block w-10 h-6 rounded-full transition-colors ${showDeleted ? "bg-blue-500" : "bg-gray-300"
+                  }`}
               >
                 <div
-                  className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${
-                    showDeleted ? "transform translate-x-4" : ""
-                  }`}
+                  className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${showDeleted ? "transform translate-x-4" : ""
+                    }`}
                 ></div>
               </div>
             </div>
@@ -254,6 +253,23 @@ export default function StockPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <div className="flex gap-2">
+                            <div className="flex gap-4">
+                              <Link
+                                href="/inventory-analytics"
+                                className="flex items-center gap-2 px-4 py-2 bg-white text-slate-600 rounded-lg hover:bg-slate-50 transition-colors border border-slate-200 font-medium"
+                              >
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                </svg>
+                                Overview
+                              </Link>
+                              <button
+                                onClick={() => setIsModalOpen(true)}
+                                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                              >
+                                <Plus size={20} /> Add Stock Item
+                              </button>
+                            </div>
                             <button
                               onClick={() => handleEdit(item)}
                               className="text-blue-600 hover:text-blue-900"
