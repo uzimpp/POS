@@ -21,7 +21,7 @@ def get_date_range(period: str):
         start = now - timedelta(days=7)
     elif period == "30days":
         start = now - timedelta(days=30)
-    elif period == "1year":
+    elif period == "1year" or period == "365days":
         start = now - timedelta(days=365)
     else:
         start = now - timedelta(days=30) # Default
