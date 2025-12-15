@@ -645,11 +645,11 @@ def get_inventory_activity(period: str = "365days", db: Session = Depends(get_db
     
     results = db.query(
         StockMovements.reason,
-        func.sum(func.abs(StockMovements.qty_change)).label("qty")
+        func.count(StockMovements.reason).label("count")
     ).filter(StockMovements.created_at >= start_date)\
      .group_by(StockMovements.reason).all()
      
-    return [{"name": r.reason, "value": float(r.qty)} for r in results]
+    return [{"name": r.reason, "value": r.count} for r in results]
 
 @router.get("/inventory-flow")
 def get_inventory_flow(db: Session = Depends(get_db)):
