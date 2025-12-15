@@ -196,6 +196,9 @@ def seed_database():
             {"name": "Sprite", "base_unit": "can", "is_deleted": False},
             {"name": "Water", "base_unit": "bottle", "is_deleted": False},
             {"name": "Ice", "base_unit": "g", "is_deleted": False},
+            {"name": "Mango", "base_unit": "piece", "is_deleted": False},
+            {"name": "Papaya", "base_unit": "piece", "is_deleted": False},
+            {"name": "Lime Juice", "base_unit": "ml", "is_deleted": False},
         ]
         ingredients = []
         for ing_data in ingredients_data:
