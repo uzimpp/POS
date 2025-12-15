@@ -23,7 +23,14 @@ const COLORS: Record<string, string> = {
     TAKEAWAY: "#f59e0b", // Amber
     DELIVERY: "#10b981", // Emerald
     value: "#6366f1",    // Default single line
+    // Categories (examples)
+    "Main Dish": "#ec4899", // Pink
+    "Appetizer": "#8b5cf6", // Violet
+    "Beverage": "#3b82f6", // Blue
+    "Dessert": "#f43f5e", // Rose
+    "Set Menu": "#06b6d4", // Cyan
 };
+const PALETTE = ["#6366f1", "#ec4899", "#8b5cf6", "#f59e0b", "#10b981", "#3b82f6", "#f43f5e", "#06b6d4"];
 
 const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -53,28 +60,33 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export default function SalesChart() {
     const [data, setData] = useState<SalesData[]>([]);
     const [period, setPeriod] = useState<"today" | "7days" | "30days" | "1year">("today");
-    const [splitByType, setSplitByType] = useState(false);
+    const [splitBy, setSplitBy] = useState<"none" | "type" | "category">("none");
     const [loading, setLoading] = useState(true);
 
     // Extract unique keys from data (excluding 'name' and 'value' if split)
     const dataKeys = useMemo(() => {
         if (!data.length) return [];
-        if (!splitByType) return ["value"];
+        if (splitBy === "none") return ["value"];
 
         const keys = new Set<string>();
         data.forEach(item => {
             Object.keys(item).forEach(k => {
-                if (k !== "name" && k !== "value") keys.add(k);
+                if (k !== "name" && k !== "value" && k !== "total") keys.add(k);
             });
         });
         return Array.from(keys);
-    }, [data, splitByType]);
+    }, [data, splitBy]);
 
     useEffect(() => {
         async function fetchData() {
             setLoading(true);
             try {
-                const res = await fetch(`http://localhost:8000/api/dashboard/sales-chart?period=${period}&split_by_type=${splitByType}`);
+                const queryParams = new URLSearchParams({
+                    period: period,
+                    split_by_type: (splitBy === "type").toString(),
+                    split_by_category: (splitBy === "category").toString()
+                });
+                const res = await fetch(`http://localhost:8000/api/dashboard/sales-chart?${queryParams}`);
                 if (!res.ok) throw new Error("Failed to fetch data");
                 const json = await res.json();
                 setData(json);
@@ -85,7 +97,7 @@ export default function SalesChart() {
             }
         }
         fetchData();
-    }, [period, splitByType]);
+    }, [period, splitBy]);
 
     return (
         <div className="bg-white p-6 rounded-3xl shadow-lg border border-slate-100/60 overflow-hidden relative">
@@ -102,21 +114,41 @@ export default function SalesChart() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-4 w-full xl:w-auto">
-                    {/* Order Type Toggle */}
-                    <button
-                        onClick={() => setSplitByType(!splitByType)}
-                        className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl transition-all border ${splitByType
-                            ? "bg-indigo-50 border-indigo-200 text-indigo-700"
-                            : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
-                            }`}
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-                            <circle cx="8.5" cy="8.5" r="1.5" />
-                            <polyline points="21 15 16 10 5 21" />
-                        </svg>
-                        By Order Type
-                    </button>
+                    {/* View Options */}
+                    <div className="flex bg-slate-100/80 p-1 rounded-xl backdrop-blur-sm">
+                        {/* Default (Total) */}
+                        <button
+                            onClick={() => setSplitBy(splitBy === "none" ? "none" : "none")}
+                            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${splitBy === "none"
+                                ? "bg-white text-indigo-600 shadow-sm"
+                                : "text-slate-600 hover:text-slate-900"
+                                }`}
+                        >
+                            Total
+                        </button>
+
+                        {/* Type Toggle */}
+                        <button
+                            onClick={() => setSplitBy(splitBy === "type" ? "none" : "type")}
+                            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${splitBy === "type"
+                                ? "bg-white text-indigo-600 shadow-sm"
+                                : "text-slate-600 hover:text-slate-900"
+                                }`}
+                        >
+                            By Type
+                        </button>
+
+                        {/* Category Toggle */}
+                        <button
+                            onClick={() => setSplitBy(splitBy === "category" ? "none" : "category")}
+                            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${splitBy === "category"
+                                ? "bg-white text-indigo-600 shadow-sm"
+                                : "text-slate-600 hover:text-slate-900"
+                                }`}
+                        >
+                            By Category
+                        </button>
+                    </div>
 
                     {/* Segmented Control */}
                     <div className="flex bg-slate-100/80 p-1 rounded-xl backdrop-blur-sm overflow-x-auto">
@@ -149,10 +181,10 @@ export default function SalesChart() {
                             margin={{ top: 10, right: 30, bottom: 20, left: 10 }}
                         >
                             <defs>
-                                {dataKeys.map((key) => (
+                                {dataKeys.map((key, index) => (
                                     <linearGradient key={key} id={`color-${key}`} x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor={COLORS[key] || "#8884d8"} stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor={COLORS[key] || "#8884d8"} stopOpacity={0} />
+                                        <stop offset="5%" stopColor={COLORS[key] || PALETTE[index % PALETTE.length]} stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor={COLORS[key] || PALETTE[index % PALETTE.length]} stopOpacity={0} />
                                     </linearGradient>
                                 ))}
                             </defs>
@@ -182,13 +214,18 @@ export default function SalesChart() {
                                 iconType="circle"
                             />
 
-                            {dataKeys.map((key) => (
+                            {dataKeys.map((key, index) => (
                                 <Area
                                     key={key}
                                     type="monotone"
                                     dataKey={key}
                                     name={key === 'value' ? 'Total Sales' : key.replace('_', ' ')}
-                                    stroke={COLORS[key] || "#8884d8"}
+                                    // stackId="1" // Do NOT stack area chart usually unless specifically requested. User said "like by order type" which we did as Layered (default).
+                                    // But for breakdown, stacked is often clearer if total exceeds y-axis otherwise. 
+                                    // The user asked for "Mode like by order type". In previous steps we did overlapping (no stackId). 
+                                    // Let's keep it overlapping (layered) for now, or stack? 
+                                    // AreaChart without stackId layers them.
+                                    stroke={COLORS[key] || PALETTE[index % PALETTE.length]}
                                     strokeWidth={3}
                                     fillOpacity={1}
                                     fill={`url(#color-${key})`}

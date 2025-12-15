@@ -86,6 +86,7 @@ def get_dashboard_stats(
 def get_sales_chart_data(
     period: str = Query(..., regex="^(today|7days|30days|1year)$"),
     split_by_type: bool = Query(False),
+    split_by_category: bool = Query(False),
     branch_ids: Optional[List[int]] = Query(None),
     db: Session = Depends(get_db)
 ):
@@ -98,6 +99,7 @@ def get_sales_chart_data(
     - 1year: Monthly data for last 12 months
     
     If split_by_type is True, returns breakdown by order_type.
+    If split_by_category is True, returns breakdown by Menu.category.
     """
     try:
         from datetime import datetime, timedelta, date, time
@@ -106,137 +108,101 @@ def get_sales_chart_data(
         now = datetime.now()
         data = []
 
-        # Base query
-        query = db.query(
-            models.Orders.created_at,
-            models.Orders.total_price,
-            models.Orders.order_type
-        ).filter(models.Orders.status == 'PAID')
+        # Base query depends on split method
+        # If splitting by category, we must join OrderItems and Menu
+        if split_by_category:
+            query = db.query(
+                models.Orders.created_at,
+                models.OrderItems.line_total.label("amount"),
+                models.Menu.category.label("category")
+            ).join(
+                models.OrderItems, models.Orders.order_id == models.OrderItems.order_id
+            ).join(
+                models.Menu, models.OrderItems.menu_item_id == models.Menu.menu_item_id
+            ).filter(models.Orders.status == 'PAID')
+        else:
+            # Default or split_by_type uses Orders table directly
+            query = db.query(
+                models.Orders.created_at,
+                models.Orders.total_price.label("amount"),
+                models.Orders.order_type
+            ).filter(models.Orders.status == 'PAID')
 
         if branch_ids:
             query = query.filter(models.Orders.branch_id.in_(branch_ids))
 
         # Helper to process results into {label: {type: value}} or {label: value}
         def aggregate_results(results, labels, label_key_func):
-            # params:
-            # results: list of (created_at, price, order_type)
-            # labels: list of label keys (e.g. hours, dates)
-            # label_key_func: function to get label key from result item
-            
-            # Initialize structure
             agg_data = {}
+            # Initialize with 0 or dict
+            is_split = split_by_type or split_by_category
+            
             for label in labels:
-                agg_data[label] = {} if split_by_type else 0.0
+                agg_data[label] = {} if is_split else 0.0
 
-            for t, amount, o_type in results:
-                key = label_key_func(t)
-                if key in agg_data:
-                    amt = float(amount)
-                    if split_by_type:
-                        # Ensure type key exists
+            if split_by_category:
+                for t, amount, category in results:
+                    key = label_key_func(t)
+                    if key in agg_data:
+                        amt = float(amount)
+                        current_cat_val = agg_data[key].get(category, 0.0)
+                        agg_data[key][category] = current_cat_val + amt
+            elif split_by_type:
+                for t, amount, o_type in results:
+                    key = label_key_func(t)
+                    if key in agg_data:
+                        amt = float(amount)
                         current_type_val = agg_data[key].get(o_type, 0.0)
                         agg_data[key][o_type] = current_type_val + amt
-                    else:
-                        agg_data[key] += amt
+            else:
+                for t, amount, _ in results:
+                    key = label_key_func(t)
+                    if key in agg_data:
+                        agg_data[key] += float(amount)
             
             # Flatten for response
             final_data = []
             for label in labels:
-                item = {"name": str(label)} # customize name formatting later if needed
+                item = {"name": str(label)}
                 val = agg_data[label]
-                if split_by_type:
-                    # Merge dict: {name: "...", DINE_IN: 100, TAKEAWAY: 50}
+                if is_split:
                     item.update(val)
                 else:
                     item["value"] = val
                 final_data.append(item)
             return final_data
 
+        # Determine Date Range
         if period == "today":
             start_of_day = datetime.combine(now.date(), time.min)
             end_of_day = datetime.combine(now.date(), time.max)
-            
-            results = query.filter(
-                models.Orders.created_at >= start_of_day,
-                models.Orders.created_at <= end_of_day
-            ).all()
-
-            # Labels: 0-23 integers
+            results = query.filter(models.Orders.created_at >= start_of_day, models.Orders.created_at <= end_of_day).all()
             labels = list(range(24))
-            
-            def get_hour(t): return t.hour
-
-            final = aggregate_results(results, labels, get_hour)
-            # Format name
-            for item in final:
-                h = int(item["name"])
-                item["name"] = f"{h:02d}:00"
+            final = aggregate_results(results, labels, lambda t: t.hour)
+            for item in final: item["name"] = f"{int(item['name']):02d}:00"
             return final
 
         elif period == "7days" or period == "30days":
             days = 7 if period == "7days" else 30
             start_date = (now - timedelta(days=days-1)).date()
-            
-            results = query.filter(
-                func.date(models.Orders.created_at) >= start_date
-            ).all()
-
-            # Labels: list of dates
+            results = query.filter(func.date(models.Orders.created_at) >= start_date).all()
             labels = [start_date + timedelta(days=i) for i in range(days)]
-            
-            def get_date(t): return t.date()
-
-            final = aggregate_results(results, labels, get_date)
-            # Format name
-            for item in final:
-                # item["name"] is actually a date object string "YYYY-MM-DD" from str(label)
-                # Let's reformat from the label object if possible, but we casted to str.
-                # Re-parse or just rely on consistent ordering.
-                # Easy way: zip with formatted labels.
-                pass
-            
-            # Post-process names
-            for i, label in enumerate(labels):
-                final[i]["name"] = label.strftime("%d/%m")
-            
+            final = aggregate_results(results, labels, lambda t: t.date())
+            for i, label in enumerate(labels): final[i]["name"] = label.strftime("%d/%m")
             return final
 
         elif period == "1year":
-            # Last 12 months including current month
-            # Logic: Get 1st day of current month last year? Or just last 12 months rolling?
-            # Usually "This Year" means Jan-Dec, "1 Year" means rolling.
-            # Let's do rolling 12 months (e.g. Dec 2024 back to Jan 2024)
-            start_date = (now.replace(day=1) - timedelta(days=365)).replace(day=1) # Approx 1 year ago start of month
-            
-            # Actually better to just take 1st day of month 11 months ago.
-            # e.g. Now is Dec. 11 months ago is Jan.
-            
             months = []
-            # Generate expected month keys (YYYY-MM)
             curr = now.replace(day=1)
             for i in range(12):
-                # Go back i months
-                # Simple logic:
                 m = (curr.month - 1 - i) % 12 + 1
                 y = curr.year + ((curr.month - 1 - i) // 12)
-                months.append(date(y, m, 1)) # Use 1st of month as key
-            months.reverse() # Oldest first
-
+                months.append(date(y, m, 1))
+            months.reverse()
             min_date = months[0]
-            
-            results = query.filter(
-                models.Orders.created_at >= min_date
-            ).all()
-
-            def get_month_start(t):
-                return t.date().replace(day=1)
-
-            final = aggregate_results(results, months, get_month_start)
-            
-            # Format name
-            for i, d in enumerate(months):
-                final[i]["name"] = d.strftime("%b %Y") # Jan 2025
-            
+            results = query.filter(models.Orders.created_at >= min_date).all()
+            final = aggregate_results(results, months, lambda t: t.date().replace(day=1))
+            for i, d in enumerate(months): final[i]["name"] = d.strftime("%b %Y")
             return final
 
         return data
@@ -248,18 +214,19 @@ def get_sales_chart_data(
 @router.get("/top-branches")
 def get_top_branches(
     period: str = Query("today", regex="^(today|7days|30days|1year)$"),
+    split_by_category: bool = Query(False),
     db: Session = Depends(get_db)
 ):
     """
-    Get top 5 branches by sales for the specified period.
+    Get top 5 branches by sales.
+    If split_by_category is True, returns stacked data by category.
     """
     try:
         from datetime import datetime, timedelta, date, time
-        from sqlalchemy import func, desc
+        from sqlalchemy import func, desc, case
 
         now = datetime.now()
         
-        # Determine start date based on period
         if period == "today":
             start_date = datetime.combine(now.date(), time.min)
         elif period == "7days":
@@ -267,33 +234,83 @@ def get_top_branches(
         elif period == "30days":
             start_date = datetime.combine(now.date() - timedelta(days=29), time.min)
         elif period == "1year":
-            # Last 12 months (start of month 11 months ago)
             start_date = datetime.combine((now.replace(day=1) - timedelta(days=365)).replace(day=1), time.min)
         
-        # Query: Sum total_price of PAID orders group by branch
-        # Join Orders -> Branches to get name
-        results = db.query(
-            models.Branches.name,
-            func.sum(models.Orders.total_price).label("total_sales")
-        ).join(
-            models.Orders, models.Branches.branch_id == models.Orders.branch_id
-        ).filter(
-            models.Orders.status == 'PAID',
-            models.Orders.created_at >= start_date
-        ).group_by(
-            models.Branches.branch_id, models.Branches.name
-        ).order_by(
-            desc("total_sales")
-        ).limit(5).all()
-
-        data = []
-        for name, total in results:
-            data.append({
-                "name": name,
-                "value": float(total) if total else 0.0
-            })
+        if split_by_category:
+            # We need to get total sales per branch to rank them, AND sales per category
+            # Strategy:
+            # 1. Find Top 5 Branch IDs first
+            top_branches_query = db.query(models.Branches.branch_id).join(
+                models.Orders, models.Branches.branch_id == models.Orders.branch_id
+            ).filter(
+                models.Orders.status == 'PAID',
+                models.Orders.created_at >= start_date
+            ).group_by(models.Branches.branch_id).order_by(
+                desc(func.sum(models.Orders.total_price))
+            ).limit(5)
             
-        return data
+            top_branch_ids = [r[0] for r in top_branches_query.all()]
+            
+            if not top_branch_ids:
+                return []
+
+            # 2. Query breakdown for these branches
+            # Join OrderItems -> Menu for category
+            results = db.query(
+                models.Branches.name,
+                models.Menu.category,
+                func.sum(models.OrderItems.line_total)
+            ).join(
+                models.Orders, models.Branches.branch_id == models.Orders.branch_id
+            ).join(
+                models.OrderItems, models.Orders.order_id == models.OrderItems.order_id
+            ).join(
+                models.Menu, models.OrderItems.menu_item_id == models.Menu.menu_item_id
+            ).filter(
+                models.Orders.status == 'PAID',
+                models.Orders.created_at >= start_date,
+                models.Branches.branch_id.in_(top_branch_ids)
+            ).group_by(
+                models.Branches.name, models.Menu.category
+            ).all()
+            
+            # 3. Transform to [{name: "Branch", "Main Dish": 100, "Drink": 50}]
+            data_map = {}
+            for name, category, amount in results:
+                if name not in data_map:
+                    data_map[name] = {"name": name, "total": 0.0} # Track total for sorting if needed, or rely on frontend
+                data_map[name][category] = float(amount)
+                data_map[name]["total"] += float(amount)
+            
+            # Convert to list and sort by total descending
+            data = sorted(data_map.values(), key=lambda x: x["total"], reverse=True)
+            # Remove "total" key if not needed by frontend, or keep it.
+            # Recharts is fine with extra keys.
+            return data
+
+        else:
+            # Original logic
+            results = db.query(
+                models.Branches.name,
+                func.sum(models.Orders.total_price).label("total_sales")
+            ).join(
+                models.Orders, models.Branches.branch_id == models.Orders.branch_id
+            ).filter(
+                models.Orders.status == 'PAID',
+                models.Orders.created_at >= start_date
+            ).group_by(
+                models.Branches.branch_id, models.Branches.name
+            ).order_by(
+                desc("total_sales")
+            ).limit(5).all()
+
+            data = []
+            for name, total in results:
+                data.append({
+                    "name": name,
+                    "value": float(total) if total else 0.0
+                })
+            return data
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching top branches: {str(e)}")
