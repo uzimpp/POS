@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Layout } from "@/components/layout";
 import {
@@ -17,6 +18,7 @@ import { MultiSelect } from "@/components/forms";
 import { EmployeeModal, ConfirmModal } from "@/components/modals";
 
 export default function EmployeesPage() {
+  const router = useRouter();
   const [selectedBranchIds, setSelectedBranchIds] = useState<
     (number | string)[]
   >([]);
@@ -145,6 +147,27 @@ export default function EmployeesPage() {
             <p className="text-gray-600 mt-2">Manage your staff members</p>
           </div>
           <div className="flex gap-2">
+            <button
+              onClick={() => router.push("/employee-analytics")}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center gap-2 h-[42px]"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <line x1="18" y1="20" x2="18" y2="10" />
+                <line x1="12" y1="20" x2="12" y2="4" />
+                <line x1="6" y1="20" x2="6" y2="14" />
+              </svg>
+              Overview
+            </button>
             <button
               onClick={handleCreate}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors h-[42px]"

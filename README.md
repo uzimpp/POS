@@ -22,22 +22,38 @@ A full-stack Point of Sale system built with Next.js, FastAPI, and PostgreSQL, d
 
 ## Database Schema
 
-The system includes the following main tables:
-- **Tiers**: Membership tier levels (Bronze, Silver, Gold, Platinum)
-- **Roles**: Employee roles with seniority levels
-- **Employees**: Staff members assigned to branches
-- **Branches**: Store locations
-- **Memberships**: Customer membership program with points and tiers
-- **Ingredients**: Raw materials and ingredients
-- **Stock**: Per-branch inventory tracking
-- **Stock Movements**: Inventory change history (restock, waste, order usage)
-- **Menu Items**: Products, dishes, sets, add-ons, and drinks
-- **Recipes**: Links menu items to required ingredients and quantities
-- **Orders**: Customer orders with status tracking
-- **Order Items**: Individual items within orders with preparation status
-- **Payments**: Payment records linked to orders
+### Entity-Relationship Diagram
 
-All tables use PostgreSQL sequences for auto-incrementing IDs, which are automatically synchronized after seeding.
+![Database ERD](./backend/docs/diagram.png)
+
+### Tables Overview
+
+The system includes 13 main tables organized by domain:
+
+#### Core & Reference Tables
+- **Branches**: Store locations with address and contact information
+- **Roles**: Employee roles with seniority levels (Manager, Chef, Cashier, etc.)
+- **Tiers**: Membership tier levels (Bronze, Silver, Gold, Platinum) with discount percentages
+
+#### People & Staff
+- **Employees**: Staff members assigned to branches with roles and salary information
+- **Memberships**: Customer membership program with points balance, tier assignment, and contact details
+
+#### Inventory Management
+- **Ingredients**: Master list of raw materials and ingredients with base units
+- **Stock**: Per-branch inventory tracking for each ingredient
+- **Stock Movements**: Complete inventory change history (restock, waste, order usage) with timestamps and reasons
+
+#### Menu & Recipes
+- **Menu**: Products, dishes, sets, add-ons, and drinks with pricing and availability
+- **Recipe**: Links menu items to required ingredients and quantities (bill of materials)
+
+#### Sales & Transactions
+- **Orders**: Customer orders with status tracking (UNPAID, PAID, CANCELLED), order type, and totals
+- **Order Items**: Individual items within orders with preparation status (ORDERED, PREPARING, DONE, CANCELLED)
+- **Payments**: Payment records linked to orders with payment method, points used, and transaction references
+
+**Note**: All tables use PostgreSQL sequences for auto-incrementing IDs, which are automatically synchronized after seeding to prevent duplicate key errors.
 
 ## Getting Started
 

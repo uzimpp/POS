@@ -9,8 +9,9 @@ export interface Membership {
   joined_at: string;
   points_balance: number;
   cumulative_points?: number;
-  tier_id: number;      // FK to tiers.tier_id
-  tier?: Tier | null;   // optional nested object if backend returns it
+  tier_id: number; // FK to tiers.tier_id
+  tier?: Tier | null; // optional nested object if backend returns it
+  is_deleted?: boolean;
 }
 
 export interface MembershipCreate {
@@ -26,6 +27,7 @@ export interface MembershipFilters {
   min_points?: number;
   name_contains?: string;
   phone_contains?: string;
+  is_deleted?: boolean;
 }
 
 export const membershipsApi = baseApi.injectEndpoints({
@@ -39,6 +41,8 @@ export const membershipsApi = baseApi.injectEndpoints({
           searchParams.append("name_contains", params.name_contains);
         if (params?.phone_contains)
           searchParams.append("phone_contains", params.phone_contains);
+        if (params?.is_deleted !== undefined)
+          searchParams.append("is_deleted", String(params.is_deleted));
         const qs = searchParams.toString();
         return `/memberships${qs ? `?${qs}` : ""}`;
       },
@@ -82,7 +86,7 @@ export const membershipsApi = baseApi.injectEndpoints({
         "Memberships",
       ],
     }),
-    deleteMembership: builder.mutation<void, number>({
+    deleteMembership: builder.mutation<Membership, number>({
       query: (id) => ({
         url: `/memberships/${id}`,
         method: "DELETE",

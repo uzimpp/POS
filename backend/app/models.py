@@ -89,7 +89,8 @@ class Tiers(Base):
 class Memberships(Base):
     __tablename__ = "memberships"
     __table_args__ = (
-        CheckConstraint('LENGTH(phone) >= 9 AND LENGTH(phone) <= 10', name='phone_length_check'),
+        CheckConstraint(
+            'LENGTH(phone) >= 9 AND LENGTH(phone) <= 10', name='phone_length_check'),
     )
 
     membership_id = Column(Integer, primary_key=True, index=True)
@@ -101,6 +102,7 @@ class Memberships(Base):
     points_balance = Column(Integer, default=0, nullable=False)
     # New fields for loyalty progression
     cumulative_points = Column(Integer, default=0, nullable=False)
+    is_deleted = Column(Boolean, default=False, nullable=False)
 
     tier_id = Column(Integer, ForeignKey("tiers.tier_id"), nullable=False)
     tier = relationship("Tiers", back_populates="memberships")

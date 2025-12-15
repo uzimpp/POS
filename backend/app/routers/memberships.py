@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from ..database import get_db
@@ -16,9 +16,17 @@ def get_memberships(
     min_points: Optional[int] = None,
     name_contains: Optional[str] = None,
     phone_contains: Optional[str] = None,
+    is_deleted: Optional[bool] = Query(
+        None, description="Filter by deletion status. None returns active only, False returns active only, True returns deleted only"),
     db: Session = Depends(get_db),
 ):
     query = db.query(models.Memberships)
+
+    # Filter by deletion status (default to active only if not specified)
+    if is_deleted is None:
+        query = query.filter(models.Memberships.is_deleted == False)
+    else:
+        query = query.filter(models.Memberships.is_deleted == is_deleted)
 
     if min_points is not None:
         query = query.filter(models.Memberships.points >= min_points)
@@ -65,12 +73,25 @@ def create_membership(membership: schemas.MembershipCreate, db: Session = Depend
     # Validate email format (if provided)
     validate_email(membership.email)
 
-    # Check if phone already exists
+    # Check if phone already exists in memberships (excluding deleted)
     existing_phone = db.query(models.Memberships).filter(
-        models.Memberships.phone == membership.phone).first()
+        models.Memberships.phone == membership.phone,
+        models.Memberships.is_deleted == False
+    ).first()
     if existing_phone:
         raise HTTPException(
-            status_code=400, detail="Phone number already exists")
+            status_code=400, detail="Phone number already exists in memberships")
+
+    # Check if phone number exists in branches (cross-table uniqueness, excluding deleted)
+    existing_branch = db.query(models.Branches).filter(
+        models.Branches.phone == membership.phone,
+        models.Branches.is_deleted == False
+    ).first()
+    if existing_branch:
+        raise HTTPException(
+            status_code=400,
+            detail="Phone number already exists in branches. Membership phone cannot match branch phone."
+        )
 
     # Check if email already exists (if provided)
     if membership.email:
@@ -85,7 +106,8 @@ def create_membership(membership: schemas.MembershipCreate, db: Session = Depend
     tier_id = payload.get("tier_id")
     cumulative = payload.get("cumulative_points")
     if tier_id is not None:
-        tier = db.query(models.Tiers).filter(models.Tiers.tier_id == tier_id).first()
+        tier = db.query(models.Tiers).filter(
+            models.Tiers.tier_id == tier_id).first()
         if tier:
             min_req = tier.minimum_point_required or 0
             if cumulative is None or cumulative < min_req:
@@ -111,13 +133,26 @@ def update_membership(membership_id: int, membership: schemas.MembershipCreate, 
     # Validate email format (if provided)
     validate_email(membership.email)
 
-    # Check if phone is being changed and already exists
+    # Check if phone is being changed and already exists in memberships (excluding deleted)
     if membership.phone != db_membership.phone:
         existing_phone = db.query(models.Memberships).filter(
-            models.Memberships.phone == membership.phone).first()
+            models.Memberships.phone == membership.phone,
+            models.Memberships.is_deleted == False
+        ).first()
         if existing_phone:
             raise HTTPException(
-                status_code=400, detail="Phone number already exists")
+                status_code=400, detail="Phone number already exists in memberships")
+
+        # Check if phone number exists in branches (cross-table uniqueness, excluding deleted)
+        existing_branch = db.query(models.Branches).filter(
+            models.Branches.phone == membership.phone,
+            models.Branches.is_deleted == False
+        ).first()
+        if existing_branch:
+            raise HTTPException(
+                status_code=400,
+                detail="Phone number already exists in branches. Membership phone cannot match branch phone."
+            )
 
     # Check if email is being changed and already exists (if provided)
     if membership.email and membership.email != db_membership.email:
@@ -157,12 +192,22 @@ def update_membership(membership_id: int, membership: schemas.MembershipCreate, 
     return db_membership
 
 
-@router.delete("/{membership_id}")
+@router.delete("/{membership_id}", response_model=schemas.Membership)
 def delete_membership(membership_id: int, db: Session = Depends(get_db)):
     db_membership = db.query(models.Memberships).filter(
         models.Memberships.membership_id == membership_id).first()
     if not db_membership:
         raise HTTPException(status_code=404, detail="Membership not found")
-    db.delete(db_membership)
+
+    # Check if membership is already deleted
+    if db_membership.is_deleted:
+        raise HTTPException(
+            status_code=400,
+            detail="Membership is already deleted"
+        )
+
+    # Soft delete - membership remains in DB, orders still reference it
+    db_membership.is_deleted = True
     db.commit()
-    return {"message": "Membership deleted successfully"}
+    db.refresh(db_membership)
+    return db_membership
