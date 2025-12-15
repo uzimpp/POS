@@ -2,6 +2,7 @@ import { baseApi } from "./baseApi";
 
 // Import Menu type from menuApi instead of duplicating
 import { Menu } from "./menuApi";
+import type { Membership } from "./membershipsApi";
 export type MenuItem = Menu;
 
 export interface OrderItem {
@@ -35,13 +36,8 @@ export interface Order {
   total_price: string;
   status: string;
   order_type: string;
-  membership?: {
-    membership_id: number;
-    name: string;
-    phone: string;
-    points_balance: number;
-    membership_tier: string;
-  } | null;
+  // Full membership object with optional nested tier (includes discount_percentage)
+  membership?: Membership | null;
   employee?: {
     employee_id: number;
     first_name: string;
@@ -154,6 +150,19 @@ export const ordersApi = baseApi.injectEndpoints({
         "OrderItems",
       ],
     }),
+      updateOrderMembership: builder.mutation<Order, { id: number; membership_id: number | null }>(
+        {
+          query: ({ id, membership_id }) => ({
+            url: `/orders/${id}/membership`,
+            method: "PUT",
+            body: { membership_id },
+          }),
+          invalidatesTags: (result, error, { id }) => [
+            { type: "Orders", id },
+            "Orders",
+          ],
+        }
+      ),
     getAvailableMenus: builder.query<MenuItem[], void>({
       query: () => "/menu?available_only=true",
       providesTags: ["Menus"],
@@ -169,4 +178,5 @@ export const {
   useCreateEmptyOrderMutation,
   useCancelOrderMutation,
   useGetAvailableMenusQuery,
+  useUpdateOrderMembershipMutation,
 } = ordersApi;

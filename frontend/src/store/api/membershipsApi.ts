@@ -8,8 +8,9 @@ export interface Membership {
   email: string | null;
   joined_at: string;
   points_balance: number;
-  tier_id: number; // FK to tiers.tier_id
-  tier?: Tier | null; // optional nested object if backend returns it
+  cumulative_points?: number;
+  tier_id: number;      // FK to tiers.tier_id
+  tier?: Tier | null;   // optional nested object if backend returns it
 }
 
 export interface MembershipCreate {
@@ -17,6 +18,7 @@ export interface MembershipCreate {
   phone: string;
   email?: string | null;
   points_balance?: number;
+  cumulative_points?: number;
   tier_id: number;
 }
 
@@ -50,6 +52,12 @@ export const membershipsApi = baseApi.injectEndpoints({
       query: (phone) => `/memberships/phone/${phone}`,
       providesTags: (result, error, phone) => [
         { type: "Memberships", id: phone },
+      ],
+    }),
+    getMembershipByEmail: builder.query<Membership | null, string>({
+      query: (email) => `/memberships/email/${email}`,
+      providesTags: (result, error, email) => [
+        { type: "Memberships", id: email },
       ],
     }),
     createMembership: builder.mutation<Membership, MembershipCreate>({
@@ -88,6 +96,9 @@ export const {
   useGetMembershipsQuery,
   useGetMembershipQuery,
   useGetMembershipByPhoneQuery,
+  useGetMembershipByEmailQuery,
+  useLazyGetMembershipByPhoneQuery,
+  useLazyGetMembershipByEmailQuery,
   useCreateMembershipMutation,
   useUpdateMembershipMutation,
   useDeleteMembershipMutation,

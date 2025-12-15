@@ -54,6 +54,8 @@ class Role(RoleBase):
 class TierBase(BaseModel):
     tier_name: str           # Bronze, Silver, Gold, etc.
     tier: int                # 0, 1, 2, 3 ...
+    discount_percentage: Decimal = Field(0, ge=0, le=100)
+    minimum_point_required: Decimal = Field(0, ge=0)
 
 
 class TierCreate(TierBase):
@@ -103,6 +105,7 @@ class MembershipBase(BaseModel):
     email: Optional[str] = Field(
         None, max_length=100, pattern=r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
     points_balance: int = Field(0, ge=0)
+    cumulative_points: int = Field(0, ge=0)
     tier_id: int  # FK → tiers.tier_id
 
 
@@ -276,6 +279,11 @@ class Order(OrderBase):
 
     class Config:
         from_attributes = True
+
+
+# Lightweight update for membership assignment in an order
+class OrderMembershipUpdate(BaseModel):
+    membership_id: Optional[int] = None
 
 
 # =========================

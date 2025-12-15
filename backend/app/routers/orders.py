@@ -458,3 +458,42 @@ def cancel_order(order_id: int, db: Session = Depends(get_db)):
         selectinload(models.Orders.stock_movements)
     ).filter(models.Orders.order_id == db_order.order_id).first()
     return db_order
+
+
+@router.put("/{order_id}/membership", response_model=schemas.Order)
+def update_order_membership(order_id: int, payload: schemas.OrderMembershipUpdate, db: Session = Depends(get_db)):
+    """
+    Assign or clear a membership for an order without modifying items.
+    Only allowed for UNPAID or PENDING orders.
+    """
+    db_order = db.query(models.Orders).filter(models.Orders.order_id == order_id).first()
+    if not db_order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if db_order.status == "PAID":
+        raise HTTPException(status_code=400, detail="Cannot update membership on a paid order")
+    if db_order.status == "CANCELLED":
+        raise HTTPException(status_code=400, detail="Cannot update membership on a cancelled order")
+
+    # Validate membership if provided
+    if payload.membership_id is not None:
+        membership = db.query(models.Memberships).filter(models.Memberships.membership_id == payload.membership_id).first()
+        if not membership:
+            raise HTTPException(status_code=404, detail="Membership not found")
+        db_order.membership_id = payload.membership_id
+    else:
+        db_order.membership_id = None
+
+    db.commit()
+    db.refresh(db_order)
+
+    # Reload relationships for response
+    db_order = db.query(models.Orders).options(
+        joinedload(models.Orders.employee),
+        joinedload(models.Orders.membership),
+        joinedload(models.Orders.branch),
+        selectinload(models.Orders.order_items).joinedload(models.OrderItems.menu_item),
+        joinedload(models.Orders.payment),
+        selectinload(models.Orders.stock_movements)
+    ).filter(models.Orders.order_id == order_id).first()
+    return db_order
