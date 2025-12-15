@@ -30,20 +30,26 @@ export default function StockMovementsPage() {
     reason: "RESTOCK",
     note: "",
   });
+  const [qtyInput, setQtyInput] = useState<string>("0");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const parsedQty = parseFloat(qtyInput);
+      if (isNaN(parsedQty)) {
+        alert("Quantity is required and must be a number");
+        return;
+      }
+
       const adjustedData = {
         ...formData,
         qty_change:
-          formData.reason === "WASTE"
-            ? -Math.abs(formData.qty_change)
-            : formData.qty_change,
+          formData.reason === "WASTE" ? -Math.abs(parsedQty) : parsedQty,
       };
       await createMovement(adjustedData).unwrap();
       setIsModalOpen(false);
       setFormData({ stock_id: 0, qty_change: 0, reason: "RESTOCK", note: "" });
+      setQtyInput("0");
     } catch (err: any) {
       alert(err?.data?.detail || "Failed to create movement");
     }
@@ -97,7 +103,16 @@ export default function StockMovementsPage() {
             </p>
           </div>
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => {
+              setFormData({
+                stock_id: 0,
+                qty_change: 0,
+                reason: "RESTOCK",
+                note: "",
+              });
+              setQtyInput("0");
+              setIsModalOpen(true);
+            }}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             + Add Movement
@@ -337,20 +352,41 @@ export default function StockMovementsPage() {
                 <label className="block text-sm font-medium text-gray-700">
                   Quantity *{" "}
                   {formData.reason === "WASTE" && "(will be subtracted)"}
+                  {formData.reason === "ADJUST" &&
+                    "(positive to add, negative to subtract)"}
                 </label>
                 <input
                   type="number"
                   step="0.01"
                   required
                   className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-                  value={formData.qty_change}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      qty_change: parseFloat(e.target.value) || 0,
-                    })
+                  value={qtyInput}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setQtyInput(value);
+                    if (value === "" || value === "-") {
+                      setFormData({ ...formData, qty_change: 0 });
+                      return;
+                    }
+                    const numValue = parseFloat(value);
+                    if (!isNaN(numValue)) {
+                      setFormData({ ...formData, qty_change: numValue });
+                    }
+                  }}
+                  placeholder={
+                    formData.reason === "ADJUST"
+                      ? "e.g., -100 to subtract, 100 to add"
+                      : formData.reason === "WASTE"
+                      ? "Enter amount to remove"
+                      : "Enter amount"
                   }
                 />
+                {formData.reason === "ADJUST" && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Enter positive value to add stock, negative value to
+                    subtract (e.g., -50, +50)
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">

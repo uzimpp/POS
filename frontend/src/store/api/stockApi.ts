@@ -101,14 +101,6 @@ export const stockApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ["Stock"],
     }),
-    updateStock: builder.mutation<Stock, { id: number; data: StockCreate }>({
-      query: ({ id, data }) => ({
-        url: `/stock/${id}`,
-        method: "PUT",
-        body: data,
-      }),
-      invalidatesTags: ["Stock"],
-    }),
     deleteStock: builder.mutation<Stock, number>({
       query: (id) => ({
         url: `/stock/${id}`,
@@ -187,7 +179,6 @@ export const {
   useGetStockQuery,
   useGetStockByBranchQuery,
   useCreateStockMutation,
-  useUpdateStockMutation,
   useDeleteStockMutation,
   useGetOutOfStockItemsQuery,
   useGetOutOfStockCountQuery,
