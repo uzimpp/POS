@@ -21,7 +21,7 @@ def get_role(role_id: int, db: Session = Depends(get_db)):
     return role
 
 
-@router.post("/", response_model=schemas.Role)
+@router.post("/", response_model=schemas.Role, status_code=201)
 def create_role(role: schemas.RoleCreate, db: Session = Depends(get_db)):
     db_role = models.Roles(**role.dict())
     db.add(db_role)

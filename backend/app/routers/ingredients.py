@@ -33,7 +33,7 @@ def get_ingredient(ingredient_id: int, db: Session = Depends(get_db)):
     return ingredient
 
 
-@router.post("/", response_model=schemas.Ingredient)
+@router.post("/", response_model=schemas.Ingredient, status_code=201)
 def create_ingredient(ingredient: schemas.IngredientCreate, db: Session = Depends(get_db)):
     db_ingredient = models.Ingredients(**ingredient.dict())
     db.add(db_ingredient)

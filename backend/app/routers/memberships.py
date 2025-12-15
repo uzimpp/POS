@@ -31,7 +31,7 @@ def get_membership_by_phone(phone: str, db: Session = Depends(get_db)):
     return membership
 
 
-@router.post("/", response_model=schemas.Membership)
+@router.post("/", response_model=schemas.Membership, status_code=201)
 def create_membership(membership: schemas.MembershipCreate, db: Session = Depends(get_db)):
     # Validate phone number format
     validate_thai_phone(membership.phone)

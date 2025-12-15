@@ -31,7 +31,7 @@ def get_recipes_by_menu_item(menu_item_id: int, db: Session = Depends(get_db)):
     return recipes
 
 
-@router.post("/", response_model=schemas.Recipe)
+@router.post("/", response_model=schemas.Recipe, status_code=201)
 def create_recipe(recipe: schemas.RecipeCreate, db: Session = Depends(get_db)):
     # Validate ingredient exists and is not deleted
     ingredient = db.query(models.Ingredients).filter(

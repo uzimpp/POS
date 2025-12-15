@@ -227,6 +227,13 @@ class OrderItemCreate(BaseModel):
     # unit_price is NOT included - it will always be copied from menu_item.price
 
 
+# OrderItemCreate for use within OrderCreate (no order_id required)
+class OrderItemInOrderCreate(BaseModel):
+    menu_item_id: int
+    quantity: int
+    status: str = "ORDERED"
+
+
 class OrderItemStatusUpdate(BaseModel):
     status: str  # PREPARING, DONE, CANCELLED
 
@@ -252,7 +259,7 @@ class OrderBase(BaseModel):
 
 
 class OrderCreate(OrderBase):
-    order_items: List[OrderItemCreate]
+    order_items: List[OrderItemInOrderCreate]
 
 
 class OrderCreateEmpty(BaseModel):

@@ -22,7 +22,7 @@ def get_tier(tier_id: int, db: Session = Depends(get_db)):
     return tier
 
 
-@router.post("/", response_model=schemas.Tier)
+@router.post("/", response_model=schemas.Tier, status_code=201)
 def create_tier(tier: schemas.TierCreate, db: Session = Depends(get_db)):
     # Prevent duplicate tier names
     existing_by_name = db.query(models.Tiers).filter(

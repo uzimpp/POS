@@ -112,7 +112,7 @@ def create_empty_order(order: schemas.OrderCreateEmpty, db: Session = Depends(ge
     return db_order
 
 
-@router.post("/", response_model=schemas.Order)
+@router.post("/", response_model=schemas.Order, status_code=201)
 def create_order(order: schemas.OrderCreate, db: Session = Depends(get_db)):
     # Validate branch exists
     branch = db.query(models.Branches).filter(

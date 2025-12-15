@@ -36,7 +36,7 @@ def get_employee(employee_id: int, db: Session = Depends(get_db)):
     return employee
 
 
-@router.post("/", response_model=schemas.Employee)
+@router.post("/", response_model=schemas.Employee, status_code=201)
 def create_employee(employee: schemas.EmployeeCreate, db: Session = Depends(get_db)):
     # Check if branch exists and is active
     branch = db.query(models.Branches).filter(
