@@ -9,7 +9,6 @@ export interface Membership {
   joined_at: string;
   points_balance: number;
   cumulative_points?: number;
-  points_expired?: string | null; // ISO date string or null
   tier_id: number;      // FK to tiers.tier_id
   tier?: Tier | null;   // optional nested object if backend returns it
 }
@@ -20,7 +19,6 @@ export interface MembershipCreate {
   email?: string | null;
   points_balance?: number;
   cumulative_points?: number;
-  points_expired?: string | null;
   tier_id: number;
 }
 

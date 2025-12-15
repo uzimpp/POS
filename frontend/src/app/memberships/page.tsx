@@ -41,7 +41,6 @@ export default function MembershipsPage() {
     email: "",
     points_balance: "0",
     cumulative_points: "0",
-    points_expired: "",
     tier_id: "1",
   });
   const [phoneError, setPhoneError] = useState<string | null>(null);
@@ -109,7 +108,6 @@ export default function MembershipsPage() {
       email: membership.email || "",
       points_balance: String(membership.points_balance),
       cumulative_points: String(membership.cumulative_points ?? 0),
-      points_expired: membership.points_expired ? membership.points_expired.slice(0, 10) : "",
       tier_id: String(membership.tier_id),
     });
     setPhoneError(null);
@@ -124,7 +122,6 @@ export default function MembershipsPage() {
       email: "",
       points_balance: "0",
       cumulative_points: "0",
-      points_expired: "",
       tier_id: "1",
     });
     setPhoneError(null);
@@ -353,8 +350,6 @@ export default function MembershipsPage() {
                     email: form.email || null,
                     points_balance: Number(form.points_balance),
                     cumulative_points: Number(form.cumulative_points),
-                    // Send date as YYYY-MM-DD for date-only field
-                    points_expired: form.points_expired || null,
                     tier_id: Number(validTierId),
                   }).unwrap();
                   setShowModal(false);
@@ -446,13 +441,6 @@ export default function MembershipsPage() {
                 />
               </div>
               <div className="mb-3">
-                <label className="block mb-1">Expiry Date</label>
-                <input
-                  type="date"
-                  className="w-full border rounded px-3 py-2"
-                  value={form.points_expired}
-                  onChange={(e) => setForm((f) => ({ ...f, points_expired: e.target.value }))}
-                />
               </div>
               <div className="flex justify-end gap-2 mt-4">
                 <button
@@ -493,7 +481,6 @@ export default function MembershipsPage() {
                         email: form.email || null,
                         points_balance: Number(form.points_balance),
                         cumulative_points: Number(form.cumulative_points),
-                        points_expired: form.points_expired || null,
                         tier_id: Number(validTierId),
                       },
                     }).unwrap();
@@ -588,13 +575,6 @@ export default function MembershipsPage() {
                 />
               </div>
               <div className="mb-3">
-                <label className="block mb-1">Expiry Date</label>
-                <input
-                  type="date"
-                  className="w-full border rounded px-3 py-2"
-                  value={form.points_expired}
-                  onChange={(e) => setForm((f) => ({ ...f, points_expired: e.target.value }))}
-                />
               </div>
               <div className="flex justify-end gap-2 mt-4">
                 <button
@@ -936,9 +916,6 @@ export default function MembershipsPage() {
                     Joined
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Expired
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -974,9 +951,7 @@ export default function MembershipsPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {formatDate(membership.joined_at)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {membership.points_expired ? formatDate(membership.points_expired) : "N/A"}
-                      </td>
+                      
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex gap-2">
                           <button
@@ -997,7 +972,7 @@ export default function MembershipsPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={10} className="px-0 py-6 text-center">
+                    <td colSpan={9} className="px-0 py-6 text-center">
                       <span className="text-sm text-gray-500">No memberships found</span>
                     </td>
                   </tr>

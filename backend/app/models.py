@@ -101,7 +101,6 @@ class Memberships(Base):
     points_balance = Column(Integer, default=0, nullable=False)
     # New fields for loyalty progression
     cumulative_points = Column(Integer, default=0, nullable=False)
-    points_expired = Column(DateTime, nullable=True)
 
     tier_id = Column(Integer, ForeignKey("tiers.tier_id"), nullable=False)
     tier = relationship("Tiers", back_populates="memberships")

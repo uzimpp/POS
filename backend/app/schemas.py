@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, date
+from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List
 
@@ -106,8 +106,6 @@ class MembershipBase(BaseModel):
         None, max_length=100, pattern=r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
     points_balance: int = Field(0, ge=0)
     cumulative_points: int = Field(0, ge=0)
-    # Accept date-only value from frontend (YYYY-MM-DD)
-    points_expired: Optional[date] = None
     tier_id: int  # FK → tiers.tier_id
 
 
