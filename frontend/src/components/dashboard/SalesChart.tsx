@@ -100,11 +100,16 @@ export default function SalesChart() {
     }, [period, splitBy]);
 
     return (
-        <div className="bg-white p-6 rounded-3xl shadow-lg border border-slate-100/60 overflow-hidden relative">
+        <div className="bg-white p-6 rounded-3xl shadow-xl border border-slate-100/60 overflow-hidden relative transition-all hover:shadow-2xl duration-500">
             <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-8 gap-6">
                 <div>
-                    <h3 className="text-xl font-bold text-slate-800 tracking-tight">Sales Overview</h3>
-                    <p className="text-slate-500 text-sm mt-1">
+                    <div className="flex items-center gap-2 mb-1">
+                        <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18" /><path d="m19 9-5 5-4-4-3 3" /></svg>
+                        </div>
+                        <h3 className="text-xl font-bold text-slate-800 tracking-tight">Sales Overview</h3>
+                    </div>
+                    <p className="text-slate-500 text-sm ml-11">
                         {period === "today"
                             ? "Hourly revenue performance"
                             : period === "1year"
@@ -114,51 +119,31 @@ export default function SalesChart() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-4 w-full xl:w-auto">
-                    {/* View Options */}
-                    <div className="flex bg-slate-100/80 p-1 rounded-xl backdrop-blur-sm">
-                        {/* Default (Total) */}
-                        <button
-                            onClick={() => setSplitBy(splitBy === "none" ? "none" : "none")}
-                            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${splitBy === "none"
-                                ? "bg-white text-indigo-600 shadow-sm"
-                                : "text-slate-600 hover:text-slate-900"
-                                }`}
-                        >
-                            Total
-                        </button>
-
-                        {/* Type Toggle */}
-                        <button
-                            onClick={() => setSplitBy(splitBy === "type" ? "none" : "type")}
-                            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${splitBy === "type"
-                                ? "bg-white text-indigo-600 shadow-sm"
-                                : "text-slate-600 hover:text-slate-900"
-                                }`}
-                        >
-                            By Type
-                        </button>
-
-                        {/* Category Toggle */}
-                        <button
-                            onClick={() => setSplitBy(splitBy === "category" ? "none" : "category")}
-                            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${splitBy === "category"
-                                ? "bg-white text-indigo-600 shadow-sm"
-                                : "text-slate-600 hover:text-slate-900"
-                                }`}
-                        >
-                            By Category
-                        </button>
+                    {/* View Options Segmented Control */}
+                    <div className="flex bg-slate-100/80 p-1 rounded-xl backdrop-blur-sm shadow-inner">
+                        {(["none", "type", "category"] as const).map((mode) => (
+                            <button
+                                key={mode}
+                                onClick={() => setSplitBy(mode)}
+                                className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all duration-300 ease-out ${splitBy === mode
+                                    ? "bg-white text-indigo-600 shadow-sm ring-1 ring-black/5 scale-[1.02]"
+                                    : "text-slate-500 hover:text-slate-900 hover:bg-slate-200/50"
+                                    }`}
+                            >
+                                {mode === "none" ? "Total" : mode === "type" ? "By Type" : "By Cat"}
+                            </button>
+                        ))}
                     </div>
 
-                    {/* Segmented Control */}
-                    <div className="flex bg-slate-100/80 p-1 rounded-xl backdrop-blur-sm overflow-x-auto">
+                    {/* Period Segmented Control */}
+                    <div className="flex bg-slate-100/80 p-1 rounded-xl backdrop-blur-sm overflow-x-auto shadow-inner">
                         {(["today", "7days", "30days", "1year"] as const).map((p) => (
                             <button
                                 key={p}
                                 onClick={() => setPeriod(p)}
-                                className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 ease-out whitespace-nowrap ${period === p
-                                    ? "bg-white text-indigo-600 shadow-md ring-1 ring-black/5"
-                                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
+                                className={`flex-1 sm:flex-none px-4 py-1.5 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-300 ease-out whitespace-nowrap ${period === p
+                                    ? "bg-white text-indigo-600 shadow-sm ring-1 ring-black/5 scale-[1.02]"
+                                    : "text-slate-500 hover:text-slate-900 hover:bg-slate-200/50"
                                     }`}
                             >
                                 {p === "today" ? "Today" : p === "7days" ? "7 Days" : p === "30days" ? "30 Days" : "1 Year"}
@@ -168,74 +153,71 @@ export default function SalesChart() {
                 </div>
             </div>
 
-            <div className="h-[400px] w-full -ml-4">
+            <div className="h-[400px] w-full relative group">
                 {loading ? (
-                    <div className="h-full w-full flex flex-col items-center justify-center gap-3 ml-4">
-                        <div className="w-8 h-8 border-4 border-indigo-100 border-t-indigo-500 rounded-full animate-spin" />
-                        <p className="text-slate-400 text-sm font-medium">Loading sales data...</p>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/50 backdrop-blur-sm z-10 transition-opacity duration-300">
+                        <div className="w-10 h-10 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin" />
+                        <p className="text-indigo-600 text-sm font-medium mt-3 animate-pulse">Updating Data...</p>
                     </div>
-                ) : (
-                    <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart
-                            data={data}
-                            margin={{ top: 10, right: 30, bottom: 20, left: 10 }}
-                        >
-                            <defs>
-                                {dataKeys.map((key, index) => (
-                                    <linearGradient key={key} id={`color-${key}`} x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor={COLORS[key] || PALETTE[index % PALETTE.length]} stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor={COLORS[key] || PALETTE[index % PALETTE.length]} stopOpacity={0} />
-                                    </linearGradient>
-                                ))}
-                            </defs>
-                            <CartesianGrid
-                                strokeDasharray="3 3"
-                                vertical={false}
-                                stroke="#f1f5f9"
-                            />
-                            <XAxis
-                                dataKey="name"
-                                axisLine={false}
-                                tickLine={false}
-                                tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 500 }}
-                                tickMargin={20}
-                                dy={10}
-                            />
-                            <YAxis
-                                axisLine={false}
-                                tickLine={false}
-                                tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 500 }}
-                                tickFormatter={(value) => `฿${value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}`}
-                                dx={0}
-                            />
-                            <Tooltip content={<CustomTooltip />} cursor={{ fill: "transparent" }} />
-                            <Legend
-                                wrapperStyle={{ paddingTop: "20px" }}
-                                iconType="circle"
-                            />
+                ) : null}
 
+                <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart
+                        data={data}
+                        margin={{ top: 10, right: 30, bottom: 20, left: 10 }}
+                    >
+                        <defs>
                             {dataKeys.map((key, index) => (
-                                <Area
-                                    key={key}
-                                    type="monotone"
-                                    dataKey={key}
-                                    name={key === 'value' ? 'Total Sales' : key.replace('_', ' ')}
-                                    // stackId="1" // Do NOT stack area chart usually unless specifically requested. User said "like by order type" which we did as Layered (default).
-                                    // But for breakdown, stacked is often clearer if total exceeds y-axis otherwise. 
-                                    // The user asked for "Mode like by order type". In previous steps we did overlapping (no stackId). 
-                                    // Let's keep it overlapping (layered) for now, or stack? 
-                                    // AreaChart without stackId layers them.
-                                    stroke={COLORS[key] || PALETTE[index % PALETTE.length]}
-                                    strokeWidth={3}
-                                    fillOpacity={1}
-                                    fill={`url(#color-${key})`}
-                                    animationDuration={1500}
-                                />
+                                <linearGradient key={key} id={`color-${key}`} x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor={COLORS[key] || PALETTE[index % PALETTE.length]} stopOpacity={0.4} />
+                                    <stop offset="95%" stopColor={COLORS[key] || PALETTE[index % PALETTE.length]} stopOpacity={0.05} />
+                                </linearGradient>
                             ))}
-                        </AreaChart>
-                    </ResponsiveContainer>
-                )}
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis
+                            dataKey="name"
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 500 }}
+                            dy={10}
+                        />
+                        <YAxis
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 500 }}
+                            tickFormatter={(value) => `฿${value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value}`}
+                            width={60}
+                        />
+                        <Tooltip content={<CustomTooltip />} cursor={{ stroke: "#6366f1", strokeWidth: 1.5, strokeDasharray: "4 4" }} />
+                        <Legend
+                            wrapperStyle={{ paddingTop: "20px" }}
+                            iconType="circle"
+                            formatter={(value) => <span className="text-slate-600 font-medium ml-1 text-sm capitalize">{value}</span>}
+                        />
+
+                        {dataKeys.map((key, index) => (
+                            <Area
+                                key={key}
+                                type="monotone"
+                                dataKey={key}
+                                name={key === 'value' ? 'Total Sales' : key.replace('_', ' ')}
+                                stroke={COLORS[key] || PALETTE[index % PALETTE.length]}
+                                strokeWidth={3}
+                                fillOpacity={1}
+                                fill={`url(#color-${key})`}
+                                animationDuration={1000}
+                                activeDot={{
+                                    r: 6,
+                                    strokeWidth: 4,
+                                    stroke: "#fff",
+                                    fill: COLORS[key] || PALETTE[index % PALETTE.length]
+                                }}
+                            />
+                        ))}
+                    </AreaChart>
+                </ResponsiveContainer>
             </div>
-        </div>
+        </div >
     );
 }
